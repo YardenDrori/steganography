@@ -1,4 +1,4 @@
-use image::{self, ImageBuffer};
+use image::{self, DynamicImage, GenericImage, ImageBuffer, RgbaImage};
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
 
@@ -10,13 +10,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let frame = image::open(CARRIER)?.into_rgba8();
     let dimensions = frame.dimensions();
     println!("{:?}", dimensions);
-    let mut new_image = ImageBuffer::new(dimensions.0, dimensions.1);
 
+    //make empty image with same resolution idk if needed yet prob better to edit existing one
+    let mut new_image = RgbaImage::new(dimensions.0, dimensions.1);
+
+    let chunk_size = dimensions.0 * dimensions.1 * 4;
     //check if carrier has capacity for payload
-    if fs::metadata(PAYLOAD)?.len() > dimensions.0 as u64 * dimensions.1 as u64 * 4 {
+    if fs::metadata(PAYLOAD)?.len() > chunk_size as u64 {
         return Err("Payload is too large to fit in the carrier file".into());
     }
-    let chunk_size = dimensions.0 * dimensions.1 * 4;
+    //buffer is same size as image to make one bugger fit one image exactly
     let mut buffer = vec![0; chunk_size as usize];
 
     //read frame into memory
