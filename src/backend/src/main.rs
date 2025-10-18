@@ -1,7 +1,9 @@
 use image::{self, DynamicImage, GenericImage, ImageBuffer, RgbaImage};
 use std::fs::{self, File};
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Bytes, Read};
 
+// const CARRIER: &str = "../../examples/images/output.png";
+// // const CARRIER: &str = "../../examples/images/solid_white.png";
 const CARRIER: &str = "../../examples/images/png_image.png";
 const PAYLOAD: &str = "../../examples/hideable_files/bee_movie_script.txt";
 
@@ -10,9 +12,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let frame = image::open(CARRIER)?.into_rgba8();
     let dimensions = frame.dimensions();
     println!("{:?}", dimensions);
-
-    //make empty image with same resolution idk if needed yet prob better to edit existing one
-    let mut new_image = RgbaImage::new(dimensions.0, dimensions.1);
 
     let chunk_size = dimensions.0 * dimensions.1 * 4;
     //check if carrier has capacity for payload
@@ -23,16 +22,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut buffer = vec![0; chunk_size as usize];
 
     //read frame into memory
-    let pixels = frame.as_raw();
-    println!("{:?}", &pixels[0..3]); //read payload as chunks 
+    let mut pixels = frame.into_raw();
+    println!("{:?}\n", &pixels[0..8]);
     let mut payload = File::open(PAYLOAD)?;
-    loop {
-        let bytes_read = payload.read(&mut buffer)?;
-        if bytes_read == 0 {
+    let bytes_read = payload.read(&mut buffer)?;
+
+    let chunk_data = &mut buffer[0..bytes_read];
+    let mut chunk_byte = 0;
+    for pixel in pixels.iter_mut() {
+        if chunk_byte >= bytes_read {
             break;
         }
-        let chunk_data = &buffer[0..bytes_read];
+        for _i in 0..8 {
+            *pixel = (*pixel & 0xFE) | (chunk_data[chunk_byte] & 1);
+            chunk_data[chunk_byte] = chunk_data[chunk_byte] >> 1;
+        }
+        chunk_byte += 1;
     }
+    let output_image = RgbaImage::from_vec(dimensions.0, dimensions.1, pixels)
+        .ok_or("Failed to create image from raw pixels")?;
+
+    output_image.save("output.png")?;
 
     Ok(())
 }
