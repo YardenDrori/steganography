@@ -8,13 +8,15 @@ const CARRIER: &str = "../../examples/images/png_image.png";
 const PAYLOAD: &str = "../../examples/hideable_files/bee_movie_script.txt";
 const STEGO_FILE: &str = "../../output/stego_files/stego_file.png";
 
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn embed_image() -> Result<(), Box<dyn std::error::Error>> {
     //read carrier file
     let frame = image::open(CARRIER)?.into_rgba8();
     let dimensions = frame.dimensions();
     println!("{:?}", dimensions);
 
-    let chunk_size = dimensions.0 * dimensions.1 * 4;
+    //we redyce by 64 as we mark the first 64 bits (2 bytes) for the size of the payload to know how much of
+    //the file we need to read incase the payload is smaller then the carrier
+    let chunk_size = dimensions.0 * dimensions.1 * 4 - 64;
     //check if carrier has capacity for payload
     if fs::metadata(PAYLOAD)?.len() > chunk_size as u64 {
         return Err("Payload is too large to fit in the carrier file".into());
@@ -28,6 +30,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut payload = File::open(PAYLOAD)?;
     let bytes_read = payload.read(&mut buffer)?;
 
+    //embed payload
     let chunk_data = &mut buffer[0..bytes_read];
     let mut chunk_byte = 0;
     for pixel in pixels.iter_mut() {
