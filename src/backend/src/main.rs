@@ -1,11 +1,12 @@
-use image::{self, DynamicImage, GenericImage, ImageBuffer, RgbaImage};
+use image::{self, RgbaImage};
 use std::fs::{self, File};
-use std::io::{BufReader, Bytes, Read};
+use std::io::Read;
 
 // const CARRIER: &str = "../../examples/images/output.png";
 // // const CARRIER: &str = "../../examples/images/solid_white.png";
 const CARRIER: &str = "../../examples/images/png_image.png";
 const PAYLOAD: &str = "../../examples/hideable_files/bee_movie_script.txt";
+const STEGO_FILE: &str = "../../output/stego_files/stego_file.png";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     //read carrier file
@@ -42,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output_image = RgbaImage::from_vec(dimensions.0, dimensions.1, pixels)
         .ok_or("Failed to create image from raw pixels")?;
 
-    output_image.save("output.png")?;
+    output_image.save(STEGO_FILE)?;
 
     Ok(())
 }
