@@ -1,16 +1,13 @@
-use image::{self, RgbaImage};
+use image::{self, ImageBuffer, Rgba, RgbaImage};
 use std::fs::{self, File};
 use std::io::Read;
 
-// const CARRIER: &str = "../../examples/images/output.png";
-// // const CARRIER: &str = "../../examples/images/solid_white.png";
-const CARRIER: &str = "../../examples/images/png_image.png";
-const PAYLOAD: &str = "../../examples/hideable_files/bee_movie_script.txt";
-const STEGO_FILE: &str = "../../output/stego_files/stego_file.png";
-
-pub fn embed_image() -> Result<(), Box<dyn std::error::Error>> {
+pub fn embed_image(
+    carrier: &str,
+    payload: &str,
+) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, Box<dyn std::error::Error>> {
     //read carrier file
-    let frame = image::open(CARRIER)?.into_rgba8();
+    let frame = image::open(carrier)?.into_rgba8();
     let dimensions = frame.dimensions();
     println!("{:?}", dimensions);
 
@@ -18,7 +15,7 @@ pub fn embed_image() -> Result<(), Box<dyn std::error::Error>> {
     //the file we need to read incase the payload is smaller then the carrier
     let chunk_size = dimensions.0 * dimensions.1 * 4 - 64;
     //check if carrier has capacity for payload
-    if fs::metadata(PAYLOAD)?.len() > chunk_size as u64 {
+    if fs::metadata(payload)?.len() > chunk_size as u64 {
         return Err("Payload is too large to fit in the carrier file".into());
     }
     //buffer is same size as image to make one bugger fit one image exactly
@@ -27,7 +24,7 @@ pub fn embed_image() -> Result<(), Box<dyn std::error::Error>> {
     //read frame into memory
     let mut pixels = frame.into_raw();
     println!("{:?}\n", &pixels[0..8]);
-    let mut payload = File::open(PAYLOAD)?;
+    let mut payload = File::open(payload)?;
     let bytes_read = payload.read(&mut buffer)?;
 
     //embed payload
@@ -46,7 +43,8 @@ pub fn embed_image() -> Result<(), Box<dyn std::error::Error>> {
     let output_image = RgbaImage::from_vec(dimensions.0, dimensions.1, pixels)
         .ok_or("Failed to create image from raw pixels")?;
 
-    output_image.save(STEGO_FILE)?;
+    //debug line to save frame
+    output_image.save("../../output/stego_files/stego_file.png")?;
 
-    Ok(())
+    Ok(output_image)
 }
