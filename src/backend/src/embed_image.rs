@@ -1,7 +1,3 @@
-use image::{self, ImageBuffer, Rgba, RgbaImage};
-use std::fs::{self, File};
-use std::io::Read;
-
 pub fn embed_image(
     carrier: &mut [u8],
     payload: &[u8],
@@ -9,51 +5,42 @@ pub fn embed_image(
     height: u32,
     channels: u8,
 ) -> Result<usize, Box<dyn std::error::Error>> {
-    //read carrier file
-    // let frame = image::open(carrier)?.into_rgba8();
-    // let dimensions = frame.dimensions();
-    // println!("{:?}", dimensions);
-    //
-    // //we redyce by 32 as we mark the first 32 bits (1 byte) for the size of the payload to know how much of
-    // //the file we need to read incase the payload is smaller then the carrier
-    // let chunk_size = dimensions.0 * dimensions.1 * 4 - 32;
-    // //check if carrier has capacity for payload
-    // if fs::metadata(payload)?.len() > chunk_size as u64 {
-    //     return Err("Payload is too large to fit in the carrier file".into());
-    // }
-    // //buffer is same size as image to make one bugger fit one image exactly
-    // let mut buffer = vec![0; chunk_size as usize];
-    //
-    // //read frame into memory
-    // let mut pixels = frame.into_raw();
-    // println!("{:?}\n", &pixels[0..8]);
-    // let mut payload = File::open(payload)?;
-    // let bytes_read = payload.read(&mut buffer)?;
-
-    //insert patload byte size
-    let payload_len = payload.len(); //in bytes
-    for i in 0..32 {
-        carrier[i] = carrier[i] & 0xFE; //set LSB to 0
+    //insert patload byte size in first 32 pixels
+    let payload_len = payload.len() as u32; //in bytes
+    for pixel in 0..32 {
+        let bit = (payload_len >> (31 - pixel)) & 1;
+        carrier[pixel] = (carrier[pixel] & 0xFE) | bit as u8;
     }
 
-    //embed payload
-    let chunk_data = &mut buffer[0..bytes_read];
-    let mut chunk_byte = 0;
-    for pixel in pixels.iter_mut() {
-        if chunk_byte >= bytes_read {
-            break;
-        }
-        for _i in 0..8 {
-            *pixel = (*pixel & 0xFE) | (chunk_data[chunk_byte] & 1);
-            chunk_data[chunk_byte] = chunk_data[chunk_byte] >> 1;
-        }
-        chunk_byte += 1;
+    // Calculate total available bits for payload (excluding the first 32 pixels used for length)
+    let total_pixels = (width * height * channels as u32) as usize;
+    let available_bits = total_pixels - 32; // First 32 pixels are reserved for length
+    let available_bytes = available_bits / 8;
+    if available_bytes < payload.len() {
+        return Err(format!(
+            "Payload is too large ({} bytes) for carrier's capacity ({} bytes).",
+            available_bytes,
+            payload.len()
+        )
+        .into());
     }
-    let output_image = RgbaImage::from_vec(dimensions.0, dimensions.1, pixels)
-        .ok_or("Failed to create image from raw pixels")?;
+
+    //embed data in image
+    let mut pixel_index = 32;
+    let mut bytes_embedded = 0;
+    for byte in payload {
+        for i in (0..8).rev() {
+            carrier[pixel_index] = (carrier[pixel_index] & 0xFE) | ((byte >> i) & 1);
+            pixel_index += 1;
+        }
+        bytes_embedded += 1;
+    }
+
+    // let output_image = RgbaImage::from_vec(dimensions.0, dimensions.1, pixels)
+    // .ok_or("Failed to create image from raw pixels")?;
 
     //debug line to save frame
-    output_image.save("../../output/stego_files/stego_file.png")?;
+    // output_image.save("../../output/stego_files/stego_file.png")?;
 
-    Ok()
+    Ok(bytes_embedded as usize)
 }
