@@ -1,5 +1,6 @@
 mod embed_image;
 mod embed_video;
+mod extract_image;
 
 // const CARRIER: &str = "../../examples/images/output.png";
 // // const CARRIER: &str = "../../examples/images/solid_white.png";
