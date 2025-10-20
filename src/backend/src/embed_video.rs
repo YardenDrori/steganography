@@ -17,6 +17,7 @@ fn embed_video(
     //metadata for video stream + decoder configs
     let decoder_context =
         ffmpeg::codec::context::Context::from_parameters(input_stream.parameters())?;
+
     //video decoder
     let mut decoder = decoder_context.decoder().video()?;
 
