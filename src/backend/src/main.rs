@@ -4,7 +4,7 @@ mod extract_image;
 mod extract_video;
 
 const CARRIER: &str = "../../examples/videos_lossless/chicken_jockey.mkv";
-const PAYLOAD: &str = "../../examples/hideable_files/bee_movie_script.txt";
+const PAYLOAD: &str = "../../examples/hideable_files/smol-hornet.png";
 const STEG_FILE: &str = "../../output/steg_files/output.mkv";
 const EXTRACTED_PAYLOAD: &str = "../../output/payloads/output";
 
