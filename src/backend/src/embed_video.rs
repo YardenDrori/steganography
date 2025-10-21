@@ -96,7 +96,7 @@ pub fn embed_video(
     encoder.send_eof()?;
     let mut packet = ffmpeg::Packet::empty();
     while encoder.receive_packet(&mut packet).is_ok() {
-        packet.set_stream(0);
+        packet.set_stream(0); //again this index is temp
         packet.write_interleaved(&mut octx)?;
     }
 

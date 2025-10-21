@@ -1,7 +1,7 @@
 pub fn embed_image(
     carrier: &mut [u8],
     payload: &[u8],
-    is_10_bit_format: bool, //not implemented as of yet
+    _is_10_bit_format: bool, //not implemented as of yet
 ) -> Result<usize, Box<dyn std::error::Error>> {
     //insert patload byte size in first 32 pixels
     let payload_len = payload.len() as u32; //in bytes
