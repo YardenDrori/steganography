@@ -5,4 +5,4 @@ edition = "2024"
 
 [dependencies]
 image = "0.25"
-ffmpeg-next = "7.0"
+ffmpeg-next = "8.0"
