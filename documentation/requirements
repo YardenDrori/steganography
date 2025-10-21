@@ -1,0 +1,1 @@
+install ffmpeg format for lossless file types on mac os the command is brew install ffmpeg on arch its sudo pacman -S ffmpeg (if i recall correctly) on windows idk lol figure it out
