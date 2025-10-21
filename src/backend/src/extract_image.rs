@@ -1,9 +1,15 @@
-pub fn extract_from_image(steg_file_bin: &mut [u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+pub fn extract_from_image(
+    steg_file_bin: &mut [u8],
+) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {
     //find the length of the payload in the file
     let mut payload_byte_count: usize = 0;
     for i in 0..32 {
         payload_byte_count = payload_byte_count << 1;
         payload_byte_count = (steg_file_bin[i] as usize & 1) | payload_byte_count;
+    }
+
+    if payload_byte_count == 0 {
+        return Ok(None);
     }
 
     let mut payload_bin: Vec<u8> = vec![0; payload_byte_count];
@@ -18,5 +24,5 @@ pub fn extract_from_image(steg_file_bin: &mut [u8]) -> Result<Vec<u8>, Box<dyn s
         }
     }
 
-    Ok(payload_bin)
+    Ok(Some(payload_bin))
 }

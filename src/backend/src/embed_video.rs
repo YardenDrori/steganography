@@ -7,11 +7,20 @@ use ffmpeg_next::{self as ffmpeg};
 pub fn embed_video(
     carrier_location: &str,
     payload_location: &str,
+    steg_file_location: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     ffmpeg::init()?;
 
     let mut payload_file = File::open(payload_location)?;
+    let payload_size = payload_file.metadata()?.len();
     let mut payload_bytes_embedded = 0;
+
+    println!("=== Embedding Payload ===");
+    println!("Payload: {} ({:.2} KB)",
+        payload_location.split('/').last().unwrap_or(payload_location),
+        payload_size as f64 / 1024.0);
+    println!("Carrier: {}",
+        carrier_location.split('/').last().unwrap_or(carrier_location));
 
     // === DECODING ===
     //input context - handle for the video
@@ -33,7 +42,7 @@ pub fn embed_video(
 
     let codec = ffmpeg::encoder::find(ffmpeg::codec::Id::FFV1);
     //output context
-    let mut octx = ffmpeg::format::output("output.mkv")?;
+    let mut octx = ffmpeg::format::output(steg_file_location)?;
 
     let mut output_stream = octx.add_stream(codec)?;
 
@@ -56,7 +65,6 @@ pub fn embed_video(
     octx.write_header()?;
 
     let mut payload_exhausted = false;
-
     //get the frame data from individual packets
     for (stream, packet) in ictx.packets() {
         if stream.index() == video_stream_index {
@@ -102,8 +110,12 @@ pub fn embed_video(
 
     octx.write_trailer()?;
 
+    println!("\n=== Embedding Complete ===");
+    println!("Embedded: {:.2} KB", payload_bytes_embedded as f64 / 1024.0);
+    println!("Output: {}", steg_file_location.split('/').last().unwrap_or(steg_file_location));
+
     Ok(format!(
-        "Successfully embedded {} bytes into output.mkv",
+        "Successfully embedded {} bytes",
         payload_bytes_embedded
     ))
 }
@@ -128,6 +140,8 @@ fn process_frame(
 
             if bytes_read == 0 {
                 *payload_exhausted = true;
+                *payload_bytes_embedded +=
+                    embed_image::embed_image(channel_data, &buffer[0..bytes_read], false)?;
                 break;
             }
 
