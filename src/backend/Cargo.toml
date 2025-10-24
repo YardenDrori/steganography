@@ -16,5 +16,7 @@ serde = { version = "1.0", features = ["derive"] } #for json APIs
 serde_json = "1.0" #also for json
 tracing = "0.1" #for debugging help
 tracing-subscriber = "0.3" #also for debugging
-chrono = { version = "0.4", features = ["serde"] }
-sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "mysql", "macros", "migrate", "chrono"] }
+chrono = { version = "0.4", features = ["serde"] } #date and time var types
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "mysql", "macros", "migrate", "chrono"] } #sql integration
+dotenvy = "0.15" #allows the use of things from .env as variables
+bcrypt = "0.17" #bcrypt for password hashing
