@@ -4,5 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-image = "0.25"
-ffmpeg-next = "8.0"
+#image = "0.25" #for image decoding/encoding obsolete in current version
+
+ffmpeg-next = "8.0" #for video decoding/encoding
+
+axum = "0.7" #web framework
+tokio = { version = "1", features = ["full"] } #async
+tower = "0.4" #middle ware feamework
+tower-http = { version = "0.5", features = ["fs", "trace"] } #CORS mostly
+serde = { version = "1.0", features = ["derive"] } #for json APIs
+serde_json = "1.0" #also for json
+tracing = "0.1" #for debugging help
+tracing-subscriber = "0.3" #also for debugging
+chrono = { version = "0.4", features = ["serde"] }
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "mysql", "macros", "migrate", "chrono"] }
