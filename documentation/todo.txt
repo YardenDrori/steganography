@@ -1,2 +1,4 @@
 make video output the origina file's audio and other streams
 make video stream the same index as the original
+
+ask Eli about public variables as it is rust convention and isnt necessary for encapsulation
