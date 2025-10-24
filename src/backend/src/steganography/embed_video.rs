@@ -1,4 +1,4 @@
-use crate::embed_image;
+use crate::steganography::embed_image;
 use std::fs::File;
 use std::io::Read;
 

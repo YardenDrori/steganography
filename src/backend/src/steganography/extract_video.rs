@@ -1,4 +1,4 @@
-use crate::extract_image;
+use crate::steganography::extract_image;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
