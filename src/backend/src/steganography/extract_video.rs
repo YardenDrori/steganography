@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::steganography::extract_image;
 use std::fs::File;
 use std::io::BufWriter;
@@ -12,8 +13,13 @@ pub fn extract_video(
     ffmpeg::init()?;
 
     println!("\n=== Extracting Payload ===");
-    println!("Steg file: {}",
-        steg_file_location.split('/').last().unwrap_or(steg_file_location));
+    println!(
+        "Steg file: {}",
+        steg_file_location
+            .split('/')
+            .last()
+            .unwrap_or(steg_file_location)
+    );
 
     let mut output_file = BufWriter::new(File::create(extracted_payload_location)?);
     let mut bytes_extracted = 0;
@@ -45,7 +51,12 @@ pub fn extract_video(
             let mut frame = ffmpeg::util::frame::video::Video::empty();
             //keep nagging the decoder untill it gets off its fat ass and gives a frame
             while decoder.receive_frame(&mut frame).is_ok() {
-                process_frame(&mut frame, &mut output_file, &mut payload_exhausted, &mut bytes_extracted)?;
+                process_frame(
+                    &mut frame,
+                    &mut output_file,
+                    &mut payload_exhausted,
+                    &mut bytes_extracted,
+                )?;
             }
         }
     }
@@ -53,14 +64,25 @@ pub fn extract_video(
     decoder.send_eof()?;
     let mut frame = ffmpeg::util::frame::video::Video::empty();
     while decoder.receive_frame(&mut frame).is_ok() {
-        process_frame(&mut frame, &mut output_file, &mut payload_exhausted, &mut bytes_extracted)?;
+        process_frame(
+            &mut frame,
+            &mut output_file,
+            &mut payload_exhausted,
+            &mut bytes_extracted,
+        )?;
     }
 
     output_file.flush()?;
 
     println!("\n=== Extraction Complete ===");
     println!("Extracted: {:.2} KB", bytes_extracted as f64 / 1024.0);
-    println!("Output: {}", extracted_payload_location.split('/').last().unwrap_or(extracted_payload_location));
+    println!(
+        "Output: {}",
+        extracted_payload_location
+            .split('/')
+            .last()
+            .unwrap_or(extracted_payload_location)
+    );
 
     Ok(format!("Successfully extracted {} bytes", bytes_extracted))
 }
