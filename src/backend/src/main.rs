@@ -1,10 +1,12 @@
 mod db;
+mod errors;
 mod models;
 mod repositories;
 mod routes;
+mod services;
 mod steganography;
 
-use axum::{Router, routing::get};
+use axum::{Router, routing::get, routing::post};
 
 // const CARRIER: &str = "../../examples/videos_lossless/chicken_jockey.mkv";
 // const PAYLOAD: &str = "../../examples/hideable_files/smol-hornet.png";
@@ -24,6 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         .route("/", get(|| async { "Hello, world!" }))
+        .route("/register", post(routes::auth::register))
         .with_state(pool);
 
     // run our app with hyper, listening globally on port 3000

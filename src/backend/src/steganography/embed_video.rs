@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::steganography::embed_image;
 use std::fs::File;
 use std::io::Read;
@@ -16,11 +17,21 @@ pub fn embed_video(
     let mut payload_bytes_embedded = 0;
 
     println!("=== Embedding Payload ===");
-    println!("Payload: {} ({:.2} KB)",
-        payload_location.split('/').last().unwrap_or(payload_location),
-        payload_size as f64 / 1024.0);
-    println!("Carrier: {}",
-        carrier_location.split('/').last().unwrap_or(carrier_location));
+    println!(
+        "Payload: {} ({:.2} KB)",
+        payload_location
+            .split('/')
+            .last()
+            .unwrap_or(payload_location),
+        payload_size as f64 / 1024.0
+    );
+    println!(
+        "Carrier: {}",
+        carrier_location
+            .split('/')
+            .last()
+            .unwrap_or(carrier_location)
+    );
 
     // === DECODING ===
     //input context - handle for the video
@@ -112,7 +123,13 @@ pub fn embed_video(
 
     println!("\n=== Embedding Complete ===");
     println!("Embedded: {:.2} KB", payload_bytes_embedded as f64 / 1024.0);
-    println!("Output: {}", steg_file_location.split('/').last().unwrap_or(steg_file_location));
+    println!(
+        "Output: {}",
+        steg_file_location
+            .split('/')
+            .last()
+            .unwrap_or(steg_file_location)
+    );
 
     Ok(format!(
         "Successfully embedded {} bytes",

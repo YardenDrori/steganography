@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 pub fn extract_from_image(
     steg_file_bin: &mut [u8],
 ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error>> {

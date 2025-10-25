@@ -36,7 +36,7 @@ pub struct UserResponse {
     pub email: String,
     pub phone_number: Option<String>,
     pub is_male: Option<bool>,
-    pub created_at: chrono::NaiveDateTime,
+    pub created_at: chrono::DateTime<Utc>,
     pub is_active: bool,
     pub is_verified: bool,
 }

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 pub fn embed_image(
     carrier: &mut [u8],
     payload: &[u8],
