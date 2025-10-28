@@ -1,14 +1,16 @@
 use crate::auth::jwt::create_jwt;
+
+use crate::dtos::user_dto;
 use crate::errors::user_service_error::{self, UserServiceError};
-use crate::models::user::{self, LoginResponse, User};
+use crate::models::user::{self, User};
 use crate::repositories::user_repository::{self, get_user_by_email, get_user_by_username};
 use bcrypt::{DEFAULT_COST, hash};
-use sqlx::MySqlPool;
+use sqlx::{Postgres, postgres};
 
 pub async fn register_user(
-    pool: &MySqlPool,
-    request: user::RegisterRequest,
-) -> Result<user::UserResponse, user_service_error::UserServiceError> {
+    pool: &postgres::Postgres,
+    request: user_dto::RegisterRequest,
+) -> Result<user_dto::UserResponse, user_service_error::UserServiceError> {
     //check if user exists
     if user_repository::get_user_by_email(pool, &request.email)
         .await
@@ -46,10 +48,10 @@ pub async fn register_user(
 }
 
 pub async fn login_user(
-    pool: &MySqlPool,
-    request: user::LoginRequest,
+    pool: &Postgres,
+    request: user_dto::LoginRequest,
     jwt_secret: &str,
-) -> Result<user::LoginResponse, UserServiceError> {
+) -> Result<user_dto::LoginResponse, UserServiceError> {
     let user = match (request.email, request.user_name) {
         (Some(email), None) => get_user_by_email(pool, &email)
             .await
@@ -65,7 +67,7 @@ pub async fn login_user(
     //dont tell users if an account for those credentials exist or not
     let user = user.ok_or(UserServiceError::InvalidCredentials)?;
 
-    if !bcrypt::verify(&request.password, &user.password_hash)
+    if !bcrypt::verify(&request.password, &user.password_hash())
         .map_err(|e| UserServiceError::HashingError(e))?
     {
         return Err(UserServiceError::InvalidCredentials);
@@ -75,7 +77,7 @@ pub async fn login_user(
 
     let response = user_to_response(user);
 
-    let response = LoginResponse {
+    let response = user_dto::LoginResponse {
         user: response,
         access_token: jwt_token,
     };
@@ -83,8 +85,8 @@ pub async fn login_user(
     Ok(response)
 }
 
-fn user_to_response(user: User) -> user::UserResponse {
-    user::UserResponse {
+fn user_to_response(user: User) -> user_dto::UserResponse {
+    user_dto::UserResponse {
         id: user.id,
         user_name: user.user_name,
         first_name: user.first_name,

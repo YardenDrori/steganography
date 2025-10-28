@@ -1,8 +1,8 @@
 use crate::models::user::User;
-use sqlx::MySqlPool;
+use sqlx::Postgres;
 
 pub async fn create_user(
-    pool: &MySqlPool,
+    pool: &Postgres,
     user_name: &str,
     first_name: &str,
     last_name: &str,
@@ -50,7 +50,7 @@ pub async fn create_user(
 }
 
 pub async fn get_user_by_username(
-    pool: &MySqlPool,
+    pool: &Postgres,
     user_name: &str,
 ) -> Result<Option<User>, sqlx::Error> {
     let user = sqlx::query_as!(
@@ -73,7 +73,7 @@ pub async fn get_user_by_username(
     Ok(user)
 }
 
-pub async fn get_user_by_email(pool: &MySqlPool, email: &str) -> Result<Option<User>, sqlx::Error> {
+pub async fn get_user_by_email(pool: &Postgres, email: &str) -> Result<Option<User>, sqlx::Error> {
     let user = sqlx::query_as!(
         User,
         r#"
