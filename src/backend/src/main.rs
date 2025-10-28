@@ -1,5 +1,6 @@
 mod auth;
 mod db;
+mod dtos;
 mod errors;
 mod models;
 mod repositories;

@@ -24,7 +24,22 @@ pub fn create_jwt(user_id: i64, secret: &str) -> Result<String, jsonwebtoken::er
         iat,
     };
 
-    let signature = encode(&Header::default(), &claims, &encoding_key)?;
+    let signature = encode(
+        &Header::new(jsonwebtoken::Algorithm::HS256),
+        &claims,
+        &encoding_key,
+    )?;
 
     Ok(signature)
+}
+
+pub fn verify_jwt(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let decoding_key = jsonwebtoken::DecodingKey::from_secret(secret.as_bytes());
+    let claims = decode::<Claims>(
+        token,
+        &decoding_key,
+        &Validation::new(jsonwebtoken::Algorithm::HS256),
+    )?;
+
+    Ok(claims.claims)
 }
