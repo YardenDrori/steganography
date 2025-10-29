@@ -2,7 +2,7 @@ use chrono::Utc;
 
 #[derive(Debug, Clone)]
 pub struct User {
-    pub id: i64,
+    id: i64,
     pub user_name: String,
     pub first_name: String,
     pub last_name: String,
@@ -10,14 +10,30 @@ pub struct User {
     pub email: String,
     pub phone_number: Option<String>,
     password_hash: String, //private as it is
-    pub created_at: chrono::DateTime<Utc>,
-    pub updated_at: chrono::DateTime<Utc>,
-    pub is_active: bool,
-    pub is_verified: bool,
+    created_at: chrono::DateTime<Utc>,
+    updated_at: chrono::DateTime<Utc>,
+    is_active: bool,
+    is_verified: bool,
 }
 
 impl User {
+    //getters
     pub fn password_hash(&self) -> String {
         self.password_hash.clone()
+    }
+    pub fn id(&self) -> i64 {
+        self.id
+    }
+    pub fn created_at(&self) -> chrono::DateTime<Utc> {
+        self.created_at
+    }
+    pub fn updated_at(&self) -> chrono::DateTime<Utc> {
+        self.updated_at
+    }
+    pub fn is_active(&self) -> bool {
+        self.is_active
+    }
+    pub fn is_verified(&self) -> bool {
+        self.is_verified
     }
 }
