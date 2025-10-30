@@ -1,5 +1,5 @@
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
-pub async fn create_pool(database_url: &str) -> Result<MySqlPool, sqlx::Error> {
-    MySqlPool::connect(database_url).await
+pub async fn create_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
+    PgPool::connect(database_url).await
 }
