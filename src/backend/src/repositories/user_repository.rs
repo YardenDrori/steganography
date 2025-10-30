@@ -1,8 +1,8 @@
 use crate::models::user::User;
-use sqlx::Postgres;
+use sqlx::PgPool;
 
 pub async fn create_user(
-    pool: &Postgres,
+    pool: &PgPool,
     user_name: &str,
     first_name: &str,
     last_name: &str,
@@ -13,21 +13,20 @@ pub async fn create_user(
 ) -> Result<User, sqlx::Error> {
     let result = sqlx::query!(
         r#"
-        INSERT INTO users (user_name, first_name, last_name, email, password_hash, phone_number, is_male)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (user_name, first_name, last_name, email, password_hash, phone_number, is_male) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
         "#,
         user_name,
         first_name,
         last_name,
         email,
         password_hash,
-        phone_number,
-        is_male
+        *phone_number,
+        *is_male
     )
-    .execute(pool)
+    .fetch_one(pool)
     .await?;
-
-    let user_id = result.last_insert_id() as i64;
+    let user_id = result.id; //get the inserted user's ID
 
     let user = sqlx::query_as!(
         User,
@@ -39,7 +38,7 @@ pub async fn create_user(
            is_active as "is_active: bool",
            is_verified as "is_verified: bool"
     FROM users
-    WHERE id = ?
+    WHERE id = $1
     "#,
         user_id
     )
@@ -50,7 +49,7 @@ pub async fn create_user(
 }
 
 pub async fn get_user_by_username(
-    pool: &Postgres,
+    pool: &PgPool,
     user_name: &str,
 ) -> Result<Option<User>, sqlx::Error> {
     let user = sqlx::query_as!(
@@ -63,7 +62,7 @@ pub async fn get_user_by_username(
            is_active as "is_active: bool",
            is_verified as "is_verified: bool"
     FROM users
-    WHERE user_name = ?
+    WHERE user_name = $1
     "#,
         user_name
     )
@@ -73,7 +72,7 @@ pub async fn get_user_by_username(
     Ok(user)
 }
 
-pub async fn get_user_by_email(pool: &Postgres, email: &str) -> Result<Option<User>, sqlx::Error> {
+pub async fn get_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
     let user = sqlx::query_as!(
         User,
         r#"
@@ -84,7 +83,7 @@ pub async fn get_user_by_email(pool: &Postgres, email: &str) -> Result<Option<Us
            is_active as "is_active: bool",
            is_verified as "is_verified: bool"
     FROM users
-    WHERE email= ?
+    WHERE email= $1
     "#,
         email
     )

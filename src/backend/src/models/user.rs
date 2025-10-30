@@ -9,7 +9,7 @@ pub struct User {
     pub is_male: Option<bool>,
     pub email: String,
     pub phone_number: Option<String>,
-    password_hash: String, //private as it is
+    password_hash: String,
     created_at: chrono::DateTime<Utc>,
     updated_at: chrono::DateTime<Utc>,
     is_active: bool,

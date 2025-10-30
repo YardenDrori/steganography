@@ -5,10 +5,10 @@ use crate::services::user_service::{login_user, register_user};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 pub async fn register(
-    State(pool): State<MySqlPool>,
+    State(pool): State<PgPool>,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<(StatusCode, Json<UserResponse>), (StatusCode, Json<ErrorBody>)> {
     let user_response = register_user(&pool, payload).await.map_err(|e| match e {
@@ -57,7 +57,7 @@ pub async fn register(
 }
 
 pub async fn login(
-    State(pool): State<MySqlPool>,
+    State(pool): State<PgPool>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<(StatusCode, Json<LoginResponse>), (StatusCode, Json<ErrorBody>)> {
     let jwt_secret = std::env::var("JWT_SECRET").expect("database secret must be set in .env file");
