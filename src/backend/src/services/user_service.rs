@@ -2,13 +2,14 @@ use crate::auth::jwt::create_jwt;
 
 use crate::dtos::user_dto;
 use crate::errors::user_service_error::{self, UserServiceError};
-use crate::models::user::{self, User};
+use crate::models::user::User;
 use crate::repositories::user_repository::{self, get_user_by_email, get_user_by_username};
-use bcrypt::{DEFAULT_COST, hash};
-use sqlx::{Postgres, postgres};
+use argon2::password_hash::{SaltString, rand_core::OsRng};
+use argon2::{Argon2, PasswordHasher};
+use sqlx::PgPool;
 
 pub async fn register_user(
-    pool: &postgres::Postgres,
+    pool: &PgPool,
     request: user_dto::RegisterRequest,
 ) -> Result<user_dto::UserResponse, user_service_error::UserServiceError> {
     //check if user exists
@@ -27,8 +28,12 @@ pub async fn register_user(
         return Err(UserServiceError::UsernameAlreadyExists);
     }
 
-    let hashed_password =
-        hash(request.password, DEFAULT_COST).map_err(|e| UserServiceError::HashingError(e))?;
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let hashed_password = argon2
+        .hash_password(request.password.as_bytes(), &salt)
+        .map_err(|e| UserServiceError::HashingError(e))?
+        .to_string();
 
     let user = user_repository::create_user(
         pool,
@@ -48,7 +53,7 @@ pub async fn register_user(
 }
 
 pub async fn login_user(
-    pool: &Postgres,
+    pool: &PgPool,
     request: user_dto::LoginRequest,
     jwt_secret: &str,
 ) -> Result<user_dto::LoginResponse, UserServiceError> {
@@ -67,13 +72,14 @@ pub async fn login_user(
     //dont tell users if an account for those credentials exist or not
     let user = user.ok_or(UserServiceError::InvalidCredentials)?;
 
-    if !bcrypt::verify(&request.password, &user.password_hash())
+    if !user
+        .verify_password(&request.password)
         .map_err(|e| UserServiceError::HashingError(e))?
     {
         return Err(UserServiceError::InvalidCredentials);
     }
 
-    let jwt_token = create_jwt(user.id, jwt_secret).map_err(|e| UserServiceError::JwtError(e))?;
+    let jwt_token = create_jwt(user.id(), jwt_secret).map_err(|e| UserServiceError::JwtError(e))?;
 
     let response = user_to_response(user);
 
@@ -87,15 +93,15 @@ pub async fn login_user(
 
 fn user_to_response(user: User) -> user_dto::UserResponse {
     user_dto::UserResponse {
-        id: user.id,
-        user_name: user.user_name,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        email: user.email,
-        phone_number: user.phone_number,
-        is_male: user.is_male,
-        created_at: user.created_at,
-        is_active: user.is_active,
-        is_verified: user.is_verified,
+        id: user.id(),
+        user_name: user.user_name().to_string(),
+        first_name: user.first_name().to_string(),
+        last_name: user.last_name().to_string(),
+        email: user.email().to_string(),
+        phone_number: user.phone_number().map(|s| s.to_string()),
+        is_male: user.is_male(),
+        created_at: user.created_at(),
+        is_active: user.is_active(),
+        is_verified: user.is_verified(),
     }
 }

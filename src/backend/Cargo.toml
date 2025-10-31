@@ -19,5 +19,6 @@ tracing-subscriber = "0.3" #also for debugging
 chrono = { version = "0.4", features = ["serde"] } #date and time var types
 sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "macros", "migrate", "chrono"] } #sql integration
 dotenvy = "0.15" #allows the use of things from .env as variables
-bcrypt = "0.17" #bcrypt for password hashing
+argon2 = "0.5" #argon2 for password hashing
 jsonwebtoken = "9.3" #JWT token generation and validation
+

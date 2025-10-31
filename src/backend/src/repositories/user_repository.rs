@@ -1,4 +1,4 @@
-use crate::models::user::User;
+use crate::models::user::{User, UserDbModel};
 use sqlx::PgPool;
 
 pub async fn create_user(
@@ -28,22 +28,9 @@ pub async fn create_user(
     .await?;
     let user_id = result.id; //get the inserted user's ID
 
-    let user = sqlx::query_as!(
-        User,
-        r#"
-    SELECT id, user_name, first_name, last_name, 
-           is_male as "is_male: bool",
-           email, phone_number, 
-           password_hash, created_at, updated_at, 
-           is_active as "is_active: bool",
-           is_verified as "is_verified: bool"
-    FROM users
-    WHERE id = $1
-    "#,
-        user_id
-    )
-    .fetch_one(pool)
-    .await?;
+    let user: User = get_user_by_id(pool, user_id)
+        .await?
+        .ok_or(sqlx::Error::RowNotFound)?;
 
     Ok(user)
 }
@@ -53,42 +40,68 @@ pub async fn get_user_by_username(
     user_name: &str,
 ) -> Result<Option<User>, sqlx::Error> {
     let user = sqlx::query_as!(
-        User,
+        UserDbModel,
         r#"
     SELECT id, user_name, first_name, last_name, 
-           is_male as "is_male: bool",
-           email, phone_number, 
-           password_hash, created_at, updated_at, 
-           is_active as "is_active: bool",
-           is_verified as "is_verified: bool"
+           is_male,
+           email, phone_number,
+           password_hash, created_at as "created_at: _", updated_at as "updated_at: _", 
+           is_active ,
+           is_verified 
     FROM users
     WHERE user_name = $1
     "#,
         user_name
     )
     .fetch_optional(pool)
-    .await?;
+    .await?
+    .map(|db| db.into());
 
     Ok(user)
 }
 
 pub async fn get_user_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
     let user = sqlx::query_as!(
-        User,
+        UserDbModel,
         r#"
     SELECT id, user_name, first_name, last_name, 
-           is_male as "is_male: bool",
+           is_male ,
            email, phone_number, 
-           password_hash, created_at, updated_at, 
-           is_active as "is_active: bool",
-           is_verified as "is_verified: bool"
+           password_hash, created_at as "created_at: _", updated_at as "updated_at: _", 
+           is_active ,
+           is_verified 
     FROM users
     WHERE email= $1
     "#,
         email
     )
     .fetch_optional(pool)
-    .await?;
+    .await?
+    .map(|db| db.into());
+
+    Ok(user)
+}
+
+pub async fn get_user_by_id(pool: &PgPool, id: i64) -> Result<Option<User>, sqlx::Error> {
+    let user = sqlx::query_as!(
+        UserDbModel,
+        r#"
+          SELECT id, user_name, first_name, last_name,
+                 is_male as "is_male: bool",
+                 email, phone_number,
+                 password_hash,
+                 created_at as "created_at: _",
+                 updated_at as "updated_at: _",
+                 is_active as "is_active: bool",
+                 is_verified as "is_verified: bool"
+          FROM users
+          WHERE id = $1
+          "#,
+        id
+    )
+    .fetch_optional(pool)
+    .await?
+    .map(|db| db.into());
 
     Ok(user)
 }
