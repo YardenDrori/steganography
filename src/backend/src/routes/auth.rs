@@ -1,6 +1,6 @@
+use crate::dtos::user_dto::{LoginRequest, LoginResponse, RegisterRequest, UserResponse};
 use crate::errors::error_body::ErrorBody;
 use crate::errors::user_service_error::UserServiceError;
-use crate::models::user::{LoginRequest, LoginResponse, RegisterRequest, UserResponse};
 use crate::services::user_service::{login_user, register_user};
 use axum::Json;
 use axum::extract::State;
