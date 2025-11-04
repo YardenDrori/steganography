@@ -1,3 +1,4 @@
+mod app_state;
 mod auth;
 mod db;
 mod dtos;
@@ -7,6 +8,7 @@ mod repositories;
 mod routes;
 mod services;
 mod steganography;
+use crate::app_state::AppState;
 use axum::{Router, routing::get, routing::post};
 
 // const CARRIER: &str = "../../examples/videos_lossless/chicken_jockey.mkv";
@@ -17,19 +19,31 @@ use axum::{Router, routing::get, routing::post};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
+    let jwt_secret = std::env::var("JWT_SECRET").expect("jwt secret must be set in .env file");
 
-    let database_url =
-        std::env::var("DATABASE_URL").expect("database url must be set in .env file");
-
-    let pool = db::connections::create_pool(&database_url)
+    let postgres_url =
+        std::env::var("POSTGRES_URL").expect("postgres url must be set in .env file");
+    let pool = db::connections::create_pool(&postgres_url)
         .await
-        .expect("Failed to create database pool");
+        .expect("Failed to create postgres database pool");
+
+    let redis_url = std::env::var("REDIS_URL").expect("redis url must be set in .env file");
+    let redis_client = redis::Client::open(redis_url).expect("Failed to create Redis client");
+    let redis = redis::aio::ConnectionManager::new(redis_client)
+        .await
+        .expect("Failed to connect to Redis");
+
+    let app_state = AppState {
+        jwt_secret: jwt_secret,
+        pool,
+        redis,
+    };
 
     let app = Router::new()
         .route("/", get(|| async { "Hello, world!" }))
         .route("/register", post(routes::auth::register))
         .route("/login", post(routes::auth::login))
-        .with_state(pool);
+        .with_state(app_state);
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

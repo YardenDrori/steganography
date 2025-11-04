@@ -32,6 +32,7 @@ pub struct User {
     is_verified: bool,
 }
 
+#[allow(dead_code)]
 impl User {
     //getters
     pub fn id(&self) -> i64 {
