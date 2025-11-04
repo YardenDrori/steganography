@@ -1,9 +1,14 @@
+use axum::extract::State;
 use chrono::Utc;
 use jsonwebtoken::{EncodingKey, Header, Validation, decode, encode};
-use rand::{Rng, rng};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use sqlx::PgPool;
 
-const ACCESS_TOKEN_DURATION: usize = 5 * 60; //5 mins
+use crate::app_state::AppState;
+
+const ACCESS_TOKEN_DURATION: usize = 10 * 60; //10 mins
 const REFRESH_TOKEN_DURATION: usize = 30 * 24 * 60 * 60; //14 days
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,14 +54,22 @@ pub fn verify_jwt(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::err
 const ALPHANUMERIC_BINARY_CHARS: &[u8] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 const TOKEN_LEN: usize = 64;
-pub async fn create_refresh_token() -> String {
+const ATTEMPTS: u8 = 3;
+pub async fn create_refresh_token(State(app_state): State<AppState>, user_id: i64) -> String {
+    let pool = app_state.pool;
     let mut rand = rand::rng();
 
-    let token: String;
-    token.reserve_exact(TOKEN_LEN);
-    for i in [0..TOKEN_LEN] {
-        let char_index = r
-        token.push_str();
+    //if SOMEHOW the random key generated was already in use 3 times in a
+    //row we return the sqlx error
+    for attempt in 0..ATTEMPTS {
+        //generate random key
+        let token: String = (0..TOKEN_LEN)
+            .map(|_| {
+                let index = rand.random_range(0..ALPHANUMERIC_BINARY_CHARS.len());
+                ALPHANUMERIC_BINARY_CHARS[index] as char
+            })
+            .collect();
+        let token_hash = format!("{:?}", Sha256::digest(&token));
     }
 
     todo!()
