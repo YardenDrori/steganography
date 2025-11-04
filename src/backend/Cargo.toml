@@ -19,7 +19,7 @@ tracing-subscriber = "0.3" #also for debugging
 chrono = { version = "0.4", features = ["serde"] } #date and time var types
 sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "macros", "migrate", "chrono"] } #sql integration
 dotenvy = "0.15" #allows the use of things from .env as variables
-argon2 = "0.5" #argon2 for password hashing
+argon2 = "0.5" #argon2 for password hashing as its slow
 jsonwebtoken = "9.3" #JWT token generation and validation
 rand = "0.9.2" #used to create random refresh tokens
-
+sha2 = "0.10" #used to hash refresh tokens as its fast and refreshes happen constantly and refresh tokens already have high entropy so no need to use argon2 for them
