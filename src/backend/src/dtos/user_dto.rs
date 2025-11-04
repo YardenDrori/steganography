@@ -37,4 +37,5 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     pub user: UserResponse,
     pub access_token: String,
+    pub refresh_token: String,
 }

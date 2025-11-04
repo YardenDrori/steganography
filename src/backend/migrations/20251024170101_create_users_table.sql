@@ -25,3 +25,6 @@ $$ language 'plpgsql';
 
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE INDEX idx_users_email ON users(email);      -- Login by email
+CREATE INDEX idx_users_username ON users(user_name); -- Login by username
