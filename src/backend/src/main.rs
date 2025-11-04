@@ -27,16 +27,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .expect("Failed to create postgres database pool");
 
-    let redis_url = std::env::var("REDIS_URL").expect("redis url must be set in .env file");
-    let redis_client = redis::Client::open(redis_url).expect("Failed to create Redis client");
-    let redis = redis::aio::ConnectionManager::new(redis_client)
-        .await
-        .expect("Failed to connect to Redis");
-
     let app_state = AppState {
         jwt_secret: jwt_secret,
         pool,
-        redis,
     };
 
     let app = Router::new()

@@ -3,7 +3,7 @@ use jsonwebtoken::{EncodingKey, Header, Validation, decode, encode};
 use rand::{Rng, rng};
 use serde::{Deserialize, Serialize};
 
-const ACCESS_TOKEN_DURATION: usize = 15 * 60; //15 mins
+const ACCESS_TOKEN_DURATION: usize = 5 * 60; //5 mins
 const REFRESH_TOKEN_DURATION: usize = 30 * 24 * 60 * 60; //14 days
 
 #[derive(Debug, Serialize, Deserialize)]

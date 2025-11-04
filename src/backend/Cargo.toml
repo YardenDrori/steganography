@@ -21,6 +21,5 @@ sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "mac
 dotenvy = "0.15" #allows the use of things from .env as variables
 argon2 = "0.5" #argon2 for password hashing
 jsonwebtoken = "9.3" #JWT token generation and validation
-redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] } #redis for JWT blacklist
 rand = "0.9.2" #used to create random refresh tokens
 
