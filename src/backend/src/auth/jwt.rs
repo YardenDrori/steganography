@@ -1,10 +1,9 @@
 use axum::extract::State;
-use chrono::{DateTime, Utc};
+use chrono::{TimeZone, Utc};
 use jsonwebtoken::{EncodingKey, Header, Validation, decode, encode};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sqlx::PgPool;
 
 use crate::app_state::AppState;
 
@@ -55,8 +54,11 @@ const ALPHANUMERIC_BINARY_CHARS: &[u8] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 const TOKEN_LEN: usize = 64;
 const ATTEMPTS: u8 = 3;
-pub async fn create_refresh_token(State(app_state): State<AppState>, user_id: i64) -> String {
-    let pool = app_state.pool;
+pub async fn create_refresh_token(
+    State(app_state): State<AppState>,
+    user_id: i64,
+) -> Result<String, sqlx::Error> {
+    let pool = &app_state.pool;
     let mut rand = rand::rng();
 
     //if SOMEHOW the random key generated was already in use 3 times in a
@@ -71,10 +73,21 @@ pub async fn create_refresh_token(State(app_state): State<AppState>, user_id: i6
             .collect();
         let token_hash = format!("{:?}", Sha256::digest(&token));
 
-        let expiration_time = Utc::now().timestamp() + REFRESH_TOKEN_DURATION;
+        let time_delta = chrono::TimeDelta::seconds(REFRESH_TOKEN_DURATION);
+        let expiration_time = Utc::now().checked_add_signed(time_delta);
 
-        let result = sqlx::query();
+        let result = sqlx::query!(
+            r#"
+            INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+            VALUES ($1, $2, $3) RETURNING id
+            "#,
+            user_id,
+            token_hash,
+            expiration_time
+        )
+        .fetch_one(pool)
+        .await?;
     }
 
-    todo!()
+    unreachable!("Should have returned or panicked in the loop")
 }

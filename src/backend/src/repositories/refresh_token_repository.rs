@@ -1,3 +1,4 @@
+use crate::models::tokens::{refresh_token, refresh_token_DBModel};
 use crate::models::user::User;
 use crate::entities::user::UserEntity;
 use sqlx::PgPool;
@@ -43,7 +44,7 @@ pub async fn get_user_by_username(
     let user = sqlx::query_as!(
         UserEntity,
         r#"
-    SELECT id, user_name, first_name, last_name, 
+    SELECT id, user_name, first_name, last_name,
            is_male,
            email, phone_number,
            password_hash, created_at as "created_at: _", updated_at as "updated_at: _", 

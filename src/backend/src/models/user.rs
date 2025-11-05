@@ -1,20 +1,5 @@
 use chrono::{DateTime, Utc};
-
-#[derive(Debug, Clone)]
-pub(crate) struct UserDbModel {
-    pub id: i64,
-    pub user_name: String,
-    pub first_name: String,
-    pub last_name: String,
-    pub is_male: Option<bool>,
-    pub email: String,
-    pub phone_number: Option<String>,
-    pub password_hash: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub is_active: bool,
-    pub is_verified: bool,
-}
+use crate::entities::user::UserEntity;
 
 #[derive(Debug, Clone)]
 pub struct User {
@@ -94,22 +79,22 @@ impl User {
         self.is_active = true;
     }
 }
-//auto converts from database struct to service layer struct
-impl From<UserDbModel> for User {
-    fn from(db: UserDbModel) -> Self {
+//auto converts from database entity to domain model
+impl From<UserEntity> for User {
+    fn from(entity: UserEntity) -> Self {
         User {
-            id: db.id,
-            user_name: db.user_name,
-            first_name: db.first_name,
-            last_name: db.last_name,
-            is_male: db.is_male,
-            email: db.email,
-            phone_number: db.phone_number,
-            password_hash: db.password_hash,
-            created_at: db.created_at,
-            updated_at: db.updated_at,
-            is_active: db.is_active,
-            is_verified: db.is_verified,
+            id: entity.id,
+            user_name: entity.user_name,
+            first_name: entity.first_name,
+            last_name: entity.last_name,
+            is_male: entity.is_male,
+            email: entity.email,
+            phone_number: entity.phone_number,
+            password_hash: entity.password_hash,
+            created_at: entity.created_at,
+            updated_at: entity.updated_at,
+            is_active: entity.is_active,
+            is_verified: entity.is_verified,
         }
     }
 }
