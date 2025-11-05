@@ -2,6 +2,7 @@ mod app_state;
 mod auth;
 mod db;
 mod dtos;
+mod entities;
 mod errors;
 mod models;
 mod repositories;
