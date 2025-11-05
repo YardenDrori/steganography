@@ -1,5 +1,5 @@
 use axum::extract::State;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use jsonwebtoken::{EncodingKey, Header, Validation, decode, encode};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -8,21 +8,21 @@ use sqlx::PgPool;
 
 use crate::app_state::AppState;
 
-const ACCESS_TOKEN_DURATION: usize = 10 * 60; //10 mins
-const REFRESH_TOKEN_DURATION: usize = 30 * 24 * 60 * 60; //14 days
+const ACCESS_TOKEN_DURATION: i64 = 10 * 60; //10 mins
+const REFRESH_TOKEN_DURATION: i64 = 14 * 24 * 60 * 60; //14 days
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: i64,   //subject (user_id)
-    pub exp: usize, //expiration timestamp in unix convention
-    pub iat: usize, //implemented at timestamp in unix convention
+    pub sub: i64, //subject (user_id)
+    pub exp: i64, //expiration timestamp in unix convention
+    pub iat: i64, //implemented at timestamp in unix convention
 }
 
 //JWT methods
 pub fn create_jwt(user_id: i64, secret: &str) -> Result<String, jsonwebtoken::errors::Error> {
     let encoding_key = EncodingKey::from_secret(&secret.as_bytes());
     let now = Utc::now();
-    let iat = now.timestamp() as usize; //convert to unix timestamp
+    let iat = now.timestamp(); //convert to unix timestamp
     let exp = iat + ACCESS_TOKEN_DURATION;
 
     let claims: Claims = Claims {
@@ -70,6 +70,10 @@ pub async fn create_refresh_token(State(app_state): State<AppState>, user_id: i6
             })
             .collect();
         let token_hash = format!("{:?}", Sha256::digest(&token));
+
+        let expiration_time = Utc::now().timestamp() + REFRESH_TOKEN_DURATION;
+
+        let result = sqlx::query();
     }
 
     todo!()
