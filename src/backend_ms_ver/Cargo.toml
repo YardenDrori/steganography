@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "auth_service",
-    "steganography_service",
-    "api_gateway",
     "shared"
+    # "steganography_service",  # Uncomment when ready
+    # "api_gateway",            # Uncomment when ready
 ]
+resolver = "2"
