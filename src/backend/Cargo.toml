@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    # "auth_service",
-    # "shared"
+    "auth_service",
+    "shared"
     # "steganography_service",  # Uncomment when ready
     # "api_gateway",            # Uncomment when ready
 ]
