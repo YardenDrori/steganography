@@ -1,0 +1,30 @@
+# Target directories (build artifacts)
+target/
+**/target/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+**/.env
+**/.env.local
+
+# Documentation
+*.md
+!README.md
+
+# Docker
+**/Dockerfile
+**/docker-compose.yml

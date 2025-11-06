@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Auth Service
+  auth-db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: authdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    networks:
+      - microservices
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d authdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth_service/Dockerfile
+    environment:
+      POSTGRES_URL: postgres://admin:admin@auth-db:5432/authdb
+      JWT_SECRET: your-secret-key-change-in-production
+      RUST_LOG: info
+    ports:
+      - "3001:3001"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - microservices
+    restart: unless-stopped
+
+  # Steganography Service (placeholder for when you build it)
+  # steganography-service:
+  #   build:
+  #     context: .
+  #     dockerfile: steganography_service/Dockerfile
+  #   environment:
+  #     FILE_STORAGE_PATH: /app/storage
+  #     MAX_FILE_SIZE: 104857600  # 100MB
+  #   ports:
+  #     - "3002:3002"
+  #   volumes:
+  #     - steg_storage:/app/storage
+  #   networks:
+  #     - microservices
+  #   restart: unless-stopped
+
+  # API Gateway (placeholder for when you build it)
+  # api-gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: api_gateway/Dockerfile
+  #   environment:
+  #     AUTH_SERVICE_URL: http://auth-service:3001
+  #     STEG_SERVICE_URL: http://steganography-service:3002
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - auth-service
+  #     - steganography-service
+  #   networks:
+  #     - microservices
+  #   restart: unless-stopped
+
+volumes:
+  auth_postgres_data:
+  # steg_storage:
+
+networks:
+  microservices:
+    driver: bridge

@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "auth_service",
+    "steganography_service",
+    "api_gateway",
+    "shared"
+]
