@@ -3,6 +3,3 @@ make video stream the same index as the original
 add email verification to prevent enumeration in register requests
 
 ask Eli about public variables as it is rust convention and isnt necessary for encapsulation
-
-
-make sqlx queries offline
