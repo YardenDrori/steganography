@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Steganography Service
+  steg-db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: stegdb
+    ports:
+      - "5433:5432"    # Different external port to avoid conflict with auth-db
+    volumes:
+      - steg_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d stegdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - steg-network
+
+  # Steganography Service Application
+  steg-service:
+    build:
+      context: ..              # Go up to workspace root
+      dockerfile: steganography_service/Dockerfile
+    environment:
+      POSTGRES_URL: postgres://admin:admin@steg-db:5432/stegdb
+      FILE_STORAGE_PATH: /app/storage
+      MAX_FILE_SIZE: 104857600  # 100MB
+      RUST_LOG: info
+    ports:
+      - "3002:3002"
+    volumes:
+      - steg_storage:/app/storage
+    depends_on:
+      steg-db:
+        condition: service_healthy
+    networks:
+      - steg-network
+    restart: unless-stopped
+
+volumes:
+  steg_postgres_data:
+  steg_storage:
+
+networks:
+  steg-network:
+    driver: bridge
