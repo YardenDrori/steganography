@@ -1,25 +1,7 @@
-[package]
-name = "backend"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-#image = "0.25" #for image decoding/encoding obsolete in current version
-
-ffmpeg-next = "8.0" #for video decoding/encoding
-
-axum = "0.7" #web framework
-tokio = { version = "1", features = ["full"] } #async
-tower = "0.4" #middle ware feamework
-tower-http = { version = "0.5", features = ["fs", "trace"] } #CORS mostly
-serde = { version = "1.0", features = ["derive"] } #for json APIs
-serde_json = "1.0" #also for json
-tracing = "0.1" #for debugging help
-tracing-subscriber = "0.3" #also for debugging
-chrono = { version = "0.4", features = ["serde"] } #date and time var types
-sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "macros", "migrate", "chrono"] } #sql integration
-dotenvy = "0.15" #allows the use of things from .env as variables
-argon2 = "0.5" #argon2 for password hashing as its slow
-jsonwebtoken = "9.3" #JWT token generation and validation
-rand = "0.9.2" #used to create random refresh tokens
-sha2 = "0.10" #used to hash refresh tokens as its fast and refreshes happen constantly and refresh tokens already have high entropy so no need to use argon2 for them
+[workspace]
+members = [
+    # "auth_service",
+    # "shared"
+    # "steganography_service",  # Uncomment when ready
+    # "api_gateway",            # Uncomment when ready
+]

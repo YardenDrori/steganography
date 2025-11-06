@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  api_gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api_gateway
+    environment:
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://localhost:3001}
+      STEG_SERVICE_URL: ${STEG_SERVICE_URL:-http://localhost:3002}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      RUST_LOG: info
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    networks:
+      - gateway_network
+
+networks:
+  gateway_network:
+    driver: bridge
