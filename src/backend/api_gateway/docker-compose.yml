@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api_gateway:
     build:
@@ -20,3 +18,5 @@ services:
 networks:
   gateway_network:
     driver: bridge
+    name: microservices_network
+    external: false
