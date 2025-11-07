@@ -8,6 +8,6 @@ pub(crate) struct RefreshTokenEntity {
     pub expires_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
     pub last_used_at: DateTime<Utc>,
-    pub is_revoked: bool,
-    pub device_info: String
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub device_info: String,
 }
