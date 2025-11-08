@@ -80,10 +80,26 @@ pub struct LoginRequest {
 
     #[validate(length(min = 1, message = "Password cannot be empty"))]
     pub password: String,
+
+    pub device_info: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
     pub user: UserResponse,
     pub access_token: String,
+    pub refresh_token: String,
+}
+
+// DTO for refresh token request
+#[derive(Debug, Deserialize)]
+pub struct RefreshTokenRequest {
+    pub refresh_token: String,
+}
+
+// DTO for refresh token response
+#[derive(Debug, Serialize)]
+pub struct RefreshTokenResponse {
+    pub access_token: String,
+    pub refresh_token: String,
 }
