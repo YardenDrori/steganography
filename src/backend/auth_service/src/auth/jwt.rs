@@ -53,12 +53,6 @@ pub fn verify_jwt(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::err
 //REFRESH_TOKEN methods
 const ALPHANUMERIC_BINARY_CHARS: &[u8] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-pub async fn create_refresh_token(
-    State(app_state): State<AppState>,
-    user_id: i64,
-) -> Result<String, sqlx::Error> {
-    todo!()
-}
 
 // let pool = &app_state.pool;
 // let mut rand = rand::rng();

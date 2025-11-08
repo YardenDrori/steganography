@@ -3,6 +3,7 @@ use crate::dtos::{LoginRequest, LoginResponse, RegisterRequest};
 use crate::errors::user_service_error::{self, UserServiceError};
 use crate::models::user::User;
 use crate::repositories::user_repository::{self, get_user_by_email, get_user_by_username};
+use crate::services::token_service::create_refresh_token;
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHasher};
 use shared::dtos::UserResponse;
@@ -92,12 +93,14 @@ pub async fn login_user(
     }
 
     let jwt_token = create_jwt(user.id(), jwt_secret).map_err(|e| UserServiceError::JwtError(e))?;
+    let refresh_token = create_refresh_token(pool, user.id(), request.device_info).await?;
 
     let response = user_to_response(user);
 
     let response = LoginResponse {
         user: response,
         access_token: jwt_token,
+        refresh_token,
     };
 
     Ok(response)

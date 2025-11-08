@@ -48,3 +48,41 @@ pub async fn get_refrsh_token_by_id(
 
     Ok(refresh_token)
 }
+
+pub async fn get_refresh_token_by_hash(
+    pool: &PgPool,
+    token_hash: &str,
+) -> Result<Option<RefreshToken>, sqlx::Error> {
+    let refresh_token = sqlx::query_as!(
+        RefreshTokenEntity,
+        r#"
+        SELECT id, user_id, token_hash, expires_at, created_at, revoked_at, device_info
+        FROM refresh_tokens
+        WHERE token_hash = $1
+        "#,
+        token_hash
+    )
+    .fetch_optional(pool)
+    .await?
+    .map(|db| db.into());
+
+    Ok(refresh_token)
+}
+
+pub async fn revoke_refresh_token(
+    pool: &PgPool,
+    token_id: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+        UPDATE refresh_tokens
+        SET revoked_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        "#,
+        token_id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
