@@ -9,6 +9,7 @@ use crate::app_state::AppState;
 
 const ACCESS_TOKEN_DURATION: i64 = 10 * 60; //10 mins
 const REFRESH_TOKEN_DURATION: i64 = 14 * 24 * 60 * 60; //14 days
+const REFRESH_TOKEN_LEN: u8 = 64;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -52,42 +53,42 @@ pub fn verify_jwt(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::err
 //REFRESH_TOKEN methods
 const ALPHANUMERIC_BINARY_CHARS: &[u8] =
     b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-const TOKEN_LEN: usize = 64;
-const ATTEMPTS: u8 = 3;
 pub async fn create_refresh_token(
     State(app_state): State<AppState>,
     user_id: i64,
 ) -> Result<String, sqlx::Error> {
-    let pool = &app_state.pool;
-    let mut rand = rand::rng();
-
-    //if SOMEHOW the random key generated was already in use 3 times in a
-    //row we return the sqlx error
-    for attempt in 0..ATTEMPTS {
-        //generate random key
-        let token: String = (0..TOKEN_LEN)
-            .map(|_| {
-                let index = rand.random_range(0..ALPHANUMERIC_BINARY_CHARS.len());
-                ALPHANUMERIC_BINARY_CHARS[index] as char
-            })
-            .collect();
-        let token_hash = format!("{:?}", Sha256::digest(&token));
-
-        let time_delta = chrono::TimeDelta::seconds(REFRESH_TOKEN_DURATION);
-        let expiration_time = Utc::now().checked_add_signed(time_delta);
-
-        let result = sqlx::query!(
-            r#"
-            INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-            VALUES ($1, $2, $3) RETURNING id
-            "#,
-            user_id,
-            token_hash,
-            expiration_time
-        )
-        .fetch_one(pool)
-        .await?;
-    }
-
-    unreachable!("Should have returned or panicked in the loop")
+    todo!()
 }
+
+// let pool = &app_state.pool;
+// let mut rand = rand::rng();
+//
+// //if SOMEHOW the random key generated was already in use 3 times in a
+// //row we return the sqlx error
+// for attempt in 0..ATTEMPTS {
+//     //generate random key
+//     let token: String = (0..TOKEN_LEN)
+//         .map(|_| {
+//             let index = rand.random_range(0..ALPHANUMERIC_BINARY_CHARS.len());
+//             ALPHANUMERIC_BINARY_CHARS[index] as char
+//         })
+//         .collect();
+//     let token_hash = format!("{:?}", Sha256::digest(&token));
+//
+//     let time_delta = chrono::TimeDelta::seconds(REFRESH_TOKEN_DURATION);
+//     let expiration_time = Utc::now().checked_add_signed(time_delta);
+//
+//     let result = sqlx::query!(
+//         r#"
+//         INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+//         VALUES ($1, $2, $3) RETURNING id
+//         "#,
+//         user_id,
+//         token_hash,
+//         expiration_time
+//     )
+//     .fetch_one(pool)
+//     .await?;
+// }
+//
+// unreachable!("Should have returned or panicked in the loop")

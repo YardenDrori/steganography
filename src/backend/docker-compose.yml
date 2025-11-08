@@ -1,4 +1,4 @@
 include:
   - auth_service/docker-compose.yml
-  - steganography_service/docker-compose.yml
-  - api_gateway/docker-compose.yml
+  # - steganography_service/docker-compose.yml
+  # - api_gateway/docker-compose.yml

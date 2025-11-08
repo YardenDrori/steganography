@@ -21,6 +21,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
 
     let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set in .env file");
+    if jwt_secret.len() < 32 {
+        panic!("JWT_SECRET must be at least 32 characters for security");
+    }
 
     let database_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
@@ -29,12 +32,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = db::connections::create_pool(&database_url)
         .await
         .expect("Failed to create postgres database pool");
-
-    // Run migrations
-    // sqlx::migrate!("./migrations")
-    //     .run(&pool)
-    //     .await
-    //     .expect("Failed to run migrations");
 
     // Create app state
     let app_state = AppState { jwt_secret, pool };

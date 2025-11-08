@@ -3,7 +3,7 @@ use crate::dtos::{LoginRequest, LoginResponse, RegisterRequest};
 use crate::errors::user_service_error::{self, UserServiceError};
 use crate::models::user::User;
 use crate::repositories::user_repository::{self, get_user_by_email, get_user_by_username};
-use argon2::password_hash::{SaltString, rand_core::OsRng};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHasher};
 use shared::dtos::UserResponse;
 use sqlx::PgPool;
@@ -12,22 +12,6 @@ pub async fn register_user(
     pool: &PgPool,
     request: RegisterRequest,
 ) -> Result<UserResponse, user_service_error::UserServiceError> {
-    //check if user exists
-    if user_repository::get_user_by_email(pool, &request.email)
-        .await
-        .map_err(|e| UserServiceError::DatabaseError(e))?
-        .is_some()
-    {
-        return Err(UserServiceError::EmailAlreadyExists);
-    }
-    if user_repository::get_user_by_username(pool, &request.user_name)
-        .await
-        .map_err(|e| UserServiceError::DatabaseError(e))?
-        .is_some()
-    {
-        return Err(UserServiceError::UsernameAlreadyExists);
-    }
-
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let hashed_password = argon2
@@ -35,7 +19,7 @@ pub async fn register_user(
         .map_err(|e| UserServiceError::HashingError(e))?
         .to_string();
 
-    let user = user_repository::create_user(
+    let user = user_repository::save_user(
         pool,
         &request.user_name,
         &request.first_name,
@@ -46,7 +30,35 @@ pub async fn register_user(
         &request.is_male,
     )
     .await
-    .map_err(|e| UserServiceError::DatabaseError(e))?;
+    .map_err(|e| {
+        // Check if this is a database-specific error (not network, timeout, etc.)
+        match &e {
+            sqlx::Error::Database(db_err) => {
+                // Check if the error has a constraint name (means unique/foreign key violation)
+                match db_err.constraint() {
+                    Some(constraint_name) => {
+                        // Check which constraint was violated
+                        if constraint_name.contains("email") {
+                            UserServiceError::EmailAlreadyExists
+                        } else if constraint_name.contains("user_name") {
+                            UserServiceError::UsernameAlreadyExists
+                        } else {
+                            // Some other constraint we don't handle specifically
+                            UserServiceError::DatabaseError(e)
+                        }
+                    }
+                    None => {
+                        // Database error but no constraint (e.g., connection issue)
+                        UserServiceError::DatabaseError(e)
+                    }
+                }
+            }
+            _ => {
+                // Not a database error (could be network, timeout, etc.)
+                UserServiceError::DatabaseError(e)
+            }
+        }
+    })?;
 
     let response = user_to_response(user);
     Ok(response)
