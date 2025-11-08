@@ -103,3 +103,9 @@ pub struct RefreshTokenResponse {
     pub access_token: String,
     pub refresh_token: String,
 }
+
+// DTO for logout request
+#[derive(Debug, Deserialize)]
+pub struct LogoutRequest {
+    pub refresh_token: String,
+}
