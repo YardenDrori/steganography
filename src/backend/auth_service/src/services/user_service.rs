@@ -10,24 +10,30 @@ use sqlx::PgPool;
 
 pub async fn register_user(
     pool: &PgPool,
-    request: RegisterRequest,
+    user_name: &str,
+    first_name: &str,
+    last_name: &str,
+    email: &str,
+    password: &str,
+    phone_number: Option<&str>,
+    is_male: Option<bool>,
 ) -> Result<UserResponse, user_service_error::UserServiceError> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let hashed_password = argon2
-        .hash_password(request.password.as_bytes(), &salt)
+        .hash_password(password.as_bytes(), &salt)
         .map_err(|e| UserServiceError::HashingError(e))?
         .to_string();
 
     let user = user_repository::save_user(
         pool,
-        &request.user_name,
-        &request.first_name,
-        &request.last_name,
-        &request.email,
+        &user_name,
+        &first_name,
+        &last_name,
+        &email,
         &hashed_password,
-        &request.phone_number.as_deref(),
-        &request.is_male,
+        &phone_number.as_deref(),
+        &is_male,
     )
     .await
     .map_err(|e| {
@@ -66,10 +72,13 @@ pub async fn register_user(
 
 pub async fn login_user(
     pool: &PgPool,
-    request: LoginRequest,
+    email: Option<&str>,
+    user_name: Option<&str>,
+    password: &str,
+    device_info: Option<&str>,
     jwt_secret: &str,
 ) -> Result<LoginResponse, UserServiceError> {
-    let user = match (request.email, request.user_name) {
+    let user = match (email, user_name) {
         (Some(email), None) => get_user_by_email(pool, &email)
             .await
             .map_err(|e| UserServiceError::DatabaseError(e))?,
@@ -85,14 +94,15 @@ pub async fn login_user(
     let user = user.ok_or(UserServiceError::InvalidCredentials)?;
 
     if !user
-        .verify_password(&request.password)
+        .verify_password(&password)
         .map_err(|e| UserServiceError::HashingError(e))?
     {
         return Err(UserServiceError::InvalidCredentials);
     }
 
     let jwt_token = create_access_token(user.id(), jwt_secret)?;
-    let refresh_token = create_refresh_token(pool, user.id(), request.device_info).await?;
+    let refresh_token =
+        create_refresh_token(pool, user.id(), device_info.map(|s| s.to_string())).await?;
 
     let response = user_to_response(user);
 
