@@ -2,7 +2,7 @@ use crate::entities::user::UserEntity;
 use crate::models::user::User;
 use sqlx::PgPool;
 
-pub async fn create_user(
+pub async fn save_user(
     pool: &PgPool,
     user_name: &str,
     first_name: &str,
