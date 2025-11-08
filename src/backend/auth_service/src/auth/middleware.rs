@@ -1,5 +1,5 @@
 use crate::app_state;
-use crate::auth::jwt::verify_jwt;
+use crate::auth::jwt::decode_jwt;
 use axum::Json;
 use axum::{
     async_trait,
@@ -49,7 +49,7 @@ where
             ))?
             .to_string();
 
-        let claims = verify_jwt(&token, &jwt_secret).map_err(|e| {
+        let claims = decode_jwt(&token, &jwt_secret).map_err(|e| {
             tracing::error!("Jwt error: {}", e);
             (
                 StatusCode::UNAUTHORIZED,

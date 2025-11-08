@@ -1,4 +1,4 @@
-use crate::auth::jwt::create_jwt;
+use crate::auth::jwt::encode_jwt;
 use crate::errors::user_service_error::UserServiceError;
 use crate::models::token::RefreshToken;
 use crate::repositories::{token_repository, user_repository};
@@ -7,11 +7,12 @@ use rand::Rng;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 
+const ACCESS_TOKEN_DURATION_SECONDS: i64 = 10 * 60; // 10 minutes
 const REFRESH_TOKEN_LENGTH: usize = 64;
 const REFRESH_TOKEN_DURATION_DAYS: i64 = 14;
 const MAX_COLLISION_ATTEMPTS: u8 = 3;
 
-/// Generates a cryptographically secure random refresh token
+// Generates a cryptographically secure random refresh token
 fn generate_random_token() -> String {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let mut rng = rand::thread_rng();
@@ -31,7 +32,16 @@ fn hash_token(token: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-/// Creates a new refresh token for a user
+// Creates a new access token (JWT) for a user
+pub fn create_access_token(user_id: i64, secret: &str) -> Result<String, UserServiceError> {
+    let now = Utc::now();
+    let issued_at = now.timestamp();
+    let expires_at = issued_at + ACCESS_TOKEN_DURATION_SECONDS;
+
+    encode_jwt(user_id, issued_at, expires_at, secret).map_err(|e| UserServiceError::JwtError(e))
+}
+
+// Creates a new refresh token for a user
 pub async fn create_refresh_token(
     pool: &PgPool,
     user_id: i64,
@@ -86,8 +96,7 @@ pub async fn create_refresh_token(
     Err(UserServiceError::DatabaseError(sqlx::Error::RowNotFound))
 }
 
-/// Refreshes an access token using a refresh token
-/// Returns (new_access_token, new_refresh_token) - implements token rotation
+// Refreshes an access token using a refresh token
 pub async fn refresh_access_token(
     pool: &PgPool,
     refresh_token: &str,
@@ -142,8 +151,7 @@ pub async fn refresh_access_token(
         .map_err(|e| UserServiceError::DatabaseError(e))?;
 
     // Generate new access token
-    let new_access_token =
-        create_jwt(user.id(), jwt_secret).map_err(|e| UserServiceError::JwtError(e))?;
+    let new_access_token = create_access_token(user.id(), jwt_secret)?;
 
     // Generate new refresh token
     let new_refresh_token = create_refresh_token(
@@ -158,7 +166,7 @@ pub async fn refresh_access_token(
     Ok((new_access_token, new_refresh_token))
 }
 
-/// Revokes a refresh token (for logout)
+// Revokes a refresh token (for logout)
 pub async fn revoke_refresh_token(
     pool: &PgPool,
     refresh_token: &str,
