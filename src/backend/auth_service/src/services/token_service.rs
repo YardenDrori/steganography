@@ -15,7 +15,7 @@ const MAX_COLLISION_ATTEMPTS: u8 = 3;
 // Generates a cryptographically secure random refresh token
 fn generate_random_token() -> String {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     (0..REFRESH_TOKEN_LENGTH)
         .map(|_| {
@@ -25,7 +25,7 @@ fn generate_random_token() -> String {
         .collect()
 }
 
-/// Hashes a token using SHA256
+// Hashes a token using SHA256
 fn hash_token(token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());
@@ -34,11 +34,14 @@ fn hash_token(token: &str) -> String {
 
 // Creates a new access token (JWT) for a user
 pub fn create_access_token(user_id: i64, secret: &str) -> Result<String, UserServiceError> {
+    tracing::debug!("Creating access token for user_id={}", user_id);
     let now = Utc::now();
     let issued_at = now.timestamp();
     let expires_at = issued_at + ACCESS_TOKEN_DURATION_SECONDS;
 
-    encode_jwt(user_id, issued_at, expires_at, secret).map_err(|e| UserServiceError::JwtError(e))
+    let token = encode_jwt(user_id, issued_at, expires_at, secret).map_err(|e| UserServiceError::JwtError(e))?;
+    tracing::info!("Created access token for user_id={}", user_id);
+    Ok(token)
 }
 
 // Creates a new refresh token for a user
@@ -47,6 +50,7 @@ pub async fn create_refresh_token(
     user_id: i64,
     device_info: Option<String>,
 ) -> Result<String, UserServiceError> {
+    tracing::debug!("Creating refresh token for user_id={}", user_id);
     let expires_at = Utc::now() + Duration::days(REFRESH_TOKEN_DURATION_DAYS);
 
     // Try to generate unique token (retry on collision)
@@ -102,6 +106,7 @@ pub async fn refresh_access_token(
     refresh_token: &str,
     jwt_secret: &str,
 ) -> Result<(String, String), UserServiceError> {
+    tracing::debug!("Attempting to refresh access token");
     // Hash the provided token to look it up
     let token_hash = hash_token(refresh_token);
 
@@ -171,6 +176,7 @@ pub async fn revoke_refresh_token(
     pool: &PgPool,
     refresh_token: &str,
 ) -> Result<(), UserServiceError> {
+    tracing::debug!("Attempting to revoke refresh token");
     let token_hash = hash_token(refresh_token);
 
     let stored_token = token_repository::get_refresh_token_by_hash(pool, &token_hash)
