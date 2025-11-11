@@ -1,15 +1,12 @@
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
-use super::roles::Roles;
-
 /// JWT Claims structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: i64,      // subject (user_id)
-    pub exp: i64,      // expiration timestamp in unix convention
-    pub iat: i64,      // issued at timestamp in unix convention
-    pub roles: Roles,  // user roles for authorization
+    pub sub: i64, // subject (user_id)
+    pub exp: i64, // expiration timestamp in unix convention
+    pub iat: i64, // issued at timestamp in unix convention
 }
 
 /// Low-level JWT decoding utility

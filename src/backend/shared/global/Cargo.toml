@@ -1,5 +1,5 @@
 [package]
-name = "shared"
+name = "shared_global"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,3 +9,4 @@ chrono = { version = "0.4", features = ["serde"] }
 jsonwebtoken = "9.3"
 axum = "0.7"
 async-trait = "0.1"
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "macros", "migrate", "chrono"] }

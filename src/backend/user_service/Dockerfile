@@ -9,10 +9,12 @@ RUN apk add --no-cache \
 
 WORKDIR /build
 
-COPY shared ./shared
+COPY shared/global ./shared/global
+COPY shared/auth_user ./shared/auth_user
 COPY user_service ./user_service
 
 WORKDIR /build/user_service
+
 
 RUN cargo build --release
 
@@ -26,6 +28,6 @@ WORKDIR /app
 COPY --from=builder /build/user_service/target/release/user_service /app/user_service
 COPY --from=builder /build/user_service/migrations /app/migrations
 
-EXPOSE 3001
+EXPOSE 3002
 
 CMD ["./user_service"]

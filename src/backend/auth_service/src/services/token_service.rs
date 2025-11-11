@@ -5,7 +5,7 @@ use crate::repositories::{token_repository, user_repository};
 use chrono::{Duration, Utc};
 use rand::Rng;
 use sha2::{Digest, Sha256};
-use shared::auth::roles::Roles;
+use shared_global::auth::roles::Roles;
 use sqlx::PgPool;
 
 const ACCESS_TOKEN_DURATION_SECONDS: i64 = 10 * 60; // 10 minutes
@@ -34,13 +34,14 @@ fn hash_token(token: &str) -> String {
 }
 
 // Creates a new access token (JWT) for a user
-pub fn create_access_token(user_id: i64, roles: Roles, secret: &str) -> Result<String, UserServiceError> {
+pub fn create_access_token(user_id: i64, secret: &str) -> Result<String, UserServiceError> {
     tracing::debug!("Creating access token for user_id={}", user_id);
     let now = Utc::now();
     let issued_at = now.timestamp();
     let expires_at = issued_at + ACCESS_TOKEN_DURATION_SECONDS;
 
-    let token = encode_jwt(user_id, issued_at, expires_at, roles, secret).map_err(|e| UserServiceError::JwtError(e))?;
+    let token = encode_jwt(user_id, issued_at, expires_at, secret)
+        .map_err(|e| UserServiceError::JwtError(e))?;
     tracing::info!("Created access token for user_id={}", user_id);
     Ok(token)
 }
@@ -151,18 +152,13 @@ pub async fn refresh_access_token(
         return Err(UserServiceError::InvalidCredentials);
     }
 
-    // Fetch user roles
-    let roles = user_repository::get_user_roles(pool, user.id())
-        .await
-        .map_err(|e| UserServiceError::DatabaseError(e))?;
-
     // Revoke the old refresh token (token rotation)
     token_repository::revoke_refresh_token(pool, stored_token.id())
         .await
         .map_err(|e| UserServiceError::DatabaseError(e))?;
 
     // Generate new access token
-    let new_access_token = create_access_token(user.id(), roles, jwt_secret)?;
+    let new_access_token = create_access_token(user.id(), jwt_secret)?;
 
     // Generate new refresh token
     let new_refresh_token = create_refresh_token(

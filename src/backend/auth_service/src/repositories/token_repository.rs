@@ -69,10 +69,7 @@ pub async fn get_refresh_token_by_hash(
     Ok(refresh_token)
 }
 
-pub async fn revoke_refresh_token(
-    pool: &PgPool,
-    token_id: i64,
-) -> Result<(), sqlx::Error> {
+pub async fn revoke_refresh_token(pool: &PgPool, token_id: i64) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
         UPDATE refresh_tokens

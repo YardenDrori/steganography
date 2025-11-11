@@ -7,10 +7,10 @@ use crate::errors::user_service_error::UserServiceError;
 use crate::services::token_service;
 use crate::services::user_service::{login_user, register_user};
 use axum::extract::State;
-use axum::http::{request, StatusCode};
+use axum::http::StatusCode;
 use axum::Json;
-use shared::dtos::UserResponse;
-use shared::errors::ErrorBody;
+use shared_global::dtos::UserResponse;
+use shared_global::errors::ErrorBody;
 use validator::Validate;
 
 pub async fn register(
@@ -28,54 +28,45 @@ pub async fn register(
 
     let pool = &app_state.pool;
 
-    let user_response = register_user(
-        &pool,
-        &payload.user_name,
-        &payload.first_name,
-        &payload.last_name,
-        &payload.email,
-        &payload.password,
-        payload.phone_number.as_deref(),
-        payload.is_male,
-    )
-    .await
-    .map_err(|e| match e {
-        UserServiceError::EmailAlreadyExists => {
-            tracing::warn!("Registration attempt with existing email");
-            (
-                StatusCode::CONFLICT,
-                Json(ErrorBody::new("Email or username already exists")),
-            )
-        }
-        UserServiceError::UsernameAlreadyExists => {
-            tracing::warn!("Registration attempt with existing username");
-            (
-                StatusCode::CONFLICT,
-                Json(ErrorBody::new("Email or username already exists")),
-            )
-        }
-        UserServiceError::DatabaseError(err) => {
-            tracing::error!("Database error: {:?}", err);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorBody::new("Internal server error")),
-            )
-        }
-        UserServiceError::HashingError(err) => {
-            tracing::error!("Hashing error: {:?}", err);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorBody::new("Internal server error")),
-            )
-        }
-        other_error => {
-            tracing::error!("Unexpected error: {:?}", other_error);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorBody::new("Internal server error")),
-            )
-        }
-    })?;
+    let user_response = register_user(&pool, &payload.user_name, &payload.email, &payload.password)
+        .await
+        .map_err(|e| match e {
+            UserServiceError::EmailAlreadyExists => {
+                tracing::warn!("Registration attempt with existing email");
+                (
+                    StatusCode::CONFLICT,
+                    Json(ErrorBody::new("Email or username already exists")),
+                )
+            }
+            UserServiceError::UsernameAlreadyExists => {
+                tracing::warn!("Registration attempt with existing username");
+                (
+                    StatusCode::CONFLICT,
+                    Json(ErrorBody::new("Email or username already exists")),
+                )
+            }
+            UserServiceError::DatabaseError(err) => {
+                tracing::error!("Database error: {:?}", err);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorBody::new("Internal server error")),
+                )
+            }
+            UserServiceError::HashingError(err) => {
+                tracing::error!("Hashing error: {:?}", err);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorBody::new("Internal server error")),
+                )
+            }
+            other_error => {
+                tracing::error!("Unexpected error: {:?}", other_error);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorBody::new("Internal server error")),
+                )
+            }
+        })?;
 
     tracing::info!("User registered successfully");
     Ok((StatusCode::CREATED, Json(user_response)))
