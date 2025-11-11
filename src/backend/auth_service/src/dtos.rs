@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
-use shared::dtos::UserResponse;
+use shared_global::dtos::UserResponse;
 use validator::Validate;
 
-// DTOs for registration
+// DTOs for registration - auth_service only handles authentication data
 #[derive(Debug, Deserialize, Validate)]
 pub struct RegisterRequest {
     #[validate(length(
@@ -13,20 +13,6 @@ pub struct RegisterRequest {
     #[validate(custom(function = "validate_username"))]
     pub user_name: String,
 
-    #[validate(length(
-        min = 1,
-        max = 100,
-        message = "First name must be between 1 and 100 characters"
-    ))]
-    pub first_name: String,
-
-    #[validate(length(
-        min = 1,
-        max = 100,
-        message = "Last name must be between 1 and 100 characters"
-    ))]
-    pub last_name: String,
-
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
 
@@ -36,12 +22,6 @@ pub struct RegisterRequest {
         message = "Password must be between 8 and 128 characters"
     ))]
     pub password: String,
-
-    #[validate(length(min = 10, max = 10, message = "Phone number must have 10 characters"))]
-    #[validate(custom(function = "validate_phone_number"))]
-    pub phone_number: Option<String>,
-
-    pub is_male: Option<bool>,
 }
 
 fn validate_username(username: &str) -> Result<(), validator::ValidationError> {
@@ -59,16 +39,6 @@ fn validate_username(username: &str) -> Result<(), validator::ValidationError> {
                 ),
             ),
         )
-    }
-}
-
-fn validate_phone_number(phone_num: &str) -> Result<(), validator::ValidationError> {
-    // Only allow numbers
-    if phone_num.chars().all(|c| c.is_numeric()) {
-        Ok(())
-    } else {
-        Err(validator::ValidationError::new("username_invalid")
-            .with_message(std::borrow::Cow::Borrowed("phone number can only numbers.")))
     }
 }
 

@@ -9,12 +9,14 @@ RUN apk add --no-cache \
 
 WORKDIR /build
 
-COPY shared ./shared
+COPY shared/global ./shared/global
+COPY shared/auth_user ./shared/auth_user
 COPY auth_service ./auth_service
 
 WORKDIR /build/auth_service
 
-RUN cargo build --release
+RUN ls -la
+
 
 # Runtime stage
 FROM alpine:3.22
