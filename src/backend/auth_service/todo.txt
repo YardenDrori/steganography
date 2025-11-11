@@ -1,0 +1,1 @@
+change the migrations to be a more minimal selection of user data and send the other data to user_service

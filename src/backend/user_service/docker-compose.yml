@@ -1,46 +1,45 @@
 services:
-  auth_postgres:
+  user_postgres:
     image: postgres:16-alpine
-    container_name: auth_postgres
+    container_name: user_postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: auth_db
+      POSTGRES_DB: user_db
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
-      - auth_postgres_data:/var/lib/postgresql/data
+      - user_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - auth_network
+      - user_network
 
-  auth_service:
+  user_service:
     build:
       context: ..
-      dockerfile: auth_service/Dockerfile
-    container_name: auth_service
+      dockerfile: user_service/Dockerfile
+    container_name: user_service
     environment:
-      DATABASE_URL: postgres://postgres:postgres@auth_postgres:5432/auth_db
+      DATABASE_URL: postgres://postgres:postgres@user_postgres:5432/user_db
       JWT_SECRET: ${JWT_SECRET:-my-super-duper-mega-secret-key-that-no-one-will-discover-btw-have-you-played-silksong-yet-its-so-fucking-amazing-dude-i-cant-even-start-to-explain-how-much-i-love-it}
       RUST_LOG: info
-      PORT: 3001
+      PORT: 3002
     ports:
-      - "3001:3001"
+      - "3002:3002"
     depends_on:
-      auth_postgres:
+      user_postgres:
         condition: service_healthy
     networks:
-      - auth_network
+      - user_network
 
 volumes:
-  auth_postgres_data:
+  user_postgres_data:
 
 networks:
-  auth_network:
-    driver: bridge
+  user_network:
     name: microservices_network
-    external: false
+    external: true
