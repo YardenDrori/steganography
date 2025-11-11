@@ -4,4 +4,4 @@ members = [
     "shared"
     # "steganography_service",  # Uncomment when ready
     # "api_gateway",            # Uncomment when ready
-]
+, "user_service"]
