@@ -2,6 +2,10 @@ use crate::auth::roles::Roles;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
+pub trait HasJwtSecret {
+    fn jwt_secret(&self) -> String;
+}
+
 /// JWT Claims structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
@@ -13,7 +17,7 @@ pub struct Claims {
 
 /// Low-level JWT decoding utility
 /// Used by gateway and all services to verify JWT signatures
-pub fn decode_jwt(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+pub fn verify_jwt(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
     let decoding_key = DecodingKey::from_secret(secret.as_bytes());
 
     let token_data = decode::<Claims>(
