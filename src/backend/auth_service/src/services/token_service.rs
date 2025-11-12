@@ -2,6 +2,7 @@ use crate::auth::jwt::encode_jwt;
 use crate::errors::user_service_error::UserServiceError;
 use crate::models::token::RefreshToken;
 use crate::repositories::{token_repository, user_repository};
+use crate::services::user_service::get_user_roles;
 use chrono::{Duration, Utc};
 use rand::Rng;
 use sha2::{Digest, Sha256};
@@ -34,13 +35,20 @@ fn hash_token(token: &str) -> String {
 }
 
 // Creates a new access token (JWT) for a user
-pub fn create_access_token(user_id: i64, secret: &str) -> Result<String, UserServiceError> {
+pub async fn create_access_token(
+    user_id: i64,
+    pool: &PgPool,
+    secret: &str,
+) -> Result<String, UserServiceError> {
     tracing::debug!("Creating access token for user_id={}", user_id);
     let now = Utc::now();
     let issued_at = now.timestamp();
     let expires_at = issued_at + ACCESS_TOKEN_DURATION_SECONDS;
+    let roles = get_user_roles(pool, user_id)
+        .await
+        .map_err(|e| UserServiceError::DatabaseError(e))?;
 
-    let token = encode_jwt(user_id, issued_at, expires_at, secret)
+    let token = encode_jwt(user_id, issued_at, expires_at, roles, secret)
         .map_err(|e| UserServiceError::JwtError(e))?;
     tracing::info!("Created access token for user_id={}", user_id);
     Ok(token)
@@ -158,7 +166,7 @@ pub async fn refresh_access_token(
         .map_err(|e| UserServiceError::DatabaseError(e))?;
 
     // Generate new access token
-    let new_access_token = create_access_token(user.id(), jwt_secret)?;
+    let new_access_token = create_access_token(user.id(), &pool, jwt_secret).await?;
 
     // Generate new refresh token
     let new_refresh_token = create_refresh_token(
