@@ -1,8 +1,6 @@
 use crate::entities::user::UserEntity;
 use crate::models::user::User;
-use shared_global::auth::roles::Roles;
 use sqlx::{query_as, PgPool};
-use std::str::FromStr;
 
 pub async fn get_user_by_id(pool: &PgPool, user_id: i64) -> Result<Option<User>, sqlx::Error> {
     let result = query_as!(

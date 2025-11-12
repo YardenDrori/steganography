@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::dtos::LoginResponse;
 use crate::errors::user_service_error::{self, UserServiceError};
 use crate::models::user::User;
@@ -10,6 +8,7 @@ use argon2::{Argon2, PasswordHasher};
 use shared_global::auth::roles::{Role, Roles};
 use shared_global::dtos::UserResponse;
 use sqlx::PgPool;
+use std::str::FromStr;
 
 pub async fn register_user(
     pool: &PgPool,

@@ -1,5 +1,9 @@
+use axum::routing::get;
 use axum::{routing::post, Router};
+use routes::get_users::{get_current_profile, get_user};
 use shared_global::db::postgres::create_pool;
+
+use crate::app_state::AppState;
 mod app_state;
 mod dtos;
 mod entities;
@@ -17,6 +21,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
+    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set in env");
+    if jwt_secret.len() < 32 {
+        panic!("JWT_SECRET must be at least 32 characters for security");
+    }
+
     let database_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
 
@@ -29,11 +38,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     sqlx::migrate!().run(&pool).await?;
 
     // Create app state
-    let app_state = pool;
+    let app_state = AppState {
+        pool: pool,
+        jwt_secret: jwt_secret,
+    };
 
     // Build router
     let app = Router::new()
-        .route("/user", post(|| async { "User Service" }))
+        .route("/users/me", get(get_current_profile))
+        .route("/users/:id", get(get_user))
         .with_state(app_state);
 
     // Start server on port 3002
