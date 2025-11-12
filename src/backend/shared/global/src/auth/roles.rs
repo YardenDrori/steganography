@@ -10,6 +10,19 @@ pub enum Role {
     // Add more roles as needed (e.g., Moderator, Premium, etc.)
 }
 
+pub trait ToStr {
+    fn to_str(&self) -> String;
+}
+
+impl ToStr for Role {
+    fn to_str(&self) -> String {
+        match self {
+            Role::Admin => "admin".to_string(),
+            Role::User => "user".to_string(),
+        }
+    }
+}
+
 impl FromStr for Role {
     type Err = String;
 

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::dtos::LoginResponse;
 use crate::errors::user_service_error::{self, UserServiceError};
 use crate::models::user::User;
@@ -5,6 +7,7 @@ use crate::repositories::user_repository::{self, get_user_by_email, get_user_by_
 use crate::services::token_service::{create_access_token, create_refresh_token};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHasher};
+use shared_global::auth::roles::{Role, Roles};
 use shared_global::dtos::UserResponse;
 use sqlx::PgPool;
 
@@ -54,9 +57,9 @@ pub async fn register_user(
         })?;
 
     // Assign default "user" role to new user
-    // user_repository::add_user_role(pool, user.id(), Role::User)
-    //     .await
-    //     .map_err(|e| UserServiceError::DatabaseError(e))?;
+    user_repository::add_user_role(pool, user.id(), Role::User)
+        .await
+        .map_err(|e| UserServiceError::DatabaseError(e))?;
 
     let response = user_to_response(user);
     Ok(response)
@@ -92,7 +95,7 @@ pub async fn login_user(
         return Err(UserServiceError::InvalidCredentials);
     }
 
-    let jwt_token = create_access_token(user.id(), jwt_secret)?;
+    let jwt_token = create_access_token(user.id(), pool, jwt_secret).await?;
     let refresh_token =
         create_refresh_token(pool, user.id(), device_info.map(|s| s.to_string())).await?;
 
@@ -105,6 +108,28 @@ pub async fn login_user(
     };
 
     Ok(response)
+}
+
+pub async fn get_user_roles(pool: &PgPool, user_id: i64) -> Result<Roles, sqlx::Error> {
+    let records = sqlx::query!(
+        r#"
+        SELECT role
+        FROM user_roles
+        WHERE user_id = $1
+        "#,
+        user_id
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let mut roles = Roles::new(); // Initialize!
+    for record in records {
+        if let Ok(role) = Role::from_str(&record.role) {
+            roles.insert(role);
+        }
+    }
+
+    Ok(roles)
 }
 
 fn user_to_response(user: User) -> UserResponse {

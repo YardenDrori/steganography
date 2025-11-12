@@ -1,3 +1,4 @@
+use crate::auth::roles::Roles;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +8,7 @@ pub struct Claims {
     pub sub: i64, // subject (user_id)
     pub exp: i64, // expiration timestamp in unix convention
     pub iat: i64, // issued at timestamp in unix convention
+    pub roles: Roles,
 }
 
 /// Low-level JWT decoding utility
