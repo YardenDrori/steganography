@@ -25,6 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         panic!("JWT_SECRET must be at least 32 characters for security");
     }
 
+    let internal_api_key = std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
+    let user_service_url = std::env::var("USER_SERVICE_URL").expect("USER_SERVICE_URL must be set in env");
+
     let database_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
 
@@ -39,6 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create app state
     let app_state = AppState {
         jwt_secret,
+        internal_api_key,
+        user_service_url,
         pool: pool.clone(),
     };
 

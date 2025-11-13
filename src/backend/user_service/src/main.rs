@@ -1,9 +1,9 @@
-use axum::routing::get;
-use axum::{routing::post, Router};
-use routes::get_users::{get_current_profile, get_user};
-use shared_global::db::postgres::create_pool;
-
 use crate::app_state::AppState;
+use crate::routes::{delete_users, post_users};
+use axum::routing::{delete, get, post};
+use axum::Router;
+use routes::get_users;
+use shared_global::db::postgres::create_pool;
 mod app_state;
 mod dtos;
 mod entities;
@@ -26,6 +26,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         panic!("JWT_SECRET must be at least 32 characters for security");
     }
 
+    let internal_api_key =
+        std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
+
     let database_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
 
@@ -41,12 +44,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_state = AppState {
         pool: pool,
         jwt_secret: jwt_secret,
+        internal_api_key: internal_api_key,
     };
 
     // Build router
     let app = Router::new()
-        .route("/users/me", get(get_current_profile))
-        .route("/users/:id", get(get_user))
+        .route("/users/me", get(get_users::get_current_profile))
+        .route("/users/:id", get(get_users::get_user))
+        .route("/users", post(post_users::create_user))
+        .route("/users/:id", delete(delete_users::delete_user))
         .with_state(app_state);
 
     // Start server on port 3002

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use shared_global::dtos::UserResponse;
 use validator::Validate;
 
-// DTOs for registration - auth_service only handles authentication data
+// DTOs for registration - includes both auth and profile data
 #[derive(Debug, Deserialize, Validate)]
 pub struct RegisterRequest {
     #[validate(length(
@@ -22,6 +22,16 @@ pub struct RegisterRequest {
         message = "Password must be between 8 and 128 characters"
     ))]
     pub password: String,
+
+    // Profile fields
+    #[validate(length(min = 1, max = 50, message = "First name must be between 1 and 50 characters"))]
+    pub first_name: String,
+
+    #[validate(length(min = 1, max = 50, message = "Last name must be between 1 and 50 characters"))]
+    pub last_name: String,
+
+    pub phone_number: Option<String>,
+    pub is_male: Option<bool>,
 }
 
 fn validate_username(username: &str) -> Result<(), validator::ValidationError> {

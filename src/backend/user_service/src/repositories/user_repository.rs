@@ -1,6 +1,6 @@
 use crate::entities::user::UserEntity;
 use crate::models::user::User;
-use sqlx::{query_as, PgPool};
+use sqlx::{query, query_as, PgPool};
 
 pub async fn get_user_by_id(pool: &PgPool, user_id: i64) -> Result<Option<User>, sqlx::Error> {
     let result = query_as!(
@@ -21,4 +21,51 @@ pub async fn get_user_by_id(pool: &PgPool, user_id: i64) -> Result<Option<User>,
     .await?
     .map(|db| db.into());
     Ok(result)
+}
+
+pub async fn create_user(
+    pool: &PgPool,
+    user_name: &str,
+    first_name: &str,
+    last_name: &str,
+    is_male: Option<bool>,
+    email: &str,
+    phone_number: Option<&str>,
+) -> Result<User, sqlx::Error> {
+    let result = query!(
+        r#"
+        INSERT INTO users (user_name, first_name,
+        last_name, is_male,
+        email, phone_number)
+        VALUES($1, $2, $3, $4, $5, $6) RETURNING id
+        "#,
+        user_name,
+        first_name,
+        last_name,
+        is_male,
+        email,
+        phone_number,
+    )
+    .fetch_one(pool)
+    .await?;
+
+    let user = get_user_by_id(pool, result.id)
+        .await?
+        .ok_or(sqlx::Error::RowNotFound)?;
+
+    Ok(user)
+}
+
+pub async fn delete_user(pool: &PgPool, user_id: i64) -> Result<bool, sqlx::Error> {
+    let result = query!(
+        r#"
+        DELETE FROM users
+        WHERE id = $1
+        "#,
+        user_id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
 }

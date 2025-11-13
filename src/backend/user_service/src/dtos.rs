@@ -1,10 +1,20 @@
+use crate::models::user::User;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::user::User;
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserCreateRequest /*temp name i suck at naming*/ {
+    pub user_name: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub email: String,
+    pub phone_number: Option<String>,
+    pub is_male: Option<bool>,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserResponse {
+    pub id: i64,
     pub user_name: String,
     pub first_name: String,
     pub last_name: String,
@@ -19,6 +29,7 @@ pub struct UserResponse {
 impl From<User> for UserResponse {
     fn from(value: User) -> Self {
         UserResponse {
+            id: value.id(),
             user_name: value.user_name().to_string(),
             first_name: value.first_name().to_string(),
             last_name: value.last_name().to_string(),

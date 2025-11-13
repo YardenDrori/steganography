@@ -1,7 +1,7 @@
 use crate::entities::user::UserEntity;
 use crate::models::user::User;
 use shared_global::auth::roles::{Role, Roles, ToStr};
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use std::str::FromStr;
 
 pub async fn save_user(
