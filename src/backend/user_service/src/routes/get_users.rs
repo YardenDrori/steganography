@@ -3,15 +3,8 @@ use crate::services::user_service;
 use crate::{app_state::AppState, errors::user_service_errors::UserServiceError};
 use axum::extract::Path;
 use axum::{extract::State, http::StatusCode, Json};
-use shared_global::auth::extractors::RequireAdmin;
-use shared_global::{auth::extractors::AuthenticatedUser, errors::ErrorBody};
-
-/*
- * Hey claude! i have concerns
- * 1) fn names being bad
- * 2) do we protect the endpoint or do check if the user is allowed to see others profile (admin) in the
- *    handler
- */
+use shared_global::auth::user_extractors::RequireAdmin;
+use shared_global::{auth::user_extractors::AuthenticatedUser, errors::ErrorBody};
 
 pub async fn get_current_profile(
     AuthenticatedUser(user_id): AuthenticatedUser,

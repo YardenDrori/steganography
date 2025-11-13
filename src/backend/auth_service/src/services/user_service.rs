@@ -4,18 +4,65 @@ use crate::models::user::User;
 use crate::repositories::user_repository::{self, get_user_by_email, get_user_by_username};
 use crate::services::token_service::{create_access_token, create_refresh_token};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
-use argon2::{Argon2, PasswordHasher};
+use argon2::{Argon2, Error, PasswordHasher};
+use axum::http::{response, Response};
+use reqwest::StatusCode;
 use shared_global::auth::roles::{Role, Roles};
+use shared_global::db;
 use shared_global::dtos::UserResponse;
 use sqlx::PgPool;
+use std::fmt::format;
 use std::str::FromStr;
 
 pub async fn register_user(
     pool: &PgPool,
+    internal_api_key: &str,
+    user_service_url: &str,
     user_name: &str,
+    first_name: &str,
+    last_name: &str,
     email: &str,
+    phone_number: Option<&str>,
+    is_male: Option<bool>,
     password: &str,
 ) -> Result<UserResponse, user_service_error::UserServiceError> {
+    //Step 1 save user data in user_service
+    let client = reqwest::Client::new();
+    let user_create_request = serde_json::json!({
+    "user_name": user_name,
+    "first_name": first_name,
+    "last_name": last_name,
+    "email": email,
+    "phone_number": phone_number,
+    "is_male": is_male,
+    });
+
+    let response = client
+        .post(format!("{}/users", user_service_url))
+        .header("X-Internal-API-Key", internal_api_key)
+        .json(&user_create_request)
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::error!("failed to call user_service");
+            UserServiceError::ExternalServiceError(format!("{}", e))
+        })?;
+
+    if !response.status().is_success() {
+        return Err(UserServiceError::ExternalServiceError(format!(
+            "user_service request failed: {}",
+            response.status()
+        )));
+    }
+
+    let user_profile: UserResponse = response.json().await.map_err(|e| {
+        UserServiceError::ExternalServiceError(format!("invalid response frim user_service: {}", e))
+    })?;
+
+    let user_id = user_profile.id;
+    tracing::info!("Created user profile in user_service with id={}", user_id);
+
+    //Step 2 save user data in auth_service
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let hashed_password = argon2
@@ -23,42 +70,58 @@ pub async fn register_user(
         .map_err(|e| UserServiceError::HashingError(e))?
         .to_string();
 
-    let user = user_repository::save_user(pool, &user_name, &email, &hashed_password)
-        .await
-        .map_err(|e| {
-            // Check if this is a database-specific error (not network, timeout, etc.)
-            match &e {
-                sqlx::Error::Database(db_err) => {
-                    // Check if the error has a constraint name (means unique/foreign key violation)
-                    match db_err.constraint() {
-                        Some(constraint_name) => {
-                            // Check which constraint was violated
-                            if constraint_name.contains("email") {
-                                UserServiceError::EmailAlreadyExists
-                            } else if constraint_name.contains("user_name") {
-                                UserServiceError::UsernameAlreadyExists
-                            } else {
-                                // Some other constraint we don't handle specifically
-                                UserServiceError::DatabaseError(e)
+    let user: User =
+        match user_repository::save_user(pool, &user_name, &email, &hashed_password).await {
+            Ok(r) => r,
+            Err(e) => {
+                compensate_delete_user(pool, internal_api_key, user_id, true).await?;
+
+                match e {
+                    sqlx::Error::Database(db_err) => {
+                        match db_err.constraint() {
+                            Some(constraint_name) => {
+                                if constraint_name.contains("email") {
+                                    tracing::error!(
+                                    "Attempted to create an account under an existing email: {}"
+                                        ,email
+                                );
+                                    return Err(UserServiceError::EmailAlreadyExists);
+                                } else if constraint_name.contains("user_name") {
+                                    tracing::error!(
+                                    "Attempted to create an account under an existing user name: {}"
+                                        ,user_name
+                                );
+                                    return Err(UserServiceError::UsernameAlreadyExists);
+                                } else {
+                                    tracing::error!(
+                                        "Unexpected constraint conflict: {}",
+                                        constraint_name
+                                    );
+                                    return Err(UserServiceError::DatabaseError(e));
+                                }
                             }
-                        }
-                        None => {
-                            // Database error but no constraint (e.g., connection issue)
-                            UserServiceError::DatabaseError(e)
-                        }
+                            None => {
+                                tracing::error!("Unexpected database error: {:?}", e);
+                                return Err(UserServiceError::DatabaseError(e));
+                            }
+                        };
+                    }
+                    _ => {
+                        tracing::error!("Unexpected database error: {:?}", e);
+                        return Err(UserServiceError::DatabaseError(e));
                     }
                 }
-                _ => {
-                    // Not a database error (could be network, timeout, etc.)
-                    UserServiceError::DatabaseError(e)
-                }
             }
-        })?;
+        };
 
     // Assign default "user" role to new user
-    user_repository::add_user_role(pool, user.id(), Role::User)
-        .await
-        .map_err(|e| UserServiceError::DatabaseError(e))?;
+    match user_repository::add_user_role(pool, user.id(), Role::User).await {
+        Ok(u) => u,
+        Err(e) => {
+            compensate_delete_user(pool, internal_api_key, user_id).await?;
+            return Err(UserServiceError::DatabaseError(e));
+        }
+    }
 
     let response = user_to_response(user);
     Ok(response)
@@ -139,4 +202,43 @@ fn user_to_response(user: User) -> UserResponse {
         is_active: user.is_active(),
         is_verified: user.is_verified(),
     }
+}
+
+pub async fn compensate_delete_user(
+    user_service_url: &str,
+    internal_api_key: &str,
+    user_id: i64,
+) -> Result<(), UserServiceError> {
+    const ATTEMPTS: u8 = 3;
+
+    let client = reqwest::Client::new();
+    let mut errors = String::new();
+    for i in 0..ATTEMPTS {
+        let response: reqwest::Response = match client
+            .delete(format!("{}/users/{}", user_service_url, user_id))
+            .header("X-Internal-API-Key", internal_api_key)
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!("Attempt: {} out of {}: {:?}", i, ATTEMPTS, e);
+                errors.push_str(&format!("Attempt: {} out of {}: {:?}", i, ATTEMPTS, e));
+                continue;
+            }
+        };
+
+        if !response.status().is_success() {
+            tracing::error!("Attempt: {} out of {}: {:?}", i, ATTEMPTS, e);
+            errors.push_str(&format!("Attempt: {} out of {}: {:?}", i, ATTEMPTS, e));
+            continue;
+
+            return Err(UserServiceError::ExternalServiceError(format!(
+                "user_service request failed: {}",
+                response.status()
+            )));
+        }
+    }
+    tracing::info!("Deleted user profile in user_service with id={} due to auth_user db failing to create matching user data", user_id);
+    todo!()
 }

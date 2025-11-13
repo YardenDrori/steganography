@@ -6,4 +6,5 @@ pub enum UserServiceError {
     HashingError(argon2::password_hash::Error),
     InvalidCredentials,
     JwtError(jsonwebtoken::errors::Error),
+    ExternalServiceError(String), // For HTTP calls to other microservices
 }

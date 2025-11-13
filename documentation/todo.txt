@@ -1,4 +1,5 @@
 make video output the origina file's audio and other streams
+change ids in db and dtos to UUID to prevent enumeration
 make video stream the same index as the original
 add email verification to prevent enumeration in register requests
 add rate limiting via tower to the middleware

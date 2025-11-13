@@ -26,6 +26,7 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@user_postgres:5432/user_db
       JWT_SECRET: ${JWT_SECRET:-my-super-duper-mega-secret-key-that-no-one-will-discover-btw-have-you-played-silksong-yet-its-so-fucking-amazing-dude-i-cant-even-start-to-explain-how-much-i-love-it}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-zero-trust-they-said-itll-be-fun-they-said-now-im-just-a-microservice-with-trust-issues-talking-to-myself-through-http-requests}
       RUST_LOG: info
       PORT: 3002
     ports:
