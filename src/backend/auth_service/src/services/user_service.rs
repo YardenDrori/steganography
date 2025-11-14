@@ -4,14 +4,10 @@ use crate::models::user::User;
 use crate::repositories::user_repository::{self, get_user_by_email, get_user_by_username};
 use crate::services::token_service::{create_access_token, create_refresh_token};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
-use argon2::{Argon2, Error, PasswordHasher};
-use axum::http::{response, Response};
-use reqwest::StatusCode;
+use argon2::{Argon2, PasswordHasher};
 use shared_global::auth::roles::{Role, Roles};
-use shared_global::db;
 use shared_global::dtos::UserResponse;
 use sqlx::PgPool;
-use std::fmt::format;
 use std::str::FromStr;
 
 pub async fn register_user(
@@ -74,9 +70,9 @@ pub async fn register_user(
         match user_repository::save_user(pool, &user_name, &email, &hashed_password).await {
             Ok(r) => r,
             Err(e) => {
-                compensate_delete_user(pool, internal_api_key, user_id, true).await?;
+                compensate_delete_user(user_service_url, internal_api_key, user_id).await?;
 
-                match e {
+                match &e {
                     sqlx::Error::Database(db_err) => {
                         match db_err.constraint() {
                             Some(constraint_name) => {
@@ -118,7 +114,7 @@ pub async fn register_user(
     match user_repository::add_user_role(pool, user.id(), Role::User).await {
         Ok(u) => u,
         Err(e) => {
-            compensate_delete_user(pool, internal_api_key, user_id).await?;
+            compensate_delete_user(&user_service_url, &internal_api_key, user_id).await?;
             return Err(UserServiceError::DatabaseError(e));
         }
     }
@@ -229,16 +225,30 @@ pub async fn compensate_delete_user(
         };
 
         if !response.status().is_success() {
-            tracing::error!("Attempt: {} out of {}: {:?}", i, ATTEMPTS, e);
-            errors.push_str(&format!("Attempt: {} out of {}: {:?}", i, ATTEMPTS, e));
+            let status = response.status();
+            let error_body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read response body".to_string());
+            tracing::error!(
+                "Attempt {} out of {}: status={}, error={}",
+                i,
+                ATTEMPTS,
+                status,
+                error_body
+            );
+            errors.push_str(&format!(
+                "Attempt {} out of {}: status={}, error={}\n",
+                i, ATTEMPTS, status, error_body
+            ));
             continue;
-
-            return Err(UserServiceError::ExternalServiceError(format!(
-                "user_service request failed: {}",
-                response.status()
-            )));
+        } else {
+            return Ok(());
         }
     }
     tracing::info!("Deleted user profile in user_service with id={} due to auth_user db failing to create matching user data", user_id);
-    todo!()
+    return Err(UserServiceError::ExternalServiceError(format!(
+        "{:?}",
+        errors
+    )));
 }
