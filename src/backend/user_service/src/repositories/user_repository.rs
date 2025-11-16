@@ -56,6 +56,45 @@ pub async fn create_user(
     Ok(user)
 }
 
+pub async fn update_user(
+    pool: &PgPool,
+    user_id: i64,
+    first_name: Option<&str>,
+    last_name: Option<&str>,
+    email: Option<&str>,
+    phone_number: Option<&str>,
+    is_male: Option<bool>,
+) -> Result<User, sqlx::Error> {
+    // Build dynamic UPDATE query only for provided fields
+    query!(
+        r#"
+        UPDATE users
+        SET
+            first_name = COALESCE($2, first_name),
+            last_name = COALESCE($3, last_name),
+            email = COALESCE($4, email),
+            phone_number = COALESCE($5, phone_number),
+            is_male = COALESCE($6, is_male),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        "#,
+        user_id,
+        first_name,
+        last_name,
+        email,
+        phone_number,
+        is_male
+    )
+    .execute(pool)
+    .await?;
+
+    let user = get_user_by_id(pool, user_id)
+        .await?
+        .ok_or(sqlx::Error::RowNotFound)?;
+
+    Ok(user)
+}
+
 pub async fn delete_user(pool: &PgPool, user_id: i64) -> Result<bool, sqlx::Error> {
     let result = query!(
         r#"

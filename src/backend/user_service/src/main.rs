@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
-use crate::routes::{delete_users, post_users};
-use axum::routing::{delete, get, post};
+use crate::routes::{delete_users, patch_users, post_users};
+use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use routes::get_users;
 use shared_global::db::postgres::create_pool;
@@ -50,7 +50,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build router
     let app = Router::new()
         .route("/users/me", get(get_users::get_current_profile))
+        .route("/users/me", patch(patch_users::update_my_profile))
         .route("/users/:id", get(get_users::get_user))
+        .route("/users/:id", patch(patch_users::update_user))
         .route("/users", post(post_users::create_user))
         .route("/users/:id", delete(delete_users::delete_user))
         .with_state(app_state);

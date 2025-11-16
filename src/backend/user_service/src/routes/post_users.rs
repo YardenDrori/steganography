@@ -49,7 +49,7 @@ pub async fn create_user(
     tracing::info!(
         user_id = %user_response.id,
         user_name = %user_response.user_name,
-        "✓ User profile created successfully"
+        "User profile created successfully"
     );
 
     Ok((StatusCode::CREATED, Json(user_response)))
