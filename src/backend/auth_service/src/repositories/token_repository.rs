@@ -38,7 +38,7 @@ pub async fn get_refrsh_token_by_id(
     let refresh_token = sqlx::query_as!(
         RefreshTokenEntity,
         r#"
-        SELECT id, user_id, token_hash, expires_at, created_at, revoked_at , device_info FROM refresh_tokens WHERE id = $1
+        SELECT id, user_id, token_hash, expires_at, created_at, device_info FROM refresh_tokens WHERE id = $1
         "#,
         refresh_token_id
     )
@@ -56,7 +56,7 @@ pub async fn get_refresh_token_by_hash(
     let refresh_token = sqlx::query_as!(
         RefreshTokenEntity,
         r#"
-        SELECT id, user_id, token_hash, expires_at, created_at, revoked_at, device_info
+        SELECT id, user_id, token_hash, expires_at, created_at, device_info
         FROM refresh_tokens
         WHERE token_hash = $1
         "#,
@@ -72,8 +72,7 @@ pub async fn get_refresh_token_by_hash(
 pub async fn revoke_refresh_token(pool: &PgPool, token_id: i64) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
-        UPDATE refresh_tokens
-        SET revoked_at = CURRENT_TIMESTAMP
+        DELETE FROM refresh_tokens
         WHERE id = $1
         "#,
         token_id
@@ -82,4 +81,18 @@ pub async fn revoke_refresh_token(pool: &PgPool, token_id: i64) -> Result<(), sq
     .await?;
 
     Ok(())
+}
+
+/// Deletes all expired refresh tokens
+pub async fn cleanup_expired_tokens(pool: &PgPool) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM refresh_tokens
+        WHERE expires_at < CURRENT_TIMESTAMP
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
 }

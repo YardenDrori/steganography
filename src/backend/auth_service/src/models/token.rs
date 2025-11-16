@@ -9,7 +9,6 @@ pub struct RefreshToken {
     token_hash: String,
     expires_at: DateTime<Utc>,
     created_at: DateTime<Utc>,
-    revoked_at: Option<DateTime<Utc>>,
     device_info: Option<String>,
 }
 
@@ -36,14 +35,6 @@ impl RefreshToken {
         Utc::now() > self.expires_at
     }
 
-    pub fn is_revoked(&self) -> bool {
-        self.revoked_at.is_some()
-    }
-
-    pub fn is_valid(&self) -> bool {
-        !self.is_expired() && !self.is_revoked()
-    }
-
     pub fn matches_token(&self, token_to_verify: &str) -> bool {
         let mut hasher = Sha256::new();
         hasher.update(token_to_verify.as_bytes());
@@ -60,7 +51,6 @@ impl From<RefreshTokenEntity> for RefreshToken {
             token_hash: entity.token_hash,
             expires_at: entity.expires_at,
             created_at: entity.created_at,
-            revoked_at: entity.revoked_at,
             device_info: entity.device_info,
         }
     }
