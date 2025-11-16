@@ -1,6 +1,5 @@
 use crate::dtos::{UserCreateRequest, UserResponse};
 use crate::errors::user_service_errors::UserServiceError;
-use crate::models::user::User;
 use crate::repositories::user_repository;
 use sqlx::PgPool;
 

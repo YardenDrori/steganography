@@ -135,14 +135,10 @@ pub async fn refresh_access_token(
             "Expired refresh token used for user_id={}",
             stored_token.user_id()
         );
-        return Err(UserServiceError::InvalidCredentials);
-    }
-
-    if stored_token.is_revoked() {
-        tracing::warn!(
-            "Revoked refresh token used for user_id={}",
-            stored_token.user_id()
-        );
+        // Delete expired token
+        token_repository::revoke_refresh_token(pool, stored_token.id())
+            .await
+            .map_err(|e| UserServiceError::DatabaseError(e))?;
         return Err(UserServiceError::InvalidCredentials);
     }
 
