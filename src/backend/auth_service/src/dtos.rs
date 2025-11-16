@@ -35,21 +35,7 @@ pub struct RegisterRequest {
 }
 
 fn validate_username(username: &str) -> Result<(), validator::ValidationError> {
-    // Only allow alphanumeric, underscores, and hyphens
-    if username
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-    {
-        Ok(())
-    } else {
-        Err(
-            validator::ValidationError::new("username_invalid").with_message(
-                std::borrow::Cow::Borrowed(
-                    "Username can only contain letters, numbers, underscores, and hyphens",
-                ),
-            ),
-        )
-    }
+    shared_global::validation::validate_username(username)
 }
 
 // DTOs for login
@@ -72,8 +58,9 @@ pub struct LoginResponse {
 }
 
 // DTO for refresh token request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct RefreshTokenRequest {
+    #[validate(length(min = 1, message = "Refresh token cannot be empty"))]
     pub refresh_token: String,
 }
 
@@ -85,7 +72,8 @@ pub struct RefreshTokenResponse {
 }
 
 // DTO for logout request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct LogoutRequest {
+    #[validate(length(min = 1, message = "Refresh token cannot be empty"))]
     pub refresh_token: String,
 }

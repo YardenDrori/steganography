@@ -15,7 +15,11 @@ COPY auth_service ./auth_service
 
 WORKDIR /build/auth_service
 
-RUN ls -la
+# Use offline mode with the .sqlx cache
+ENV SQLX_OFFLINE=true
+
+# Build the release binary
+RUN cargo build --release
 
 
 # Runtime stage

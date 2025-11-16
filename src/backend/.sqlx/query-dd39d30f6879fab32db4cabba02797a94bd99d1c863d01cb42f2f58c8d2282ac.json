@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n          SELECT id, user_name,\n                 email,\n                 password_hash,\n                 is_active as \"is_active: bool\",\n                 is_verified as \"is_verified: bool\"\n          FROM users\n          WHERE id = $1\n          ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "password_hash",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "is_active: bool",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_verified: bool",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "dd39d30f6879fab32db4cabba02797a94bd99d1c863d01cb42f2f58c8d2282ac"
+}

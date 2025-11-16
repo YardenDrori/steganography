@@ -22,7 +22,17 @@ pub async fn register_user(
     is_male: Option<bool>,
     password: &str,
 ) -> Result<UserResponse, user_service_error::UserServiceError> {
+    tracing::info!(
+        user_name = %user_name,
+        email = %email,
+        "Starting user registration saga"
+    );
+
     //Step 1 save user data in user_service
+    tracing::debug!(
+        user_service_url = %user_service_url,
+        "Saga step 1: Creating user profile in user_service"
+    );
     let client = reqwest::Client::new();
     let user_create_request = serde_json::json!({
     "user_name": user_name,
@@ -52,13 +62,22 @@ pub async fn register_user(
     }
 
     let user_profile: UserResponse = response.json().await.map_err(|e| {
+        tracing::error!(error = ?e, "Failed to parse user_service response");
         UserServiceError::ExternalServiceError(format!("invalid response frim user_service: {}", e))
     })?;
 
     let user_id = user_profile.id;
-    tracing::info!("Created user profile in user_service with id={}", user_id);
+    tracing::info!(
+        user_id = %user_id,
+        user_name = %user_name,
+        "Saga step 1: ✓ User profile created in user_service"
+    );
 
     //Step 2 save user data in auth_service
+    tracing::debug!(
+        user_id = %user_id,
+        "Saga step 2: Creating auth credentials in auth_service"
+    );
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let hashed_password = argon2
@@ -70,6 +89,11 @@ pub async fn register_user(
         match user_repository::save_user(pool, &user_name, &email, &hashed_password).await {
             Ok(r) => r,
             Err(e) => {
+                tracing::warn!(
+                    user_id = %user_id,
+                    error = ?e,
+                    "Saga step 2: ✗ Failed to create auth credentials, initiating compensation"
+                );
                 compensate_delete_user(user_service_url, internal_api_key, user_id).await?;
 
                 match &e {
@@ -110,27 +134,55 @@ pub async fn register_user(
             }
         };
 
+    tracing::info!(
+        user_id = %user_id,
+        auth_user_id = %user.id(),
+        "Saga step 2: ✓ Auth credentials created"
+    );
+
     // Assign default "user" role to new user
+    tracing::debug!(user_id = %user_id, "Saga step 3: Assigning default user role");
     match user_repository::add_user_role(pool, user.id(), Role::User).await {
         Ok(u) => u,
         Err(e) => {
+            tracing::warn!(
+                user_id = %user_id,
+                error = ?e,
+                "Saga step 3: ✗ Failed to assign role, initiating compensation"
+            );
             compensate_delete_user(&user_service_url, &internal_api_key, user_id).await?;
             return Err(UserServiceError::DatabaseError(e));
         }
     }
 
-    let response = user_to_response(user);
-    Ok(response)
+    tracing::info!(
+        user_id = %user_id,
+        user_name = %user_name,
+        email = %email,
+        "✓ Registration saga completed successfully"
+    );
+
+    // Return the full user profile from user_service
+    Ok(user_profile)
 }
 
 pub async fn login_user(
     pool: &PgPool,
+    internal_api_key: &str,
+    user_service_url: &str,
     email: Option<&str>,
     user_name: Option<&str>,
     password: &str,
     device_info: Option<&str>,
     jwt_secret: &str,
 ) -> Result<LoginResponse, UserServiceError> {
+    tracing::info!(
+        email = ?email,
+        user_name = ?user_name,
+        device_info = ?device_info,
+        "Login attempt"
+    );
+
     let user = match (email, user_name) {
         (Some(email), None) => get_user_by_email(pool, &email)
             .await
@@ -144,26 +196,57 @@ pub async fn login_user(
     };
 
     //dont tell users if an account for those credentials exist or not
-    let user = user.ok_or(UserServiceError::InvalidCredentials)?;
+    let user = user.ok_or_else(|| {
+        tracing::warn!(email = ?email, user_name = ?user_name, "Login failed: user not found");
+        UserServiceError::InvalidCredentials
+    })?;
+
+    tracing::debug!(user_id = %user.id(), "User found, verifying password");
 
     if !user
         .verify_password(&password)
         .map_err(|e| UserServiceError::HashingError(e))?
     {
+        tracing::warn!(user_id = %user.id(), "Login failed: invalid password");
         return Err(UserServiceError::InvalidCredentials);
     }
 
+    tracing::debug!(user_id = %user.id(), "Password verified, creating tokens");
     let jwt_token = create_access_token(user.id(), pool, jwt_secret).await?;
     let refresh_token =
         create_refresh_token(pool, user.id(), device_info.map(|s| s.to_string())).await?;
 
-    let response = user_to_response(user);
+    // Fetch full user profile from user_service
+    tracing::debug!(user_id = %user.id(), "Fetching full user profile from user_service");
+    let client = reqwest::Client::new();
+    let response = client
+        .get(format!("{}/users/{}", user_service_url, user.id()))
+        .header("X-Internal-API-Key", internal_api_key)
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to fetch user profile from user_service: {:?}", e);
+            UserServiceError::ExternalServiceError(format!("{}", e))
+        })?;
+
+    if !response.status().is_success() {
+        return Err(UserServiceError::ExternalServiceError(format!(
+            "user_service request failed: {}",
+            response.status()
+        )));
+    }
+
+    let user_profile: UserResponse = response.json().await.map_err(|e| {
+        UserServiceError::ExternalServiceError(format!("Invalid response from user_service: {}", e))
+    })?;
 
     let response = LoginResponse {
-        user: response,
+        user: user_profile,
         access_token: jwt_token,
         refresh_token,
     };
+
+    tracing::info!(user_id = %user.id(), "✓ Login successful");
 
     Ok(response)
 }
@@ -190,22 +273,18 @@ pub async fn get_user_roles(pool: &PgPool, user_id: i64) -> Result<Roles, sqlx::
     Ok(roles)
 }
 
-fn user_to_response(user: User) -> UserResponse {
-    UserResponse {
-        id: user.id(),
-        user_name: user.user_name().to_string(),
-        email: user.email().to_string(),
-        is_active: user.is_active(),
-        is_verified: user.is_verified(),
-    }
-}
-
 pub async fn compensate_delete_user(
     user_service_url: &str,
     internal_api_key: &str,
     user_id: i64,
 ) -> Result<(), UserServiceError> {
     const ATTEMPTS: u8 = 3;
+
+    tracing::warn!(
+        user_id = %user_id,
+        attempts = ATTEMPTS,
+        "Starting compensation: deleting user from user_service"
+    );
 
     let client = reqwest::Client::new();
     let mut errors = String::new();
@@ -243,10 +322,20 @@ pub async fn compensate_delete_user(
             ));
             continue;
         } else {
+            tracing::info!(
+                user_id = %user_id,
+                "✓ Compensation successful: user deleted from user_service"
+            );
             return Ok(());
         }
     }
-    tracing::info!("Deleted user profile in user_service with id={} due to auth_user db failing to create matching user data", user_id);
+    tracing::error!(
+        user_id = %user_id,
+        attempts = ATTEMPTS,
+        errors = %errors,
+        "✗ Compensation failed: could not delete user from user_service after {} attempts",
+        ATTEMPTS
+    );
     return Err(UserServiceError::ExternalServiceError(format!(
         "{:?}",
         errors
