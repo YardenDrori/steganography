@@ -70,7 +70,7 @@ pub async fn register_user(
     tracing::info!(
         user_id = %user_id,
         user_name = %user_name,
-        "Saga step 1: ✓ User profile created in user_service"
+        "Saga step 1: User profile created in user_service"
     );
 
     //Step 2 save user data in auth_service
@@ -92,7 +92,7 @@ pub async fn register_user(
                 tracing::warn!(
                     user_id = %user_id,
                     error = ?e,
-                    "Saga step 2: ✗ Failed to create auth credentials, initiating compensation"
+                    "Saga step 2: Failed to create auth credentials, initiating compensation"
                 );
                 compensate_delete_user(user_service_url, internal_api_key, user_id).await?;
 
@@ -137,7 +137,7 @@ pub async fn register_user(
     tracing::info!(
         user_id = %user_id,
         auth_user_id = %user.id(),
-        "Saga step 2: ✓ Auth credentials created"
+        "Saga step 2: Auth credentials created"
     );
 
     // Assign default "user" role to new user
@@ -148,7 +148,7 @@ pub async fn register_user(
             tracing::warn!(
                 user_id = %user_id,
                 error = ?e,
-                "Saga step 3: ✗ Failed to assign role, initiating compensation"
+                "Saga step 3: Failed to assign role, initiating compensation"
             );
             compensate_delete_user(&user_service_url, &internal_api_key, user_id).await?;
             return Err(UserServiceError::DatabaseError(e));
@@ -159,7 +159,7 @@ pub async fn register_user(
         user_id = %user_id,
         user_name = %user_name,
         email = %email,
-        "✓ Registration saga completed successfully"
+        "Registration saga completed successfully"
     );
 
     // Return the full user profile from user_service
@@ -246,7 +246,7 @@ pub async fn login_user(
         refresh_token,
     };
 
-    tracing::info!(user_id = %user.id(), "✓ Login successful");
+    tracing::info!(user_id = %user.id(), "Login successful");
 
     Ok(response)
 }
@@ -324,7 +324,7 @@ pub async fn compensate_delete_user(
         } else {
             tracing::info!(
                 user_id = %user_id,
-                "✓ Compensation successful: user deleted from user_service"
+                "Compensation successful: user deleted from user_service"
             );
             return Ok(());
         }
@@ -333,7 +333,7 @@ pub async fn compensate_delete_user(
         user_id = %user_id,
         attempts = ATTEMPTS,
         errors = %errors,
-        "✗ Compensation failed: could not delete user from user_service after {} attempts",
+        "Compensation failed: could not delete user from user_service after {} attempts",
         ATTEMPTS
     );
     return Err(UserServiceError::ExternalServiceError(format!(

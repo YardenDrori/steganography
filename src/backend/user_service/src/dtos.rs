@@ -30,6 +30,21 @@ fn validate_username(username: &str) -> Result<(), validator::ValidationError> {
     shared_global::validation::validate_username(username)
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Validate)]
+pub struct UpdateUserRequest {
+    #[validate(length(min = 1, max = 50, message = "First name must be between 1 and 50 characters"))]
+    pub first_name: Option<String>,
+
+    #[validate(length(min = 1, max = 50, message = "Last name must be between 1 and 50 characters"))]
+    pub last_name: Option<String>,
+
+    #[validate(email(message = "Invalid email format"))]
+    pub email: Option<String>,
+
+    pub phone_number: Option<String>,
+    pub is_male: Option<bool>,
+}
+
 impl From<User> for UserResponse {
     fn from(value: User) -> Self {
         UserResponse {
