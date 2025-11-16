@@ -11,24 +11,17 @@ use axum::http::StatusCode;
 use axum::Json;
 use shared_global::dtos::UserResponse;
 use shared_global::errors::ErrorBody;
-use validator::Validate;
+use shared_global::extractors::ValidatedJson;
 
 pub async fn register(
     State(app_state): State<AppState>,
-    Json(payload): Json<RegisterRequest>,
+    ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> Result<(StatusCode, Json<UserResponse>), (StatusCode, Json<ErrorBody>)> {
     let internal_api_key = app_state.internal_api_key;
     let user_service_url = app_state.user_service_url;
     let pool = &app_state.pool;
 
     tracing::info!("Registration attempt for username: {}", payload.user_name);
-    // Validate input at handler layer (input validation, not business logic)
-    payload.validate().map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorBody::new(&format!("{:?}", e))),
-        )
-    })?;
 
     let user_response = register_user(
         &pool,
@@ -87,26 +80,23 @@ pub async fn register(
 
 pub async fn login(
     State(app_state): State<AppState>,
-    Json(payload): Json<LoginRequest>,
+    ValidatedJson(payload): ValidatedJson<LoginRequest>,
 ) -> Result<(StatusCode, Json<LoginResponse>), (StatusCode, Json<ErrorBody>)> {
     tracing::info!(
         "Login attempt for email/username: {:?}/{:?}",
         payload.email,
         payload.user_name
     );
-    // Validate input
-    payload.validate().map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorBody::new(&format!("{:?}", e))),
-        )
-    })?;
 
     let jwt_secret = &app_state.jwt_secret;
     let pool = &app_state.pool;
+    let internal_api_key = &app_state.internal_api_key;
+    let user_service_url = &app_state.user_service_url;
 
     let login_response = login_user(
         &pool,
+        &internal_api_key,
+        &user_service_url,
         payload.email.as_deref(),
         payload.user_name.as_deref(),
         &payload.password,
@@ -155,7 +145,7 @@ pub async fn login(
 
 pub async fn refresh(
     State(app_state): State<AppState>,
-    Json(payload): Json<RefreshTokenRequest>,
+    ValidatedJson(payload): ValidatedJson<RefreshTokenRequest>,
 ) -> Result<(StatusCode, Json<RefreshTokenResponse>), (StatusCode, Json<ErrorBody>)> {
     tracing::info!("Token refresh request received");
     let jwt_secret = &app_state.jwt_secret;
@@ -207,7 +197,7 @@ pub async fn refresh(
 
 pub async fn logout(
     State(app_state): State<AppState>,
-    Json(payload): Json<LogoutRequest>,
+    ValidatedJson(payload): ValidatedJson<LogoutRequest>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
     tracing::info!("Logout request received");
     let pool = &app_state.pool;

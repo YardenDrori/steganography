@@ -15,6 +15,8 @@ COPY user_service ./user_service
 
 WORKDIR /build/user_service
 
+# Use offline mode with the .sqlx cache
+ENV SQLX_OFFLINE=true
 
 RUN cargo build --release
 

@@ -3,7 +3,7 @@ use crate::services::user_service;
 use crate::{app_state::AppState, errors::user_service_errors::UserServiceError};
 use axum::extract::Path;
 use axum::{extract::State, http::StatusCode, Json};
-use shared_global::auth::user_extractors::RequireAdmin;
+use shared_global::auth::hybrid_extractors::AdminOrInternal;
 use shared_global::{auth::user_extractors::AuthenticatedUser, errors::ErrorBody};
 
 pub async fn get_current_profile(
@@ -42,7 +42,7 @@ pub async fn get_current_profile(
 }
 
 pub async fn get_user(
-    RequireAdmin(_auth_user_id): RequireAdmin,
+    AdminOrInternal(_maybe_admin_id): AdminOrInternal,
     Path(user_id): Path<i64>,
     State(app_state): State<AppState>,
 ) -> Result<(StatusCode, Json<UserResponse>), (StatusCode, Json<ErrorBody>)> {
