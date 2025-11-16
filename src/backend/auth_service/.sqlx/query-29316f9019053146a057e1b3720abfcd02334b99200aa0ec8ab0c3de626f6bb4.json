@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM refresh_tokens\n        WHERE expires_at < CURRENT_TIMESTAMP\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "29316f9019053146a057e1b3720abfcd02334b99200aa0ec8ab0c3de626f6bb4"
+}

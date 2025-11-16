@@ -22,11 +22,31 @@ pub async fn create_user(
     let user_response = user_service::create_user(&pool, &payload)
         .await
         .map_err(|e| match e {
+            UserServiceError::EmailAlreadyExists => {
+                tracing::warn!(
+                    email = %payload.email,
+                    "Attempted to create user with existing email"
+                );
+                (
+                    StatusCode::CONFLICT,
+                    Json(ErrorBody::new("Email already exists")),
+                )
+            }
+            UserServiceError::UsernameAlreadyExists => {
+                tracing::warn!(
+                    user_name = %payload.user_name,
+                    "Attempted to create user with existing username"
+                );
+                (
+                    StatusCode::CONFLICT,
+                    Json(ErrorBody::new("Username already exists")),
+                )
+            }
             UserServiceError::DatabaseError(error) => {
                 tracing::error!(
-                    "Error {:?} while creating user {:?}",
-                    error,
-                    payload.user_name
+                    "Database error while creating user {:?}: {:?}",
+                    payload.user_name,
+                    error
                 );
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -35,9 +55,9 @@ pub async fn create_user(
             }
             other_error => {
                 tracing::error!(
-                    "Unexpected Error {:?} while creating user {:?}",
-                    other_error,
-                    payload.user_name
+                    "Unexpected error while creating user {:?}: {:?}",
+                    payload.user_name,
+                    other_error
                 );
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,

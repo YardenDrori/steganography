@@ -7,3 +7,15 @@ pub struct AppState {
     pub internal_api_key: String,
     pub user_service_url: String,
 }
+
+impl shared_global::auth::jwt::HasJwtSecret for AppState {
+    fn jwt_secret(&self) -> String {
+        self.jwt_secret.to_string()
+    }
+}
+
+impl shared_global::auth::internal::HasInternalApiKey for AppState {
+    fn internal_api_key(&self) -> String {
+        self.internal_api_key.to_string()
+    }
+}

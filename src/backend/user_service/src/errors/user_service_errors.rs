@@ -3,4 +3,6 @@ pub enum UserServiceError {
     DatabaseError(sqlx::Error),
     Unauthorized,
     NotFound,
+    EmailAlreadyExists,
+    UsernameAlreadyExists,
 }

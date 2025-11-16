@@ -45,6 +45,11 @@ pub struct UpdateUserRequest {
     pub is_male: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Validate)]
+pub struct SyncUserStatusRequest {
+    pub is_active: bool,
+}
+
 impl From<User> for UserResponse {
     fn from(value: User) -> Self {
         UserResponse {
