@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE users\n        SET\n            first_name = COALESCE($2, first_name),\n            last_name = COALESCE($3, last_name),\n            email = COALESCE($4, email),\n            phone_number = COALESCE($5, phone_number),\n            is_male = COALESCE($6, is_male),\n            updated_at = CURRENT_TIMESTAMP\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9ca3343c35e098b96d32aebd99b807222f020d5c2e474ac35e0b061b2204897e"
+}

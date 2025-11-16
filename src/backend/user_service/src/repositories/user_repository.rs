@@ -108,3 +108,27 @@ pub async fn delete_user(pool: &PgPool, user_id: i64) -> Result<bool, sqlx::Erro
 
     Ok(result.rows_affected() > 0)
 }
+
+pub async fn set_user_active_status(
+    pool: &PgPool,
+    user_id: i64,
+    is_active: bool,
+) -> Result<User, sqlx::Error> {
+    query!(
+        r#"
+        UPDATE users
+        SET is_active = $2, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        "#,
+        user_id,
+        is_active
+    )
+    .execute(pool)
+    .await?;
+
+    let user = get_user_by_id(pool, user_id)
+        .await?
+        .ok_or(sqlx::Error::RowNotFound)?;
+
+    Ok(user)
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, user_id, token_hash, expires_at, created_at, revoked_at , device_info FROM refresh_tokens WHERE id = $1\n        ",
+  "query": "\n        SELECT id, user_id, token_hash, expires_at, created_at, device_info\n        FROM refresh_tokens\n        WHERE token_hash = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -30,18 +30,13 @@
       },
       {
         "ordinal": 5,
-        "name": "revoked_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 6,
         "name": "device_info",
         "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Text"
       ]
     },
     "nullable": [
@@ -50,9 +45,8 @@
       false,
       false,
       false,
-      true,
       true
     ]
   },
-  "hash": "2c0e2035f0181c0b0291d2982acadbe94b06a0553735e85e0893a4e4148272db"
+  "hash": "93e9630e689ed23281b7db0996719495027174ba32ac7333ddf8745d23295b56"
 }

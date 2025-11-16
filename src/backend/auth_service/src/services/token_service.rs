@@ -201,3 +201,20 @@ pub async fn revoke_refresh_token(
 
     Ok(())
 }
+
+// Revokes all refresh tokens for a user (for account deactivation)
+pub async fn revoke_all_user_tokens(pool: &PgPool, user_id: i64) -> Result<u64, UserServiceError> {
+    tracing::debug!("Attempting to revoke all tokens for user_id={}", user_id);
+
+    let tokens_deleted = token_repository::revoke_all_user_tokens(pool, user_id)
+        .await
+        .map_err(|e| UserServiceError::DatabaseError(e))?;
+
+    tracing::info!(
+        "Revoked {} refresh token(s) for user_id={}",
+        tokens_deleted,
+        user_id
+    );
+
+    Ok(tokens_deleted)
+}

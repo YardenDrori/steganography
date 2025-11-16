@@ -96,3 +96,18 @@ pub async fn cleanup_expired_tokens(pool: &PgPool) -> Result<u64, sqlx::Error> {
 
     Ok(result.rows_affected())
 }
+
+/// Deletes all refresh tokens for a specific user
+pub async fn revoke_all_user_tokens(pool: &PgPool, user_id: i64) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM refresh_tokens
+        WHERE user_id = $1
+        "#,
+        user_id
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}

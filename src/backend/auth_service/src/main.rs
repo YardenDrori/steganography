@@ -10,7 +10,10 @@ mod services;
 use shared_global::db::postgres::create_pool;
 
 use crate::app_state::AppState;
-use axum::{routing::post, Router};
+use axum::{
+    routing::{delete, patch, post},
+    Router,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -25,8 +28,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         panic!("JWT_SECRET must be at least 32 characters for security");
     }
 
-    let internal_api_key = std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
-    let user_service_url = std::env::var("USER_SERVICE_URL").expect("USER_SERVICE_URL must be set in env");
+    let internal_api_key =
+        std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
+    let user_service_url =
+        std::env::var("USER_SERVICE_URL").expect("USER_SERVICE_URL must be set in env");
 
     let database_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
@@ -53,6 +58,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/auth/login", post(routes::auth::login))
         .route("/auth/refresh", post(routes::auth::refresh))
         .route("/auth/logout", post(routes::auth::logout))
+        .route(
+            "/auth/deactivate",
+            post(routes::account::deactivate_my_account),
+        )
+        .route(
+            "/admin/users/:id/activate",
+            patch(routes::account::activate_user_admin),
+        )
+        .route(
+            "/admin/users/:id/deactivate",
+            patch(routes::account::deactivate_user_admin),
+        )
+        .route(
+            "/internal/users/:id/tokens",
+            delete(routes::tokens::revoke_user_tokens),
+        )
         .with_state(app_state);
 
     // Start server on port 3001
