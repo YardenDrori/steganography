@@ -6,8 +6,21 @@ use sqlx::PgPool;
 pub async fn get_user(pool: &PgPool, user_id: i64) -> Result<UserResponse, UserServiceError> {
     let user = user_repository::get_user_by_id(&pool, user_id)
         .await
-        .map_err(|e| UserServiceError::DatabaseError(e))?
-        .ok_or(UserServiceError::NotFound)?;
+        .map_err(|e| {
+            tracing::error!(
+                user_id = %user_id,
+                error = ?e,
+                "Database error while fetching user"
+            );
+            UserServiceError::DatabaseError(e)
+        })?
+        .ok_or_else(|| {
+            tracing::warn!(
+                user_id = %user_id,
+                "User not found"
+            );
+            UserServiceError::NotFound
+        })?;
 
     Ok(user.into())
 }
@@ -84,13 +97,34 @@ pub async fn update_user(
 }
 
 pub async fn delete_user(pool: &PgPool, user_id: i64) -> Result<(), UserServiceError> {
+    tracing::info!(
+        user_id = %user_id,
+        "Deleting user"
+    );
+
     let deleted = user_repository::delete_user(pool, user_id)
         .await
-        .map_err(|e| UserServiceError::DatabaseError(e))?;
+        .map_err(|e| {
+            tracing::error!(
+                user_id = %user_id,
+                error = ?e,
+                "Database error while deleting user"
+            );
+            UserServiceError::DatabaseError(e)
+        })?;
 
     if !deleted {
+        tracing::warn!(
+            user_id = %user_id,
+            "User not found for deletion"
+        );
         return Err(UserServiceError::NotFound);
     }
+
+    tracing::info!(
+        user_id = %user_id,
+        "User deleted successfully"
+    );
 
     Ok(())
 }
