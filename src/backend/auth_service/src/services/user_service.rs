@@ -203,7 +203,7 @@ pub async fn login_user(
     user_name: Option<&str>,
     password: &str,
     device_info: Option<&str>,
-    jwt_secret: &str,
+    jwt_private_key: &str,
 ) -> Result<LoginResponse, UserServiceError> {
     tracing::info!(
         email = ?email,
@@ -247,7 +247,7 @@ pub async fn login_user(
     }
 
     tracing::debug!(user_id = %user.id(), "Password verified, creating tokens");
-    let jwt_token = token_service::create_access_token(user.id(), pool, jwt_secret).await?;
+    let jwt_token = token_service::create_access_token(user.id(), pool, jwt_private_key).await?;
     let refresh_token =
         token_service::create_refresh_token(pool, user.id(), device_info.map(|s| s.to_string()))
             .await?;

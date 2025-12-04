@@ -50,7 +50,7 @@ pub async fn login(
         payload.user_name
     );
 
-    let jwt_secret = &app_state.jwt_secret;
+    let jwt_private_key = &app_state.jwt_private_key;
     let pool = &app_state.pool;
     let internal_api_key = &app_state.internal_api_key;
     let user_service_url = &app_state.user_service_url;
@@ -63,7 +63,7 @@ pub async fn login(
         payload.user_name.as_deref(),
         &payload.password,
         payload.device_info.as_deref(),
-        &jwt_secret,
+        &jwt_private_key,
     )
     .await?;
 
@@ -76,11 +76,11 @@ pub async fn refresh(
     ValidatedJson(payload): ValidatedJson<RefreshTokenRequest>,
 ) -> Result<(StatusCode, Json<RefreshTokenResponse>), UserServiceError> {
     tracing::info!("Token refresh request received");
-    let jwt_secret = &app_state.jwt_secret;
+    let jwt_private_key = &app_state.jwt_private_key;
     let pool = &app_state.pool;
 
     let (access_token, refresh_token) =
-        token_service::refresh_access_token(pool, &payload.refresh_token, jwt_secret).await?;
+        token_service::refresh_access_token(pool, &payload.refresh_token, jwt_private_key).await?;
 
     tracing::info!("Token refreshed successfully");
     Ok((

@@ -34,11 +34,10 @@ fn hash_token(token: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-// Creates a new access token (JWT) for a user
 pub async fn create_access_token(
     user_id: i64,
     pool: &PgPool,
-    secret: &str,
+    private_key_pem: &str,
 ) -> Result<String, UserServiceError> {
     tracing::debug!("Creating access token for user_id={}", user_id);
     let now = Utc::now();
@@ -48,7 +47,7 @@ pub async fn create_access_token(
         .await
         .map_err(|e| UserServiceError::DatabaseError(e))?;
 
-    let token = encode_jwt(user_id, issued_at, expires_at, roles, secret)
+    let token = encode_jwt(user_id, issued_at, expires_at, roles, private_key_pem)
         .map_err(|e| UserServiceError::JwtError(e))?;
     tracing::info!("Created access token for user_id={}", user_id);
     Ok(token)
@@ -110,11 +109,10 @@ pub async fn create_refresh_token(
     Err(UserServiceError::DatabaseError(sqlx::Error::RowNotFound))
 }
 
-// Refreshes an access token using a refresh token
 pub async fn refresh_access_token(
     pool: &PgPool,
     refresh_token: &str,
-    jwt_secret: &str,
+    jwt_private_key: &str,
 ) -> Result<(String, String), UserServiceError> {
     tracing::debug!("Attempting to refresh access token");
     // Hash the provided token to look it up
@@ -162,7 +160,7 @@ pub async fn refresh_access_token(
         .map_err(|e| UserServiceError::DatabaseError(e))?;
 
     // Generate new access token
-    let new_access_token = create_access_token(user.id(), &pool, jwt_secret).await?;
+    let new_access_token = create_access_token(user.id(), &pool, jwt_private_key).await?;
 
     // Generate new refresh token
     let new_refresh_token = create_refresh_token(
