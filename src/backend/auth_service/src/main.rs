@@ -23,10 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set in env");
-    if jwt_secret.len() < 32 {
-        panic!("JWT_SECRET must be at least 32 characters for security");
-    }
+    let jwt_private_key = std::env::var("JWT_PRIVATE_KEY").expect("JWT_PRIVATE_KEY must be set in env");
 
     let internal_api_key =
         std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
@@ -46,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create app state
     let app_state = AppState {
-        jwt_secret,
+        jwt_private_key,
         internal_api_key,
         user_service_url,
         pool: pool.clone(),
