@@ -7,7 +7,7 @@ use axum::{
 };
 
 use crate::{
-    auth::jwt::{verify_jwt, HasJwtSecret},
+    auth::jwt::{verify_jwt, HasJwtPublicKey},
     errors::ErrorBody,
 };
 
@@ -19,12 +19,12 @@ pub struct RequireAdmin(pub i64);
 #[async_trait]
 impl<S> FromRequestParts<S> for AuthenticatedUser
 where
-    S: Send + Sync + HasJwtSecret,
+    S: Send + Sync + HasJwtPublicKey,
 {
     type Rejection = (StatusCode, Json<ErrorBody>);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let jwt_secret = state.jwt_secret();
+        let jwt_public_key = state.jwt_public_key();
         let headers = parts
             .headers
             .get("authorization")
@@ -48,10 +48,10 @@ where
                 Json(ErrorBody::new("Intenral server error")),
             ))?;
 
-        let claims = verify_jwt(&token, &jwt_secret).map_err(|_| {
+        let claims = verify_jwt(&token, &jwt_public_key).map_err(|_| {
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorBody::new("Internal server error")),
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorBody::new("Invalid or expired token")),
             )
         })?;
         let user = AuthenticatedUser { 0: claims.sub };
@@ -62,12 +62,12 @@ where
 #[async_trait]
 impl<S> FromRequestParts<S> for RequireAdmin
 where
-    S: Send + Sync + HasJwtSecret,
+    S: Send + Sync + HasJwtPublicKey,
 {
     type Rejection = (StatusCode, Json<ErrorBody>);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let jwt_secret = state.jwt_secret();
+        let jwt_public_key = state.jwt_public_key();
         let headers = parts
             .headers
             .get("authorization")
@@ -91,10 +91,10 @@ where
                 Json(ErrorBody::new("Intenral server error")),
             ))?;
 
-        let claims = verify_jwt(&token, &jwt_secret).map_err(|_| {
+        let claims = verify_jwt(&token, &jwt_public_key).map_err(|_| {
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorBody::new("Internal server error")),
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorBody::new("Invalid or expired token")),
             )
         })?;
 
