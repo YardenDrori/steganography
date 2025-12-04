@@ -1,5 +1,5 @@
 use crate::auth::internal::HasInternalApiKey;
-use crate::auth::jwt::{verify_jwt, HasJwtSecret};
+use crate::auth::jwt::{verify_jwt, HasJwtPublicKey};
 use crate::auth::roles::Role;
 use crate::errors::ErrorBody;
 use axum::{
@@ -19,7 +19,7 @@ pub struct AdminOrInternal(pub Option<i64>);
 #[async_trait]
 impl<S> FromRequestParts<S> for AdminOrInternal
 where
-    S: Send + Sync + HasJwtSecret + HasInternalApiKey,
+    S: Send + Sync + HasJwtPublicKey + HasInternalApiKey,
 {
     type Rejection = (StatusCode, Json<ErrorBody>);
 
@@ -37,7 +37,7 @@ where
         }
 
         // If internal auth failed try JWT admin auth
-        let jwt_secret = state.jwt_secret();
+        let jwt_public_key = state.jwt_public_key();
         let auth_header = parts
             .headers
             .get("authorization")
@@ -55,7 +55,7 @@ where
                 Json(ErrorBody::new("Unauthorized")),
             ))?;
 
-        let claims = verify_jwt(&token, &jwt_secret).map_err(|_| {
+        let claims = verify_jwt(&token, &jwt_public_key).map_err(|_| {
             (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorBody::new("Unauthorized")),
