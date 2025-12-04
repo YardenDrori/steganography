@@ -1,0 +1,32 @@
+# Build stage
+FROM rust:1.90-alpine AS builder
+
+RUN apk add --no-cache \
+  musl-dev=1.2.5-r10 \
+  pkgconf=2.4.3-r0 \
+  openssl-dev=3.5.4-r0 \
+  openssl-libs-static=3.5.4-r0
+
+WORKDIR /build
+
+COPY shared/global ./shared/global
+COPY steganography_service ./steganography_service 
+
+WORKDIR /build/steganography_service 
+
+# Build the release binary
+RUN cargo build --release
+
+
+# Runtime stage
+FROM alpine:3.22
+
+RUN apk add --no-cache libgcc=14.2.0-r6
+
+WORKDIR /app
+
+COPY --from=builder /build/steganography_service/target/release/steganography_service /app/steganography_service
+
+EXPOSE 3003
+
+CMD ["./steganography_service"]
