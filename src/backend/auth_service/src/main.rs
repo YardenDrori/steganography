@@ -24,6 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
 
     let jwt_private_key = std::env::var("JWT_PRIVATE_KEY").expect("JWT_PRIVATE_KEY must be set in env");
+    let jwt_public_key = std::env::var("JWT_PUBLIC_KEY").expect("JWT_PUBLIC_KEY must be set in env");
 
     let internal_api_key =
         std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
@@ -44,6 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create app state
     let app_state = AppState {
         jwt_private_key,
+        jwt_public_key,
         internal_api_key,
         user_service_url,
         pool: pool.clone(),
