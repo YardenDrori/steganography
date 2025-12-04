@@ -4,7 +4,7 @@ use sqlx::{Pool, Postgres};
 /// Contains the database connection pool
 #[derive(Clone)]
 pub struct AppState {
-    pub jwt_secret: String,
+    pub jwt_public_key: String,
     pub internal_api_key: String,
     pub pool: Pool<Postgres>,
 }
@@ -16,9 +16,9 @@ pub struct AppState {
 //     }
 // }
 
-impl shared_global::auth::jwt::HasJwtSecret for AppState {
-    fn jwt_secret(&self) -> String {
-        self.jwt_secret.to_string()
+impl shared_global::auth::jwt::HasJwtPublicKey for AppState {
+    fn jwt_public_key(&self) -> String {
+        self.jwt_public_key.to_string()
     }
 }
 
