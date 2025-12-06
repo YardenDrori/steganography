@@ -1,5 +1,5 @@
 use crate::app_state::AppState;
-use crate::routes::{delete_users, patch_users, post_users, sync};
+use crate::routes::{auth, delete_users, patch_users, post_users, sync};
 use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use routes::get_users;
@@ -53,6 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/users", post(post_users::create_user))
         .route("/users/:id", delete(delete_users::delete_user))
         .route("/internal/users/:id/status", patch(sync::sync_user_status))
+        .route("/internal/auth/verify-credentials", post(auth::verify_credentials))
         .with_state(app_state);
 
     // Start server on port 3002

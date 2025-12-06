@@ -12,6 +12,7 @@ pub enum UserServiceError {
     NotFound,
     EmailAlreadyExists,
     UsernameAlreadyExists,
+    InvalidCredentials,
 }
 
 impl IntoResponse for UserServiceError {
@@ -36,6 +37,10 @@ impl IntoResponse for UserServiceError {
             Self::UsernameAlreadyExists => (
                 StatusCode::CONFLICT,
                 "Username already exists",
+            ),
+            Self::InvalidCredentials => (
+                StatusCode::UNAUTHORIZED,
+                "Invalid credentials",
             ),
         };
 

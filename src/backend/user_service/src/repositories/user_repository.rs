@@ -8,7 +8,7 @@ pub async fn get_user_by_id(pool: &PgPool, user_id: i64) -> Result<Option<User>,
         r#"
         SELECT id, user_name, first_name,
         last_name, is_male,
-        email, phone_number,
+        email, phone_number, password_hash,
         created_at as "created_at: _",
         updated_at as "updated_at: _",
         is_active, is_verified
@@ -31,13 +31,14 @@ pub async fn create_user(
     is_male: Option<bool>,
     email: &str,
     phone_number: Option<&str>,
+    password_hash: &str,
 ) -> Result<User, sqlx::Error> {
     let result = query!(
         r#"
         INSERT INTO users (user_name, first_name,
         last_name, is_male,
-        email, phone_number)
-        VALUES($1, $2, $3, $4, $5, $6) RETURNING id
+        email, phone_number, password_hash)
+        VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING id
         "#,
         user_name,
         first_name,
@@ -45,6 +46,7 @@ pub async fn create_user(
         is_male,
         email,
         phone_number,
+        password_hash,
     )
     .fetch_one(pool)
     .await?;
@@ -131,4 +133,30 @@ pub async fn set_user_active_status(
         .ok_or(sqlx::Error::RowNotFound)?;
 
     Ok(user)
+}
+
+pub async fn get_user_by_email_or_username(
+    pool: &PgPool,
+    email: Option<&str>,
+    user_name: Option<&str>,
+) -> Result<Option<User>, sqlx::Error> {
+    let result = query_as!(
+        UserEntity,
+        r#"
+        SELECT id, user_name, first_name,
+        last_name, is_male,
+        email, phone_number, password_hash,
+        created_at as "created_at: _",
+        updated_at as "updated_at: _",
+        is_active, is_verified
+        FROM users
+        WHERE email = $1 OR user_name = $2
+        "#,
+        email,
+        user_name
+    )
+    .fetch_optional(pool)
+    .await?
+    .map(|db| db.into());
+    Ok(result)
 }
