@@ -140,37 +140,25 @@ pub async fn refresh_access_token(
         return Err(UserServiceError::InvalidCredentials);
     }
 
-    // Verify user still exists and is active
-    let user = user_repository::get_user_by_id(pool, stored_token.user_id())
-        .await
-        .map_err(|e| UserServiceError::DatabaseError(e))?
-        .ok_or_else(|| {
-            tracing::error!("User not found for refresh token");
-            UserServiceError::InvalidCredentials
-        })?;
-
-    if !user.is_active() {
-        tracing::warn!("Inactive user attempted to refresh token: {}", user.id());
-        return Err(UserServiceError::InvalidCredentials);
-    }
-
     // Revoke the old refresh token (token rotation)
     token_repository::revoke_refresh_token(pool, stored_token.id())
         .await
         .map_err(|e| UserServiceError::DatabaseError(e))?;
 
+    let user_id = stored_token.user_id();
+
     // Generate new access token
-    let new_access_token = create_access_token(user.id(), &pool, jwt_private_key).await?;
+    let new_access_token = create_access_token(user_id, &pool, jwt_private_key).await?;
 
     // Generate new refresh token
     let new_refresh_token = create_refresh_token(
         pool,
-        user.id(),
+        user_id,
         stored_token.device_info().map(|s| s.to_string()),
     )
     .await?;
 
-    tracing::info!("Rotated tokens for user_id={}", user.id());
+    tracing::info!("Rotated tokens for user_id={}", user_id);
 
     Ok((new_access_token, new_refresh_token))
 }

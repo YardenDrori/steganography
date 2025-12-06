@@ -1,7 +1,7 @@
 use crate::dtos::LoginResponse;
 use crate::errors::user_service_error::{self, UserServiceError};
 use crate::models::user::User;
-use crate::repositories::user_repository::{self, get_user_by_email, get_user_by_username};
+use crate::repositories::user_repository;
 use crate::services::token_service;
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHasher};
@@ -195,15 +195,13 @@ pub async fn login_user(
         token_service::create_refresh_token(pool, user_id, device_info.map(|s| s.to_string()))
             .await?;
 
-    let response = LoginResponse {
+    tracing::info!(user_id = %user_id, "Login successful");
+
+    Ok(LoginResponse {
         user: user_profile,
         access_token: jwt_token,
         refresh_token,
-    };
-
-    tracing::info!(user_id = %user.id(), "Login successful");
-
-    Ok(response)
+    })
 }
 
 pub async fn get_user_roles(pool: &PgPool, user_id: i64) -> Result<Roles, sqlx::Error> {
