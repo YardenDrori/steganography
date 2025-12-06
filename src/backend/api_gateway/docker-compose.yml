@@ -19,4 +19,4 @@ networks:
   gateway_network:
     driver: bridge
     name: microservices_network
-    external: false
+    external: true
