@@ -28,10 +28,19 @@ pub async fn register_user(
         "Starting user registration saga"
     );
 
-    //Step 1 save user data in user_service
+    //Step 1 hash password
+    tracing::debug!("Step 1: Hashing password");
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let hashed_password = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .map_err(|e| UserServiceError::HashingError(e))?
+        .to_string();
+
+    //Step 2 save user data in user_service
     tracing::debug!(
         user_service_url = %user_service_url,
-        "Saga step 1: Creating user profile in user_service"
+        "Step 2: Creating user profile in user_service"
     );
     let client = reqwest::Client::new();
     let user_create_request = serde_json::json!({
@@ -41,6 +50,7 @@ pub async fn register_user(
     "email": email,
     "phone_number": phone_number,
     "is_male": is_male,
+    "password_hash": hashed_password,
     });
 
     let response = client
@@ -99,85 +109,18 @@ pub async fn register_user(
     tracing::info!(
         user_id = %user_id,
         user_name = %user_name,
-        "Saga step 1: User profile created in user_service"
+        "Step 2: User profile created in user_service"
     );
 
-    //Step 2 save user data in auth_service
-    tracing::debug!(
-        user_id = %user_id,
-        "Saga step 2: Creating auth credentials in auth_service"
-    );
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-    let hashed_password = argon2
-        .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| UserServiceError::HashingError(e))?
-        .to_string();
-
-    let user: User =
-        match user_repository::save_user(pool, &user_name, &email, &hashed_password).await {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!(
-                    user_id = %user_id,
-                    error = ?e,
-                    "Saga step 2: Failed to create auth credentials, initiating compensation"
-                );
-                compensate_delete_user(user_service_url, internal_api_key, user_id).await?;
-
-                match &e {
-                    sqlx::Error::Database(db_err) => {
-                        match db_err.constraint() {
-                            Some(constraint_name) => {
-                                if constraint_name.contains("email") {
-                                    tracing::error!(
-                                    "Attempted to create an account under an existing email: {}"
-                                        ,email
-                                );
-                                    return Err(UserServiceError::EmailAlreadyExists);
-                                } else if constraint_name.contains("user_name") {
-                                    tracing::error!(
-                                    "Attempted to create an account under an existing user name: {}"
-                                        ,user_name
-                                );
-                                    return Err(UserServiceError::UsernameAlreadyExists);
-                                } else {
-                                    tracing::error!(
-                                        "Unexpected constraint conflict: {}",
-                                        constraint_name
-                                    );
-                                    return Err(UserServiceError::DatabaseError(e));
-                                }
-                            }
-                            None => {
-                                tracing::error!("Unexpected database error: {:?}", e);
-                                return Err(UserServiceError::DatabaseError(e));
-                            }
-                        };
-                    }
-                    _ => {
-                        tracing::error!("Unexpected database error: {:?}", e);
-                        return Err(UserServiceError::DatabaseError(e));
-                    }
-                }
-            }
-        };
-
-    tracing::info!(
-        user_id = %user_id,
-        auth_user_id = %user.id(),
-        "Saga step 2: Auth credentials created"
-    );
-
-    // Assign default "user" role to new user
-    tracing::debug!(user_id = %user_id, "Saga step 3: Assigning default user role");
-    match user_repository::add_user_role(pool, user.id(), Role::User).await {
+    //Step 3 assign default user role in auth_service
+    tracing::debug!(user_id = %user_id, "Step 3: Assigning default user role");
+    match user_repository::add_user_role(pool, user_id, Role::User).await {
         Ok(u) => u,
         Err(e) => {
             tracing::warn!(
                 user_id = %user_id,
                 error = ?e,
-                "Saga step 3: Failed to assign role, initiating compensation"
+                "Step 3: Failed to assign role, initiating compensation"
             );
             compensate_delete_user(&user_service_url, &internal_api_key, user_id).await?;
             return Err(UserServiceError::DatabaseError(e));
@@ -188,10 +131,9 @@ pub async fn register_user(
         user_id = %user_id,
         user_name = %user_name,
         email = %email,
-        "Registration saga completed successfully"
+        "Registration completed successfully"
     );
 
-    // Return the full user profile from user_service
     Ok(user_profile)
 }
 
@@ -212,69 +154,46 @@ pub async fn login_user(
         "Login attempt"
     );
 
-    let user = match (email, user_name) {
-        (Some(email), None) => get_user_by_email(pool, &email)
-            .await
-            .map_err(|e| UserServiceError::DatabaseError(e))?,
-        (None, Some(user_name)) => get_user_by_username(pool, &user_name)
-            .await
-            .map_err(|e| UserServiceError::DatabaseError(e))?,
-        _ => {
-            return Err(user_service_error::UserServiceError::InvalidCredentials);
-        }
-    };
-
-    //dont tell users if an account for those credentials exist or not
-    let user = user.ok_or_else(|| {
-        tracing::warn!(email = ?email, user_name = ?user_name, "Login failed: user not found");
-        UserServiceError::InvalidCredentials
-    })?;
-
-    tracing::debug!(user_id = %user.id(), "User found, verifying password");
-
-    if !user
-        .verify_password(&password)
-        .map_err(|e| UserServiceError::HashingError(e))?
-    {
-        tracing::warn!(user_id = %user.id(), "Login failed: invalid password");
-        return Err(UserServiceError::InvalidCredentials);
-    }
-
-    // Check if user account is active
-    if !user.is_active() {
-        tracing::warn!(user_id = %user.id(), "Login failed: user account is deactivated");
-        return Err(UserServiceError::InvalidCredentials);
-    }
-
-    tracing::debug!(user_id = %user.id(), "Password verified, creating tokens");
-    let jwt_token = token_service::create_access_token(user.id(), pool, jwt_private_key).await?;
-    let refresh_token =
-        token_service::create_refresh_token(pool, user.id(), device_info.map(|s| s.to_string()))
-            .await?;
-
-    // Fetch full user profile from user_service
-    tracing::debug!(user_id = %user.id(), "Fetching full user profile from user_service");
+    // Call user_service to verify credentials
+    tracing::debug!("Calling user_service to verify credentials");
     let client = reqwest::Client::new();
+    let verify_request = serde_json::json!({
+        "email": email,
+        "user_name": user_name,
+        "password": password,
+    });
+
     let response = client
-        .get(format!("{}/users/{}", user_service_url, user.id()))
+        .post(format!("{}/internal/auth/verify-credentials", user_service_url))
         .header("X-Internal-API-Key", internal_api_key)
+        .json(&verify_request)
         .send()
         .await
         .map_err(|e| {
-            tracing::error!("Failed to fetch user profile from user_service: {:?}", e);
+            tracing::error!("Failed to call user_service verify-credentials: {:?}", e);
             UserServiceError::ExternalServiceError(format!("{}", e))
         })?;
 
     if !response.status().is_success() {
-        return Err(UserServiceError::ExternalServiceError(format!(
-            "user_service request failed: {}",
-            response.status()
-        )));
+        tracing::warn!(
+            email = ?email,
+            user_name = ?user_name,
+            status = %response.status(),
+            "Login failed: invalid credentials"
+        );
+        return Err(UserServiceError::InvalidCredentials);
     }
 
     let user_profile: UserResponse = response.json().await.map_err(|e| {
         UserServiceError::ExternalServiceError(format!("Invalid response from user_service: {}", e))
     })?;
+
+    let user_id = user_profile.id;
+    tracing::debug!(user_id = %user_id, "Credentials verified, creating tokens");
+    let jwt_token = token_service::create_access_token(user_id, pool, jwt_private_key).await?;
+    let refresh_token =
+        token_service::create_refresh_token(pool, user_id, device_info.map(|s| s.to_string()))
+            .await?;
 
     let response = LoginResponse {
         user: user_profile,
