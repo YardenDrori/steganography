@@ -10,6 +10,7 @@ pub struct User {
     is_male: Option<bool>,
     email: String,
     phone_number: Option<String>,
+    password_hash: String,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     is_active: bool,
@@ -52,10 +53,22 @@ impl User {
     pub fn is_verified(&self) -> bool {
         self.is_verified
     }
+    pub fn password_hash(&self) -> &str {
+        &self.password_hash
+    }
 
     /// Marks the user's email as verified
     pub fn verify_email(&mut self) {
         self.is_verified = true;
+    }
+
+    pub fn verify_password(&self, password: &str) -> Result<bool, argon2::password_hash::Error> {
+        use argon2::{Argon2, PasswordHash, PasswordVerifier};
+
+        let parsed_hash = PasswordHash::new(&self.password_hash)?;
+        Ok(Argon2::default()
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .is_ok())
     }
 }
 //auto converts from database entity to domain model
@@ -69,6 +82,7 @@ impl From<UserEntity> for User {
             is_male: entity.is_male,
             email: entity.email,
             phone_number: entity.phone_number,
+            password_hash: entity.password_hash,
             created_at: entity.created_at,
             updated_at: entity.updated_at,
             is_active: entity.is_active,

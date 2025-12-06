@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod delete_users;
 pub mod get_users;
 pub mod patch_users;

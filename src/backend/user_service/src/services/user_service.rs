@@ -1,4 +1,4 @@
-use crate::dtos::{UpdateUserRequest, UserCreateRequest, UserResponse};
+use crate::dtos::{UpdateUserRequest, UserCreateRequest, UserResponse, VerifyCredentialsRequest};
 use crate::errors::user_service_errors::UserServiceError;
 use crate::repositories::user_repository;
 use sqlx::PgPool;
@@ -37,6 +37,7 @@ pub async fn create_user(
         request.is_male,
         &request.email,
         request.phone_number.as_deref(),
+        &request.password_hash,
     )
     .await
     .map_err(|e| {
@@ -152,6 +153,34 @@ pub async fn set_user_active_status(
         is_active = %is_active,
         "User active status synced successfully"
     );
+
+    Ok(user.into())
+}
+
+pub async fn verify_credentials(
+    pool: &PgPool,
+    request: &VerifyCredentialsRequest,
+) -> Result<UserResponse, UserServiceError> {
+    let user = user_repository::get_user_by_email_or_username(
+        pool,
+        request.email.as_deref(),
+        request.user_name.as_deref(),
+    )
+    .await
+    .map_err(|e| UserServiceError::DatabaseError(e))?
+    .ok_or(UserServiceError::InvalidCredentials)?;
+
+    if !user.is_active() {
+        return Err(UserServiceError::Unauthorized);
+    }
+
+    let password_valid = user
+        .verify_password(&request.password)
+        .map_err(|_| UserServiceError::InvalidCredentials)?;
+
+    if !password_valid {
+        return Err(UserServiceError::InvalidCredentials);
+    }
 
     Ok(user.into())
 }

@@ -9,6 +9,7 @@ pub struct UserEntity {
     pub is_male: Option<bool>,
     pub email: String,
     pub phone_number: Option<String>,
+    pub password_hash: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_active: bool,
