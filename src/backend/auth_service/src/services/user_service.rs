@@ -363,67 +363,25 @@ pub async fn deactivate_user(
 ) -> Result<(), UserServiceError> {
     tracing::info!(
         user_id = %user_id,
-        "Starting user deactivation saga"
+        "Starting user deactivation"
     );
 
-    // Step 1: Sync to user_service FIRST (before we change anything in auth_service)
+    // Step 1: Deactivate in user_service
     tracing::debug!(
         user_id = %user_id,
-        "Saga step 1: Syncing deactivation to user_service"
+        "Step 1: Deactivating user in user_service"
     );
     sync_user_status_to_user_service(user_service_url, internal_api_key, user_id, false).await?;
 
     tracing::info!(
         user_id = %user_id,
-        "Saga step 1: user_service updated successfully"
+        "Step 1: user_service updated successfully"
     );
 
-    // Step 2: Update auth_service database (with compensation if this fails)
+    // Step 2: Revoke all refresh tokens (best effort)
     tracing::debug!(
         user_id = %user_id,
-        "Saga step 2: Deactivating user in auth_service"
-    );
-
-    match user_repository::set_user_active_status(pool, user_id, false).await {
-        Ok(_) => {
-            tracing::info!(
-                user_id = %user_id,
-                "Saga step 2: auth_service updated successfully"
-            );
-        }
-        Err(e) => {
-            tracing::warn!(
-                user_id = %user_id,
-                error = ?e,
-                "Saga step 2: Failed to update auth_service, initiating compensation"
-            );
-
-            // COMPENSATION: Revert user_service back to active
-            if let Err(comp_err) =
-                sync_user_status_to_user_service(user_service_url, internal_api_key, user_id, true)
-                    .await
-            {
-                tracing::error!(
-                    user_id = %user_id,
-                    compensation_error = ?comp_err,
-                    original_error = ?e,
-                    "CRITICAL: Compensation failed! user_service is deactivated but auth_service update failed"
-                );
-            } else {
-                tracing::info!(
-                    user_id = %user_id,
-                    "Compensation successful: reverted user_service to active"
-                );
-            }
-
-            return Err(UserServiceError::DatabaseError(e));
-        }
-    }
-
-    // Step 3: Revoke all refresh tokens (best effort - if this fails, tokens expire anyway)
-    tracing::debug!(
-        user_id = %user_id,
-        "Saga step 3: Revoking all refresh tokens"
+        "Step 2: Revoking all refresh tokens"
     );
 
     match token_service::revoke_all_user_tokens(pool, user_id).await {
@@ -431,23 +389,21 @@ pub async fn deactivate_user(
             tracing::info!(
                 user_id = %user_id,
                 tokens_revoked = %tokens_revoked,
-                "Saga step 3: Revoked all refresh tokens"
+                "Step 2: Revoked all refresh tokens"
             );
         }
         Err(e) => {
             tracing::warn!(
                 user_id = %user_id,
                 error = ?e,
-                "Saga step 3: Failed to revoke tokens (non-critical - they expire in 14 days)"
+                "Step 2: Failed to revoke tokens (non-critical - they expire in 14 days)"
             );
-            // Don't fail the whole operation - user is already deactivated
-            // Tokens will expire naturally
         }
     }
 
     tracing::info!(
         user_id = %user_id,
-        "Deactivation saga completed successfully"
+        "User deactivation completed successfully"
     );
 
     Ok(())
@@ -461,66 +417,14 @@ pub async fn activate_user(
 ) -> Result<(), UserServiceError> {
     tracing::info!(
         user_id = %user_id,
-        "Starting user activation saga"
+        "Activating user account"
     );
 
-    // Step 1: Sync to user_service FIRST (before we change anything in auth_service)
-    tracing::debug!(
-        user_id = %user_id,
-        "Saga step 1: Syncing activation to user_service"
-    );
     sync_user_status_to_user_service(user_service_url, internal_api_key, user_id, true).await?;
 
     tracing::info!(
         user_id = %user_id,
-        "Saga step 1: user_service updated successfully"
-    );
-
-    // Step 2: Update auth_service database (with compensation if this fails)
-    tracing::debug!(
-        user_id = %user_id,
-        "Saga step 2: Activating user in auth_service"
-    );
-
-    match user_repository::set_user_active_status(pool, user_id, true).await {
-        Ok(_) => {
-            tracing::info!(
-                user_id = %user_id,
-                "Saga step 2: auth_service updated successfully"
-            );
-        }
-        Err(e) => {
-            tracing::warn!(
-                user_id = %user_id,
-                error = ?e,
-                "Saga step 2: Failed to update auth_service, initiating compensation"
-            );
-
-            // COMPENSATION: Revert user_service back to inactive
-            if let Err(comp_err) =
-                sync_user_status_to_user_service(user_service_url, internal_api_key, user_id, false)
-                    .await
-            {
-                tracing::error!(
-                    user_id = %user_id,
-                    compensation_error = ?comp_err,
-                    original_error = ?e,
-                    "CRITICAL: Compensation failed! user_service is activated but auth_service update failed"
-                );
-            } else {
-                tracing::info!(
-                    user_id = %user_id,
-                    "Compensation successful: reverted user_service to inactive"
-                );
-            }
-
-            return Err(UserServiceError::DatabaseError(e));
-        }
-    }
-
-    tracing::info!(
-        user_id = %user_id,
-        "Activation saga completed successfully"
+        "User activation completed successfully"
     );
 
     Ok(())
