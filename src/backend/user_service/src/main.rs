@@ -21,13 +21,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    let jwt_public_key = std::env::var("JWT_PUBLIC_KEY").expect("JWT_PUBLIC_KEY must be set in env");
+    let auth_service_url =
+        std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:3001".to_string());
 
     let internal_api_key =
         std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
 
     let database_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
+
+    // Fetch JWT public key from auth service
+    tracing::info!("Fetching JWT public key from auth service at {}", auth_service_url);
+    let client = reqwest::Client::new();
+    let response = client
+        .get(format!("{}/public-key", auth_service_url))
+        .send()
+        .await
+        .expect("Failed to fetch public key from auth service");
+
+    #[derive(serde::Deserialize)]
+    struct PublicKeyResponse {
+        public_key: String,
+    }
+
+    let public_key_response: PublicKeyResponse = response
+        .json()
+        .await
+        .expect("Failed to parse public key response");
+
+    // JSON serialization escapes newlines, so we need to convert them back
+    let jwt_public_key = public_key_response.public_key.replace(r"\n", "\n");
 
     // Create database connection pool
     let pool = create_pool(&database_url)
