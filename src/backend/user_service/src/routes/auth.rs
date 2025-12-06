@@ -1,6 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use crate::{app_state::AppState, dtos::VerifyCredentialsRequest, services::user_service};
-use shared_global::auth::internal_auth::AdminOrInternal;
+use shared_global::auth::hybrid_extractors::AdminOrInternal;
 
 pub async fn verify_credentials(
     State(app_state): State<AppState>,
