@@ -15,9 +15,10 @@ use shared_global::extractors::ValidatedJson;
 pub async fn register(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<RegisterRequest>,
-) -> Result<(StatusCode, Json<UserResponse>), UserServiceError> {
+) -> Result<(StatusCode, Json<LoginResponse>), UserServiceError> {
     let internal_api_key = app_state.internal_api_key;
     let user_service_url = app_state.user_service_url;
+    let jwt_secret = &app_state.jwt_secret;
     let pool = &app_state.pool;
 
     tracing::info!("Registration attempt for username: {}", payload.user_name);
@@ -36,8 +37,16 @@ pub async fn register(
     )
     .await?;
 
-    tracing::info!("User registered successfully");
-    Ok((StatusCode::CREATED, Json(user_response)))
+    // Generate tokens for auto-login after registration
+    let access_token = token_service::create_access_token(user_response.id, pool, jwt_secret).await?;
+    let refresh_token = token_service::create_refresh_token(pool, user_response.id, None).await?;
+
+    tracing::info!("User registered successfully with tokens");
+    Ok((StatusCode::CREATED, Json(LoginResponse {
+        user: user_response,
+        access_token,
+        refresh_token,
+    })))
 }
 
 pub async fn login(
