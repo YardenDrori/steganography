@@ -24,6 +24,7 @@ pub struct UserCreateRequest {
 
     pub phone_number: Option<String>,
     pub is_male: Option<bool>,
+    pub password_hash: String,
 }
 
 fn validate_username(username: &str) -> Result<(), validator::ValidationError> {
@@ -48,6 +49,13 @@ pub struct UpdateUserRequest {
 #[derive(Debug, Serialize, Deserialize, Clone, Validate)]
 pub struct SyncUserStatusRequest {
     pub is_active: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct VerifyCredentialsRequest {
+    pub email: Option<String>,
+    pub user_name: Option<String>,
+    pub password: String,
 }
 
 impl From<User> for UserResponse {
