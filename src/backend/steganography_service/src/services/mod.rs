@@ -1,2 +1,1 @@
 pub mod embed_image;
-pub mod embed_video;
