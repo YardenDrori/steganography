@@ -18,7 +18,7 @@ pub async fn register(
 ) -> Result<(StatusCode, Json<LoginResponse>), UserServiceError> {
     let internal_api_key = app_state.internal_api_key;
     let user_service_url = app_state.user_service_url;
-    let jwt_secret = &app_state.jwt_secret;
+    let jwt_private_key = &app_state.jwt_private_key;
     let pool = &app_state.pool;
 
     tracing::info!("Registration attempt for username: {}", payload.user_name);
@@ -38,7 +38,7 @@ pub async fn register(
     .await?;
 
     // Generate tokens for auto-login after registration
-    let access_token = token_service::create_access_token(user_response.id, pool, jwt_secret).await?;
+    let access_token = token_service::create_access_token(user_response.id, pool, jwt_private_key).await?;
     let refresh_token = token_service::create_refresh_token(pool, user_response.id, None).await?;
 
     tracing::info!("User registered successfully with tokens");
