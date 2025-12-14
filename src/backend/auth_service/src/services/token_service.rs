@@ -34,11 +34,10 @@ fn hash_token(token: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-// Creates a new access token (JWT) for a user
 pub async fn create_access_token(
     user_id: i64,
     pool: &PgPool,
-    secret: &str,
+    private_key_pem: &str,
 ) -> Result<String, UserServiceError> {
     tracing::debug!("Creating access token for user_id={}", user_id);
     let now = Utc::now();
@@ -48,7 +47,7 @@ pub async fn create_access_token(
         .await
         .map_err(|e| UserServiceError::DatabaseError(e))?;
 
-    let token = encode_jwt(user_id, issued_at, expires_at, roles, secret)
+    let token = encode_jwt(user_id, issued_at, expires_at, roles, private_key_pem)
         .map_err(|e| UserServiceError::JwtError(e))?;
     tracing::info!("Created access token for user_id={}", user_id);
     Ok(token)
@@ -110,11 +109,10 @@ pub async fn create_refresh_token(
     Err(UserServiceError::DatabaseError(sqlx::Error::RowNotFound))
 }
 
-// Refreshes an access token using a refresh token
 pub async fn refresh_access_token(
     pool: &PgPool,
     refresh_token: &str,
-    jwt_secret: &str,
+    jwt_private_key: &str,
 ) -> Result<(String, String), UserServiceError> {
     tracing::debug!("Attempting to refresh access token");
     // Hash the provided token to look it up
@@ -142,37 +140,25 @@ pub async fn refresh_access_token(
         return Err(UserServiceError::InvalidCredentials);
     }
 
-    // Verify user still exists and is active
-    let user = user_repository::get_user_by_id(pool, stored_token.user_id())
-        .await
-        .map_err(|e| UserServiceError::DatabaseError(e))?
-        .ok_or_else(|| {
-            tracing::error!("User not found for refresh token");
-            UserServiceError::InvalidCredentials
-        })?;
-
-    if !user.is_active() {
-        tracing::warn!("Inactive user attempted to refresh token: {}", user.id());
-        return Err(UserServiceError::InvalidCredentials);
-    }
-
     // Revoke the old refresh token (token rotation)
     token_repository::revoke_refresh_token(pool, stored_token.id())
         .await
         .map_err(|e| UserServiceError::DatabaseError(e))?;
 
+    let user_id = stored_token.user_id();
+
     // Generate new access token
-    let new_access_token = create_access_token(user.id(), &pool, jwt_secret).await?;
+    let new_access_token = create_access_token(user_id, &pool, jwt_private_key).await?;
 
     // Generate new refresh token
     let new_refresh_token = create_refresh_token(
         pool,
-        user.id(),
+        user_id,
         stored_token.device_info().map(|s| s.to_string()),
     )
     .await?;
 
-    tracing::info!("Rotated tokens for user_id={}", user.id());
+    tracing::info!("Rotated tokens for user_id={}", user_id);
 
     Ok((new_access_token, new_refresh_token))
 }

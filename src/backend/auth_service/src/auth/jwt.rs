@@ -1,16 +1,14 @@
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{encode, EncodingKey, Header, Algorithm};
 use shared_global::auth::{jwt::Claims, roles::Roles};
 
-/// Low-level JWT encoding utility
-/// Only used by auth_service to create tokens
 pub fn encode_jwt(
     user_id: i64,
     issued_at: i64,
     expires_at: i64,
     roles: Roles,
-    secret: &str,
+    private_key_pem: &str,
 ) -> Result<String, jsonwebtoken::errors::Error> {
-    let encoding_key = EncodingKey::from_secret(secret.as_bytes());
+    let encoding_key = EncodingKey::from_rsa_pem(private_key_pem.as_bytes())?;
 
     let claims = Claims {
         sub: user_id,
@@ -19,9 +17,5 @@ pub fn encode_jwt(
         roles: roles,
     };
 
-    encode(
-        &Header::new(jsonwebtoken::Algorithm::HS256),
-        &claims,
-        &encoding_key,
-    )
+    encode(&Header::new(Algorithm::RS256), &claims, &encoding_key)
 }

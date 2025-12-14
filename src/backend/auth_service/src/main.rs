@@ -11,7 +11,7 @@ use shared_global::db::postgres::create_pool;
 
 use crate::app_state::AppState;
 use axum::{
-    routing::{delete, patch, post},
+    routing::{delete, get, patch, post},
     Router,
 };
 
@@ -23,10 +23,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set in env");
-    if jwt_secret.len() < 32 {
-        panic!("JWT_SECRET must be at least 32 characters for security");
-    }
+    let jwt_private_key = std::env::var("JWT_PRIVATE_KEY")
+        .expect("JWT_PRIVATE_KEY must be set in env")
+        .replace(r"\n", "\n");
+    let jwt_public_key = std::env::var("JWT_PUBLIC_KEY")
+        .expect("JWT_PUBLIC_KEY must be set in env")
+        .replace(r"\n", "\n");
 
     let internal_api_key =
         std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
@@ -46,7 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create app state
     let app_state = AppState {
-        jwt_secret,
+        jwt_private_key,
+        jwt_public_key,
         internal_api_key,
         user_service_url,
         pool: pool.clone(),
@@ -62,6 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "/auth/deactivate",
             post(routes::account::deactivate_my_account),
         )
+        .route("/public-key", get(routes::public_key::get_public_key))
         .route(
             "/admin/users/:id/activate",
             patch(routes::account::activate_user_admin),
