@@ -29,13 +29,13 @@ where
             .headers
             .get("authorization")
             .ok_or((
-                StatusCode::BAD_REQUEST,
+                StatusCode::UNAUTHORIZED,
                 Json(ErrorBody::new("No authorization header found")),
             ))?
             .to_str()
             .map_err(|_| {
                 (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::BAD_REQUEST,
                     Json(ErrorBody::new("Invalid Authorization header format")),
                 )
             })?;
@@ -44,14 +44,14 @@ where
             .strip_prefix("Bearer ")
             .or_else(|| headers.strip_prefix("bearer "))
             .ok_or((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorBody::new("Intenral server error")),
+                StatusCode::BAD_REQUEST,
+                Json(ErrorBody::new("Authorization header must use Bearer scheme")),
             ))?;
 
         let claims = verify_jwt(&token, &jwt_secret).map_err(|_| {
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorBody::new("Internal server error")),
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorBody::new("Invalid or expired token")),
             )
         })?;
         let user = AuthenticatedUser { 0: claims.sub };
@@ -72,13 +72,13 @@ where
             .headers
             .get("authorization")
             .ok_or((
-                StatusCode::BAD_REQUEST,
+                StatusCode::UNAUTHORIZED,
                 Json(ErrorBody::new("No authorization header found")),
             ))?
             .to_str()
             .map_err(|_| {
                 (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::BAD_REQUEST,
                     Json(ErrorBody::new("Invalid Authorization header format")),
                 )
             })?;
@@ -87,14 +87,14 @@ where
             .strip_prefix("Bearer ")
             .or_else(|| headers.strip_prefix("bearer "))
             .ok_or((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorBody::new("Intenral server error")),
+                StatusCode::BAD_REQUEST,
+                Json(ErrorBody::new("Authorization header must use Bearer scheme")),
             ))?;
 
         let claims = verify_jwt(&token, &jwt_secret).map_err(|_| {
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorBody::new("Internal server error")),
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorBody::new("Invalid or expired token")),
             )
         })?;
 

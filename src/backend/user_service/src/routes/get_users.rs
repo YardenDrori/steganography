@@ -10,6 +10,7 @@ pub async fn get_current_profile(
     AuthenticatedUser(user_id): AuthenticatedUser,
     State(app_state): State<AppState>,
 ) -> Result<(StatusCode, Json<UserResponse>), UserServiceError> {
+    tracing::info!("attempting to get user details of {}", user_id);
     let pool = app_state.pool;
 
     let user_response = user_service::get_user(&pool, user_id).await?;
