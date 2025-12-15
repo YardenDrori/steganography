@@ -31,7 +31,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
 
     // Fetch JWT public key from auth service
-    tracing::info!("Fetching JWT public key from auth service at {}", auth_service_url);
+    tracing::info!(
+        "Fetching JWT public key from auth service at {}",
+        auth_service_url
+    );
     let client = reqwest::Client::new();
     let response = client
         .get(format!("{}/public-key", auth_service_url))
@@ -65,6 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         pool: pool,
         jwt_public_key: jwt_public_key,
         internal_api_key: internal_api_key,
+        auth_service_url: auth_service_url,
     };
 
     // Build router
@@ -76,7 +80,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/users", post(post_users::create_user))
         .route("/users/:id", delete(delete_users::delete_user))
         .route("/internal/users/:id/status", patch(sync::sync_user_status))
-        .route("/internal/auth/verify-credentials", post(auth::verify_credentials))
+        .route(
+            "/internal/auth/verify-credentials",
+            post(auth::verify_credentials),
+        )
         .with_state(app_state);
 
     // Start server on port 3002

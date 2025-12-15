@@ -6,6 +6,7 @@ use sqlx::{Pool, Postgres};
 pub struct AppState {
     pub jwt_public_key: String,
     pub internal_api_key: String,
+    pub auth_service_url: String,
     pub pool: Pool<Postgres>,
 }
 

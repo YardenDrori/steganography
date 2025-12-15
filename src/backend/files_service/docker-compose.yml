@@ -55,7 +55,7 @@ services:
       RUST_LOG: info
       PORT: 3003
     ports:
-      - "3003:3003"
+      - "3004:3004"
     depends_on:
       files_postgres:
         condition: service_healthy

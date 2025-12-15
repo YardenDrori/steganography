@@ -1,19 +1,10 @@
+use crate::app_state::AppState;
+use axum::Router;
+use shared_global::db::postgres::create_pool;
 mod app_state;
-mod auth;
 mod dtos;
 mod entities;
-mod errors;
-mod models;
-mod repositories;
 mod routes;
-mod services;
-use shared_global::db::postgres::create_pool;
-
-use crate::app_state::AppState;
-use axum::{
-    routing::{delete, get, patch, post},
-    Router,
-};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,20 +14,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    let jwt_private_key = std::env::var("JWT_PRIVATE_KEY")
-        .expect("JWT_PRIVATE_KEY must be set in env")
-        .replace(r"\n", "\n");
-    let jwt_public_key = std::env::var("JWT_PUBLIC_KEY")
-        .expect("JWT_PUBLIC_KEY must be set in env")
-        .replace(r"\n", "\n");
+    let auth_service_url =
+        std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:3001".to_string());
+
+    let user_service_url =
+        std::env::var("USER_SERVICE_URL").unwrap_or_else(|_| "http://localhost:3002".to_string());
 
     let internal_api_key =
         std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
-    let user_service_url =
-        std::env::var("USER_SERVICE_URL").expect("USER_SERVICE_URL must be set in env");
 
-    let database_url =
-        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in env");
+
+    // Fetch JWT public key from auth service
+    tracing::info!(
+        "Fetching JWT public key from auth service at {}",
+        auth_service_url
+    );
+    let client = reqwest::Client::new();
+    let response = client
+        .get(format!("{}/public-key", auth_service_url))
+        .send()
+        .await
+        .expect("Failed to fetch public key from auth service");
+
+    #[derive(serde::Deserialize)]
+    struct PublicKeyResponse {
+        public_key: String,
+    }
+
+    let public_key_response: PublicKeyResponse = response
+        .json()
+        .await
+        .expect("Failed to parse public key response");
+
+    // JSON serialization escapes newlines, so we need to convert them back
+    let jwt_public_key = public_key_response.public_key.replace(r"\n", "\n");
 
     // Create database connection pool
     let pool = create_pool(&database_url)
@@ -48,44 +60,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create app state
     let app_state = AppState {
-        jwt_private_key,
-        jwt_public_key,
-        internal_api_key,
-        user_service_url,
-        pool: pool.clone(),
+        pool: pool,
+        jwt_public_key: jwt_public_key,
+        internal_api_key: internal_api_key,
+        user_service_url: user_service_url,
+        auth_service_url: auth_service_url,
     };
 
     // Build router
     let app = Router::new()
-        .route("/auth/register", post(routes::auth::register))
-        .route("/auth/login", post(routes::auth::login))
-        .route("/auth/refresh", post(routes::auth::refresh))
-        .route("/auth/logout", post(routes::auth::logout))
-        .route(
-            "/auth/deactivate",
-            post(routes::account::deactivate_my_account),
-        )
-        .route("/public-key", get(routes::public_key::get_public_key))
-        .route(
-            "/admin/users/:id/activate",
-            patch(routes::account::activate_user_admin),
-        )
-        .route(
-            "/admin/users/:id/deactivate",
-            patch(routes::account::deactivate_user_admin),
-        )
-        .route(
-            "/internal/users/:id/tokens",
-            delete(routes::tokens::revoke_user_tokens),
-        )
+        // .route("/internal/users/:id/status", patch(sync::sync_user_status))
+        // .route("/internal/auth/verify-credentials", post(auth::verify_credentials))
         .with_state(app_state);
 
-    // Start server on port 3001
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3001")
+    // Start server on port 3004
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3004")
         .await
-        .expect("Failed to bind to port 3001");
+        .expect("Failed to bind to port 3004");
 
-    tracing::info!("Auth service listening on {}", listener.local_addr()?);
+    tracing::info!("Files service listening on {}", listener.local_addr()?);
 
     axum::serve(listener, app)
         .await

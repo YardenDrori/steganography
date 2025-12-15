@@ -31,6 +31,6 @@ WORKDIR /app
 COPY --from=builder /build/files_service/target/release/files_service /app/files_service
 COPY --from=builder /build/files_service/migrations /app/migrations
 
-EXPOSE 3001
+EXPOSE 3004
 
 CMD ["./files_service"]
