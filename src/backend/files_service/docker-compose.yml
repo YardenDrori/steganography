@@ -1,0 +1,47 @@
+services:
+  files_postgres:
+    image: postgres:16-alpine
+    container_name: files_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: files_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - files_network
+
+  auth_service:
+    build:
+      context: ..
+      dockerfile: files_service/Dockerfile
+    container_name: files_service
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@auth_postgres:5434/files_db
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-zero-trust-they-said-itll-be-fun-they-said-now-im-just-a-microservice-with-trust-issues-talking-to-myself-through-http-requests}
+      USER_SERVICE_URL: http://user_service:3002
+      RUST_LOG: info
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      auth_postgres:
+        condition: service_healthy
+    networks:
+      - auth_network
+
+volumes:
+  auth_postgres_data:
+
+networks:
+  auth_network:
+    driver: bridge
+    name: microservices_network
+    external: true
