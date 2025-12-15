@@ -3,7 +3,6 @@ use axum::Router;
 use shared_global::db::postgres::create_pool;
 mod app_state;
 mod dtos;
-mod entities;
 mod routes;
 
 #[tokio::main]
