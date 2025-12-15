@@ -9,7 +9,7 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      - auth_postgres_data:/var/lib/postgresql/data
+      - files_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -18,30 +18,58 @@ services:
     networks:
       - files_network
 
-  auth_service:
+  files_minio:
+    image: minio/minio:latest
+    container_name: files_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - files_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - files_network
+
+  files_service:
     build:
       context: ..
       dockerfile: files_service/Dockerfile
     container_name: files_service
     environment:
-      DATABASE_URL: postgres://postgres:postgres@auth_postgres:5434/files_db
+      DATABASE_URL: postgres://postgres:postgres@files_postgres:5432/files_db
+      MINIO_ENDPOINT: files_minio:9000
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio
+      MINIO_BUCKET: files
+      MINIO_USE_SSL: "false"
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-zero-trust-they-said-itll-be-fun-they-said-now-im-just-a-microservice-with-trust-issues-talking-to-myself-through-http-requests}
       USER_SERVICE_URL: http://user_service:3002
       RUST_LOG: info
-      PORT: 3001
+      PORT: 3003
     ports:
-      - "3001:3001"
+      - "3003:3003"
     depends_on:
-      auth_postgres:
+      files_postgres:
+        condition: service_healthy
+      files_minio:
         condition: service_healthy
     networks:
-      - auth_network
+      - files_network
 
 volumes:
-  auth_postgres_data:
+  files_postgres_data:
+  files_minio_data:
 
 networks:
-  auth_network:
+  files_network:
     driver: bridge
     name: microservices_network
     external: true
