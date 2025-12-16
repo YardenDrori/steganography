@@ -9,7 +9,6 @@ use crate::services::user_service::{login_user, register_user};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
-use shared_global::dtos::UserResponse;
 use shared_global::extractors::ValidatedJson;
 
 pub async fn register(
@@ -38,15 +37,19 @@ pub async fn register(
     .await?;
 
     // Generate tokens for auto-login after registration
-    let access_token = token_service::create_access_token(user_response.id, pool, jwt_private_key).await?;
+    let access_token =
+        token_service::create_access_token(user_response.id, pool, jwt_private_key).await?;
     let refresh_token = token_service::create_refresh_token(pool, user_response.id, None).await?;
 
     tracing::info!("User registered successfully with tokens");
-    Ok((StatusCode::CREATED, Json(LoginResponse {
-        user: user_response,
-        access_token,
-        refresh_token,
-    })))
+    Ok((
+        StatusCode::CREATED,
+        Json(LoginResponse {
+            user: user_response,
+            access_token,
+            refresh_token,
+        }),
+    ))
 }
 
 pub async fn login(

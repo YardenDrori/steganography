@@ -30,6 +30,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("JWT_PUBLIC_KEY must be set in env")
         .replace(r"\n", "\n");
 
+    tracing::info!("Loaded JWT keys - private_key len={}, public_key len={}", jwt_private_key.len(), jwt_public_key.len());
+
     let internal_api_key =
         std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
     let user_service_url =

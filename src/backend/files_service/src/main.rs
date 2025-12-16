@@ -1,4 +1,5 @@
 use crate::app_state::AppState;
+use axum::routing::post;
 use axum::Router;
 use shared_global::db::postgres::create_pool;
 mod app_state;
@@ -49,6 +50,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // JSON serialization escapes newlines, so we need to convert them back
     let jwt_public_key = public_key_response.public_key.replace(r"\n", "\n");
 
+    tracing::info!("Done! recieved public jwt key {} (len={})", jwt_public_key, jwt_public_key.len());
+    tracing::info!("Raw public key from JSON: {} (len={})", public_key_response.public_key, public_key_response.public_key.len());
+
     // Create database connection pool
     let pool = create_pool(&database_url)
         .await
@@ -68,6 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build router
     let app = Router::new()
+        .route("/files", post(routes::post_files::post_files))
         // .route("/internal/users/:id/status", patch(sync::sync_user_status))
         // .route("/internal/auth/verify-credentials", post(auth::verify_credentials))
         .with_state(app_state);

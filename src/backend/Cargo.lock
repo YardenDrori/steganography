@@ -1870,6 +1870,8 @@ dependencies = [
  "jsonwebtoken",
  "serde",
  "sqlx",
+ "tracing",
+ "tracing-subscriber",
  "validator",
 ]
 

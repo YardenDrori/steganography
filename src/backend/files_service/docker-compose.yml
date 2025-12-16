@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: files_db
     ports:
-      - "5434:5432"
+      - "5435:5432"
     volumes:
       - files_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -44,7 +44,7 @@ services:
       dockerfile: files_service/Dockerfile
     container_name: files_service
     environment:
-      DATABASE_URL: postgres://postgres:postgres@files_postgres:5432/files_db
+      DATABASE_URL: postgres://postgres:postgres@files_postgres:5435/files_db
       MINIO_ENDPOINT: files_minio:9000
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio

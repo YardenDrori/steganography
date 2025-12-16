@@ -45,10 +45,13 @@ where
             .or_else(|| headers.strip_prefix("bearer "))
             .ok_or((
                 StatusCode::BAD_REQUEST,
-                Json(ErrorBody::new("Authorization header must use Bearer scheme")),
+                Json(ErrorBody::new(
+                    "Authorization header must use Bearer scheme",
+                )),
             ))?;
 
-        let claims = verify_jwt(&token, &jwt_public_key).map_err(|_| {
+        let claims = verify_jwt(&token, &jwt_public_key).map_err(|e| {
+            tracing::error!("JWT verification failed: {:?}", e);
             (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorBody::new("Invalid or expired token")),
@@ -88,10 +91,13 @@ where
             .or_else(|| headers.strip_prefix("bearer "))
             .ok_or((
                 StatusCode::BAD_REQUEST,
-                Json(ErrorBody::new("Authorization header must use Bearer scheme")),
+                Json(ErrorBody::new(
+                    "Authorization header must use Bearer scheme",
+                )),
             ))?;
 
-        let claims = verify_jwt(&token, &jwt_public_key).map_err(|_| {
+        let claims = verify_jwt(&token, &jwt_public_key).map_err(|e| {
+            tracing::error!("JWT verification failed: {:?}", e);
             (
                 StatusCode::UNAUTHORIZED,
                 Json(ErrorBody::new("Invalid or expired token")),
