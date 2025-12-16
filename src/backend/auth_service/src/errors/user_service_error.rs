@@ -19,30 +19,12 @@ pub enum UserServiceError {
 impl IntoResponse for UserServiceError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
-            Self::EmailAlreadyExists => (
-                StatusCode::CONFLICT,
-                "Email already exists",
-            ),
-            Self::UsernameAlreadyExists => (
-                StatusCode::CONFLICT,
-                "Username already exists",
-            ),
-            Self::InvalidCredentials => (
-                StatusCode::UNAUTHORIZED,
-                "Invalid credentials",
-            ),
-            Self::DatabaseError(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error",
-            ),
-            Self::HashingError(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error",
-            ),
-            Self::JwtError(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error",
-            ),
+            Self::EmailAlreadyExists => (StatusCode::CONFLICT, "Email already exists"),
+            Self::UsernameAlreadyExists => (StatusCode::CONFLICT, "Username already exists"),
+            Self::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid credentials"),
+            Self::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
+            Self::HashingError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
+            Self::JwtError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::ExternalServiceError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to sync with external service",

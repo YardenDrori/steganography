@@ -1,3 +1,4 @@
+use minior::Minio;
 use sqlx::{Pool, Postgres};
 
 #[derive(Clone)]
@@ -7,6 +8,7 @@ pub struct AppState {
     pub internal_api_key: String,
     pub user_service_url: String,
     pub auth_service_url: String,
+    pub minio: Minio,
 }
 
 impl shared_global::auth::jwt::HasJwtPublicKey for AppState {

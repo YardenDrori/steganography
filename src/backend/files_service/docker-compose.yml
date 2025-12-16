@@ -48,7 +48,7 @@ services:
       MINIO_ENDPOINT: files_minio:9000
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio
-      MINIO_BUCKET: files
+      MINIO_BUCKET: userfiles
       MINIO_USE_SSL: "false"
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-zero-trust-they-said-itll-be-fun-they-said-now-im-just-a-microservice-with-trust-issues-talking-to-myself-through-http-requests}
       USER_SERVICE_URL: http://user_service:3002

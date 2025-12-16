@@ -1,4 +1,6 @@
 use crate::app_state::AppState;
+use minior::Minio;
+mod errors;
 use axum::routing::post;
 use axum::Router;
 use shared_global::db::postgres::create_pool;
@@ -25,6 +27,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in env");
 
+    let minio_endpoint =
+        std::env::var("MINIO_ENDPOINT").expect("MINIO_ENDPOINT must be set in env");
+
+    let minio_access_key =
+        std::env::var("MINIO_ACCESS_KEY").expect("MINIO_ACCESS_KEY must be set in env");
+
+    let minio_secret_key =
+        std::env::var("MINIO_SECRET_KEY").expect("MINIO_SECRET_KEY must be set in env");
+
+    let minio_bucket = std::env::var("MINIO_BUCKET").expect("MINIO_BUCKET must be set in env");
+
+    let minio = Minio::new(&minio_endpoint).await;
+    if !minio.bucket_exists(&minio_bucket).await? {
+        tracing::info!("No existing userfiles bucket. Creating new userfiles bucket");
+        minio.create_bucket(&minio_bucket).await?;
+    }
+
     // Fetch JWT public key from auth service
     tracing::info!(
         "Fetching JWT public key from auth service at {}",
@@ -50,8 +69,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // JSON serialization escapes newlines, so we need to convert them back
     let jwt_public_key = public_key_response.public_key.replace(r"\n", "\n");
 
-    tracing::info!("Done! recieved public jwt key {} (len={})", jwt_public_key, jwt_public_key.len());
-    tracing::info!("Raw public key from JSON: {} (len={})", public_key_response.public_key, public_key_response.public_key.len());
+    tracing::info!(
+        "Done! recieved public jwt key {} (len={})",
+        jwt_public_key,
+        jwt_public_key.len()
+    );
+    tracing::info!(
+        "Raw public key from JSON: {} (len={})",
+        public_key_response.public_key,
+        public_key_response.public_key.len()
+    );
+
+    //create minio database bucket
+    let minio = Minio::new("http://127.0.0.1:9000").await;
+    let bucket_exists: bool = minio.bucket_exists("sharks").await?;
 
     // Create database connection pool
     let pool = create_pool(&database_url)
@@ -68,6 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         internal_api_key: internal_api_key,
         user_service_url: user_service_url,
         auth_service_url: auth_service_url,
+        minio: minio,
     };
 
     // Build router
