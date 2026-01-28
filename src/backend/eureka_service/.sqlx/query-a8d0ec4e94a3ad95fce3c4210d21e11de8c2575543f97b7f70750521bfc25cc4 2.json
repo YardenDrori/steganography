@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT jwt_private_key, jwt_public_key, internal_api_key FROM shared_config WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "jwt_private_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "jwt_public_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "internal_api_key",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a8d0ec4e94a3ad95fce3c4210d21e11de8c2575543f97b7f70750521bfc25cc4"
+}

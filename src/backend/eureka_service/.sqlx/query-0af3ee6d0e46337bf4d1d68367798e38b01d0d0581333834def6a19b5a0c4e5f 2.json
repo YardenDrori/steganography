@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO service_registry (service_name, service_url, last_heartbeat)\n           VALUES ($1, $2, CURRENT_TIMESTAMP)\n           ON CONFLICT (service_name)\n           DO UPDATE SET service_url = $2, last_heartbeat = CURRENT_TIMESTAMP",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0af3ee6d0e46337bf4d1d68367798e38b01d0d0581333834def6a19b5a0c4e5f"
+}
