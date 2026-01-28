@@ -1027,6 +1027,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "eureka_service"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "dotenvy",
+ "hex",
+ "rand 0.8.5",
+ "rsa",
+ "serde",
+ "serde_json",
+ "shared_global",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "validator",
+]
+
+[[package]]
 name = "event-listener"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2705,8 +2724,11 @@ dependencies = [
  "axum",
  "chrono",
  "jsonwebtoken",
+ "reqwest",
  "serde",
+ "serde_json",
  "sqlx",
+ "tokio",
  "tracing",
  "tracing-subscriber",
  "validator",

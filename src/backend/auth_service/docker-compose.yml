@@ -25,17 +25,15 @@ services:
     container_name: auth_service
     environment:
       DATABASE_URL: postgres://postgres:postgres@auth_postgres:5432/auth_db
-      # This is a test key for school project - not used in production LEAVE ME ALONE GITGUARDIAN
-      JWT_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQD38avxW8xQmKE1\n+KOVdlsBt2mMj/PcZfdQRS4ZG3pykpc5SHrordaQL5+Sa+zK+yDaqlgRrmFDbnqQ\nokVNCj9K88bjojwmTxe8QtKJLDw35o4y5BVdoOb3zKfYnJbERhIYsoNW9jHu0aJt\ncplVTzTIgmaALRVDf2aVofVlCaFg2OU5Sa7vmEMy6EJnTS1o25BOWNuMevvbYI2v\nV9PeLYabQavT5cLbqys8bBiS4Rs3TqxdIqFl3qYKJFf6aCEDJAZCI0iKXtyMjMUG\noNpYs85LzzSbjJKx4NIoYd9C0KuuR5zqJwm2hFrJCCnKsqRHpbazkETEXE7xp6uC\nGaYjNaWXAgMBAAECggEARozluA++21ASzyCoq2a6Dor55Z0wbo41CQomS86d0OwV\nS59sGbkdTHnAlhFPl5JNjurZlG5iDqXpCi6iOYGo8NLczPjk1KG8xzzcW1vS5rUb\n0S9FRRb7oZcCS4iC/eZST+S7qorzOlk8NphdOQEIq+Uu9Vneqw4dSoaDJPTQjpWZ\ng13lNPnsvhK38dfkRE4liZuCHFA6Gpg/tH+mwWUu+JWilZ5StXnk85LuPGYr5ktm\n4rUcGtjD+2V37OOD+hYh7+Cp6UlCi0unSb7Iww7h8cXKI3ar9uEXjsrZRj3zQx/i\nzF10Ahz8bA3UKHsYZ1jwotSA4a3YytAy5oTlcX49QQKBgQD8b7i/PJXSkJodWY+0\nNmf7dHTYUKaFchzr4ZrXHL4xPRk6mfL1z/zykd0RFaymANj5V83ULP/4bUQQ1c0b\nfzt+w6yWrDbaB05JkENas3oEu9CaiaBsoHSBEw5OX1Z325vOTFGu3MSW7XHRzVcP\nljLkDmNwLrd/xpptjMIoAZ5m/QKBgQD7cbcJlA0RvvoL836R9a+FJlBbpQJkCCW6\ncuwqwe4QwiT+hnu/Q/UGSq8Ss0mmWkWikrrYNIUT6WdQ4o3UrSxYaCI3KuE7BHH0\nTfn2q2F5mf3/v/uILLMsu61Klg/fPl2H8PeBS4NhxUMYGGJ80+ozrY+fA+y1yixa\nh713A8clIwKBgQDDQZdhNHeeu4K5mQDyn/KmKVoHx7pGFhIQ0hx2ryDd7SiKj3HC\nePJqnjCkemNks9sgYq4uo/AKNFolu3o+/pcCYlAo62QyGNyRQikXCyQibTPZlQKl\ngycaf6bdMBkt9Iv7ckTsQI8/PsJ/SZlB0SfkBs0bhMci6negrPOxBi+D8QKBgEeV\nrkiZz8a3mjSA1A315kyABeyxY6ba8vLL+RSLNZ2ryCB2ZRCk5kMuS/2E8Xjcxmps\nX6lh+mka0AElHr/ntXJN4z/Vg13r/A1TjdB+JjgacUe4foHcR/56R/GuG0KxXKtx\nHOXAe9z/7gQUHSXwpwKjbPoWgfOXZV04u+YAO1gFAoGBAK1ZtorMPbHPB8EYIzde\nwSmFTWSiYOKTRFuZmqQbv+hlPakqzExKh0dOaMWY7vutGhh8DJC8+WEPEemtDHqP\nSTcSEvpPZ80XvBwX6KBEahp67ePxBMgB2lvRuEldDX9nbuplGlg7meOG9pI2fAKK\ntKPLKuQQzMpq2iokoP7eSk9U\n-----END PRIVATE KEY-----\n"
-      JWT_PUBLIC_KEY: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9/Gr8VvMUJihNfijlXZb\nAbdpjI/z3GX3UEUuGRt6cpKXOUh66K3WkC+fkmvsyvsg2qpYEa5hQ256kKJFTQo/\nSvPG46I8Jk8XvELSiSw8N+aOMuQVXaDm98yn2JyWxEYSGLKDVvYx7tGibXKZVU80\nyIJmgC0VQ39mlaH1ZQmhYNjlOUmu75hDMuhCZ00taNuQTljbjHr722CNr1fT3i2G\nm0Gr0+XC26srPGwYkuEbN06sXSKhZd6mCiRX+mghAyQGQiNIil7cjIzFBqDaWLPO\nS880m4ySseDSKGHfQtCrrkec6icJtoRayQgpyrKkR6W2s5BExFxO8aerghmmIzWl\nlwIDAQAB\n-----END PUBLIC KEY-----\n"
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-zero-trust-they-said-itll-be-fun-they-said-now-im-just-a-microservice-with-trust-issues-talking-to-myself-through-http-requests}
-      USER_SERVICE_URL: http://user_service:3002
+      EUREKA_URL: http://eureka_service:3005
       RUST_LOG: info
       PORT: 3001
     ports:
       - "3001:3001"
     depends_on:
       auth_postgres:
+        condition: service_healthy
+      eureka_service:
         condition: service_healthy
     networks:
       - auth_network

@@ -16,11 +16,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
     dotenvy::dotenv().ok();
 
-    let auth_service_url =
-        std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:3001".to_string());
-
-    let internal_api_key =
-        std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
+    let eureka_url =
+        std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in env");
 
@@ -47,30 +44,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     tracing::info!("MinIO bucket '{}' is ready", minio_bucket);
 
-    // Fetch JWT public key from auth service
+    // Fetch shared config from eureka
+    let config = shared_global::eureka::fetch_config(&eureka_url, "files_service")
+        .await
+        .expect("Failed to fetch config from eureka");
+
+    let jwt_public_key = config.jwt_public_key;
+    let internal_api_key = config.internal_api_key;
+
     tracing::info!(
-        "Fetching JWT public key from auth service at {}",
-        auth_service_url
+        "Loaded config from eureka - public_key len={}",
+        jwt_public_key.len()
     );
-    let client = reqwest::Client::new();
-    let response = client
-        .get(format!("{}/public-key", auth_service_url))
-        .send()
+
+    // Register self with eureka
+    let self_url = std::env::var("SELF_URL")
+        .unwrap_or_else(|_| "http://files_service:3004".to_string());
+    shared_global::eureka::register_service(&eureka_url, "files_service", &self_url)
         .await
-        .expect("Failed to fetch public key from auth service");
-
-    #[derive(serde::Deserialize)]
-    struct PublicKeyResponse {
-        public_key: String,
-    }
-
-    let public_key_response: PublicKeyResponse = response
-        .json()
-        .await
-        .expect("Failed to parse public key response");
-
-    let jwt_public_key = public_key_response.public_key.replace(r"\n", "\n");
-    tracing::info!("JWT public key loaded (len={})", jwt_public_key.len());
+        .expect("Failed to register with eureka");
 
     // Create database connection pool
     let pool = create_pool(&database_url)

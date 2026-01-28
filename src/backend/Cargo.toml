@@ -7,6 +7,6 @@ members = [
     "shared/auth_user",
     "steganography_service",
     "files_service",
-    # "steganography_service",  # Uncomment when ready
+    "eureka_service",
     # "api_gateway",            # Uncomment when ready
 ]

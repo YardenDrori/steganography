@@ -14,8 +14,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    let internal_api_key =
-        std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
+    let eureka_url =
+        std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
+
+    // Fetch shared config from eureka
+    let config = shared_global::eureka::fetch_config(&eureka_url, "steganography_service")
+        .await
+        .expect("Failed to fetch config from eureka");
+
+    let internal_api_key = config.internal_api_key;
+
+    tracing::info!("Loaded config from eureka");
+
+    // Register self with eureka
+    let self_url = std::env::var("SELF_URL")
+        .unwrap_or_else(|_| "http://steganography_service:3003".to_string());
+    shared_global::eureka::register_service(&eureka_url, "steganography_service", &self_url)
+        .await
+        .expect("Failed to register with eureka");
 
     // Create app state
     let app_state = AppState { internal_api_key };

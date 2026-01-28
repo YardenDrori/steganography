@@ -23,22 +23,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    let jwt_private_key = std::env::var("JWT_PRIVATE_KEY")
-        .expect("JWT_PRIVATE_KEY must be set in env")
-        .replace(r"\n", "\n");
-    let jwt_public_key = std::env::var("JWT_PUBLIC_KEY")
-        .expect("JWT_PUBLIC_KEY must be set in env")
-        .replace(r"\n", "\n");
-
-    tracing::info!("Loaded JWT keys - private_key len={}, public_key len={}", jwt_private_key.len(), jwt_public_key.len());
-
-    let internal_api_key =
-        std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
-    let user_service_url =
-        std::env::var("USER_SERVICE_URL").expect("USER_SERVICE_URL must be set in env");
+    let eureka_url =
+        std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
 
     let database_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
+
+    // Fetch shared config from eureka
+    let config = shared_global::eureka::fetch_config(&eureka_url, "auth_service")
+        .await
+        .expect("Failed to fetch config from eureka");
+
+    let jwt_private_key = config
+        .jwt_private_key
+        .expect("Eureka should provide jwt_private_key for auth_service");
+    let jwt_public_key = config.jwt_public_key;
+    let internal_api_key = config.internal_api_key;
+    let user_service_url = config
+        .services
+        .get("user_service")
+        .cloned()
+        .expect("user_service URL not found in eureka registry");
+
+    tracing::info!(
+        "Loaded config from eureka - private_key len={}, public_key len={}",
+        jwt_private_key.len(),
+        jwt_public_key.len()
+    );
+
+    // Register self with eureka
+    let self_url = std::env::var("SELF_URL")
+        .unwrap_or_else(|_| "http://auth_service:3001".to_string());
+    shared_global::eureka::register_service(&eureka_url, "auth_service", &self_url)
+        .await
+        .expect("Failed to register with eureka");
 
     // Create database connection pool
     let pool = create_pool(&database_url)

@@ -50,8 +50,7 @@ services:
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: userfiles
       MINIO_USE_SSL: "false"
-      AUTH_SERVICE_URL: http://auth_service:3001
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-zero-trust-they-said-itll-be-fun-they-said-now-im-just-a-microservice-with-trust-issues-talking-to-myself-through-http-requests}
+      EUREKA_URL: http://eureka_service:3005
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin
       AWS_DEFAULT_REGION: us-east-1
@@ -62,6 +61,8 @@ services:
       files_postgres:
         condition: service_healthy
       files_minio:
+        condition: service_healthy
+      eureka_service:
         condition: service_healthy
     networks:
       - files_network
