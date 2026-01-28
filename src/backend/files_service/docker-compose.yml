@@ -44,16 +44,18 @@ services:
       dockerfile: files_service/Dockerfile
     container_name: files_service
     environment:
-      DATABASE_URL: postgres://postgres:postgres@files_postgres:5435/files_db
-      MINIO_ENDPOINT: files_minio:9000
-      MINIO_ACCESS_KEY: minio
-      MINIO_SECRET_KEY: minio
+      DATABASE_URL: postgres://postgres:postgres@files_postgres:5432/files_db
+      MINIO_ENDPOINT: http://files_minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: userfiles
       MINIO_USE_SSL: "false"
+      AUTH_SERVICE_URL: http://auth_service:3001
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-zero-trust-they-said-itll-be-fun-they-said-now-im-just-a-microservice-with-trust-issues-talking-to-myself-through-http-requests}
-      USER_SERVICE_URL: http://user_service:3002
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_DEFAULT_REGION: us-east-1
       RUST_LOG: info
-      PORT: 3003
     ports:
       - "3004:3004"
     depends_on:

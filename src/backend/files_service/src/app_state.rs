@@ -1,14 +1,14 @@
 use minior::Minio;
 use sqlx::{Pool, Postgres};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: Pool<Postgres>,
     pub jwt_public_key: String,
     pub internal_api_key: String,
-    pub user_service_url: String,
-    pub auth_service_url: String,
-    pub minio: Minio,
+    pub minio: Arc<Minio>,
+    pub minio_bucket: String,
 }
 
 impl shared_global::auth::jwt::HasJwtPublicKey for AppState {

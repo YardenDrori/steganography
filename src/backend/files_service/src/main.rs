@@ -1,26 +1,23 @@
 use crate::app_state::AppState;
-use minior::Minio;
-mod errors;
-use axum::routing::post;
+use axum::routing::{delete, get, post};
 use axum::Router;
+use minior::Minio;
+use minior::aws_sdk_s3::Client as S3Client;
 use shared_global::db::postgres::create_pool;
+use std::sync::Arc;
+
 mod app_state;
 mod dtos;
+mod errors;
 mod routes;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
     tracing_subscriber::fmt::init();
-
-    // Load environment variables
     dotenvy::dotenv().ok();
 
     let auth_service_url =
         std::env::var("AUTH_SERVICE_URL").unwrap_or_else(|_| "http://localhost:3001".to_string());
-
-    let user_service_url =
-        std::env::var("USER_SERVICE_URL").unwrap_or_else(|_| "http://localhost:3002".to_string());
 
     let internal_api_key =
         std::env::var("INTERNAL_API_KEY").expect("INTERNAL_API_KEY must be set in env");
@@ -30,19 +27,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let minio_endpoint =
         std::env::var("MINIO_ENDPOINT").expect("MINIO_ENDPOINT must be set in env");
 
-    let minio_access_key =
-        std::env::var("MINIO_ACCESS_KEY").expect("MINIO_ACCESS_KEY must be set in env");
-
-    let minio_secret_key =
-        std::env::var("MINIO_SECRET_KEY").expect("MINIO_SECRET_KEY must be set in env");
-
     let minio_bucket = std::env::var("MINIO_BUCKET").expect("MINIO_BUCKET must be set in env");
 
-    let minio = Minio::new(&minio_endpoint).await;
+    // Initialize MinIO client with path-style addressing (required for MinIO)
+    let aws_config = aws_config::from_env()
+        .endpoint_url(&minio_endpoint)
+        .load()
+        .await;
+    let s3_config = minior::aws_sdk_s3::config::Builder::from(&aws_config)
+        .force_path_style(true)
+        .build();
+    let s3_client = S3Client::from_conf(s3_config);
+    let minio = Minio {
+        client: Arc::new(s3_client),
+    };
     if !minio.bucket_exists(&minio_bucket).await? {
-        tracing::info!("No existing userfiles bucket. Creating new userfiles bucket");
+        tracing::info!("Bucket '{}' not found. Creating it now.", minio_bucket);
         minio.create_bucket(&minio_bucket).await?;
     }
+    tracing::info!("MinIO bucket '{}' is ready", minio_bucket);
 
     // Fetch JWT public key from auth service
     tracing::info!(
@@ -66,23 +69,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .expect("Failed to parse public key response");
 
-    // JSON serialization escapes newlines, so we need to convert them back
     let jwt_public_key = public_key_response.public_key.replace(r"\n", "\n");
-
-    tracing::info!(
-        "Done! recieved public jwt key {} (len={})",
-        jwt_public_key,
-        jwt_public_key.len()
-    );
-    tracing::info!(
-        "Raw public key from JSON: {} (len={})",
-        public_key_response.public_key,
-        public_key_response.public_key.len()
-    );
-
-    //create minio database bucket
-    let minio = Minio::new("http://127.0.0.1:9000").await;
-    let bucket_exists: bool = minio.bucket_exists("sharks").await?;
+    tracing::info!("JWT public key loaded (len={})", jwt_public_key.len());
 
     // Create database connection pool
     let pool = create_pool(&database_url)
@@ -94,22 +82,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create app state
     let app_state = AppState {
-        pool: pool,
-        jwt_public_key: jwt_public_key,
-        internal_api_key: internal_api_key,
-        user_service_url: user_service_url,
-        auth_service_url: auth_service_url,
-        minio: minio,
+        pool,
+        jwt_public_key,
+        internal_api_key,
+        minio: Arc::new(minio),
+        minio_bucket,
     };
 
     // Build router
     let app = Router::new()
-        .route("/files", post(routes::post_files::post_files))
-        // .route("/internal/users/:id/status", patch(sync::sync_user_status))
-        // .route("/internal/auth/verify-credentials", post(auth::verify_credentials))
+        .route("/files/prepare", post(routes::prepare_upload::prepare_upload))
+        .route(
+            "/files/:id/confirm",
+            post(routes::confirm_upload::confirm_upload),
+        )
+        .route("/files/:id", get(routes::get_file::get_file))
+        .route("/files", get(routes::list_files::list_files))
+        .route("/files/:id", delete(routes::delete_file::delete_file))
         .with_state(app_state);
 
-    // Start server on port 3004
+    // Start server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3004")
         .await
         .expect("Failed to bind to port 3004");

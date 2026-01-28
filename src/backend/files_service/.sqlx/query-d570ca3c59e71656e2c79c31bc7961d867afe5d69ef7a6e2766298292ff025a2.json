@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE files\n        SET status = 'uploaded', size_bytes = $1\n        WHERE id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d570ca3c59e71656e2c79c31bc7961d867afe5d69ef7a6e2766298292ff025a2"
+}
