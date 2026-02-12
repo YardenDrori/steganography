@@ -1,7 +1,222 @@
-include:
-  - eureka_service/docker-compose.yml
-  - auth_service/docker-compose.yml
-  - user_service/docker-compose.yml
-  - steganography_service/docker-compose.yml
-  - files_service/docker-compose.yml
-  # - api_gateway/docker-compose.yml
+services:
+  # ==================== EUREKA SERVICE ====================
+  eureka_postgres:
+    image: postgres:16-alpine
+    container_name: eureka_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: eureka_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - eureka_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices_network
+
+  eureka_service:
+    build:
+      context: .
+      dockerfile: eureka_service/Dockerfile
+    container_name: eureka_service
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@eureka_postgres:5432/eureka_db
+      RUST_LOG: info
+      PORT: 3005
+    ports:
+      - "3005:3005"
+    depends_on:
+      eureka_postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - microservices_network
+
+  # ==================== AUTH SERVICE ====================
+  auth_postgres:
+    image: postgres:16-alpine
+    container_name: auth_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices_network
+
+  auth_service:
+    build:
+      context: .
+      dockerfile: auth_service/Dockerfile
+    container_name: auth_service
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@auth_postgres:5432/auth_db
+      EUREKA_URL: http://eureka_service:3005
+      RUST_LOG: info
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      auth_postgres:
+        condition: service_healthy
+      eureka_service:
+        condition: service_healthy
+    networks:
+      - microservices_network
+
+  # ==================== USER SERVICE ====================
+  user_postgres:
+    image: postgres:16-alpine
+    container_name: user_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: user_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - user_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices_network
+
+  user_service:
+    build:
+      context: .
+      dockerfile: user_service/Dockerfile
+    container_name: user_service
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@user_postgres:5432/user_db
+      EUREKA_URL: http://eureka_service:3005
+      RUST_LOG: info
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      user_postgres:
+        condition: service_healthy
+      eureka_service:
+        condition: service_healthy
+    networks:
+      - microservices_network
+
+  # ==================== STEGANOGRAPHY SERVICE ====================
+  steganography_service:
+    build:
+      context: .
+      dockerfile: steganography_service/Dockerfile
+    container_name: steganography_service
+    environment:
+      EUREKA_URL: http://eureka_service:3005
+      RUST_LOG: info
+      PORT: 3003
+    ports:
+      - "3003:3003"
+    depends_on:
+      eureka_service:
+        condition: service_healthy
+    networks:
+      - microservices_network
+
+  # ==================== FILES SERVICE ====================
+  files_postgres:
+    image: postgres:16-alpine
+    container_name: files_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: files_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - files_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices_network
+
+  files_minio:
+    image: minio/minio:latest
+    container_name: files_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - files_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservices_network
+
+  files_service:
+    build:
+      context: .
+      dockerfile: files_service/Dockerfile
+    container_name: files_service
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@files_postgres:5432/files_db
+      MINIO_ENDPOINT: http://files_minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: userfiles
+      MINIO_USE_SSL: "false"
+      EUREKA_URL: http://eureka_service:3005
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_DEFAULT_REGION: us-east-1
+      RUST_LOG: info
+      PORT: 3004
+    ports:
+      - "3004:3004"
+    depends_on:
+      files_postgres:
+        condition: service_healthy
+      files_minio:
+        condition: service_healthy
+      eureka_service:
+        condition: service_healthy
+    networks:
+      - microservices_network
+
+volumes:
+  eureka_postgres_data:
+  auth_postgres_data:
+  user_postgres_data:
+  files_postgres_data:
+  files_minio_data:
+
+networks:
+  microservices_network:
+    driver: bridge

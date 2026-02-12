@@ -1,11 +1,11 @@
 # Build stage
-FROM rust:1.90-alpine AS builder
+FROM rust:1.91-alpine AS builder
 
 RUN apk add --no-cache \
-  musl-dev=1.2.5-r10 \
-  pkgconf=2.4.3-r0 \
-  openssl-dev=3.5.4-r0 \
-  openssl-libs-static=3.5.4-r0
+  musl-dev \
+  pkgconf \
+  openssl-dev \
+  openssl-libs-static
 
 WORKDIR /build
 
@@ -22,7 +22,7 @@ RUN cargo build --release
 # Runtime stage
 FROM alpine:3.22
 
-RUN apk add --no-cache libgcc=14.2.0-r6
+RUN apk add --no-cache libgcc
 
 WORKDIR /app
 
