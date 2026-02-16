@@ -1,28 +1,35 @@
 # Build stage
-FROM rust:1.91-alpine AS builder
+  FROM rust:1.91-alpine AS builder
 
-RUN apk add --no-cache \
-    musl-dev \
-    pkgconf \
-    openssl-dev \
-    openssl-libs-static
+  RUN apk add --no-cache \
+      musl-dev \
+      pkgconf \
+      openssl-dev \
+      openssl-libs-static
 
-WORKDIR /app
+  WORKDIR /build
 
-COPY Cargo.toml ./
-COPY src ./src
+  # Copy shared dependencies
+  COPY shared/global ./shared/global
+  COPY shared/auth_user ./shared/auth_user
 
-RUN cargo build --release
+  # Copy the api_gateway service
+  COPY api_gateway ./api_gateway
 
-# Runtime stage
-FROM alpine:3.22
+  WORKDIR /build/api_gateway
 
-RUN apk add --no-cache libgcc
+  # Build the release binary
+  RUN cargo build --release
 
-WORKDIR /app
+  # Runtime stage
+  FROM alpine:3.22
 
-COPY --from=builder /app/target/release/api_gateway /app/api_gateway
+  RUN apk add --no-cache libgcc
 
-EXPOSE 3000
+  WORKDIR /app
 
-CMD ["./api_gateway"]
+  COPY --from=builder /build/api_gateway/target/release/api_gateway /app/api_gateway
+
+  EXPOSE 3000
+
+  CMD ["./api_gateway"]

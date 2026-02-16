@@ -42,6 +42,24 @@ services:
     networks:
       - microservices_network
 
+  # ==================== API GATEWAY ====================
+
+  api_gateway:
+    build:
+      context: .
+      dockerfile: api_gateway/Dockerfile
+    container_name: api_gateway
+    environment:
+      EUREKA_URL: http://eureka_service:3005
+      RUST_LOG: info
+    ports:
+      - "3000:3000"
+    depends_on:
+      eureka_service:
+        condition: service_healthy
+    networks:
+      - microservices_network
+
   # ==================== AUTH SERVICE ====================
   auth_postgres:
     image: postgres:16-alpine
