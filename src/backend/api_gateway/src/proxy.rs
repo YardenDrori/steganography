@@ -18,8 +18,15 @@ pub async fn proxy_request(service_url: &str, req: Request) -> Result<Response, 
         .unwrap_or("/");
     let headers = req.headers().clone();
 
+    // Strip the /api prefix before forwarding
+    let stripped_path = path_and_query
+        .strip_prefix("/api")
+        .unwrap_or(path_and_query);
+
     // Build the full URL to the backend service
-    let url = format!("{}{}", service_url, path_and_query);
+    let url = format!("{}{}", service_url, stripped_path);
+
+    tracing::info!("Proxying {} to {}", path_and_query, url);
 
     // NOW consume the request to get the body
     let body = axum::body::to_bytes(req.into_body(), usize::MAX)
