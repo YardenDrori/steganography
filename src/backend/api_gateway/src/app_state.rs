@@ -1,4 +1,3 @@
-use std::collections::{self, HashMap};
 use reqwest;
 use shared_global::eureka::EurekaConfig;
 

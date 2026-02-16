@@ -1,8 +1,7 @@
 mod app_state;
-use axum::{
-    routing::{delete, get, patch, post},
-    Router,
-};
+mod proxy;
+use axum::routing::any;
+use axum::Router;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::app_state::AppState;
@@ -42,7 +41,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_headers(Any);
 
     // Build router
-    let app = Router::new().layer(cors).with_state(state);
+    let app = Router::new()
+        .route("/api/auth/*path", any(proxy::auth_handler))
+        .route("/api/user/*path", any(proxy::user_handler))
+        .route("/api/files/*path", any(proxy::files_handler))
+        .route("/api/embed/*path", any(proxy::embed_handler))
+        .layer(cors)
+        .with_state(state.into());
 
     // Start server on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
