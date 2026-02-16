@@ -8,5 +8,5 @@ members = [
     "steganography_service",
     "files_service",
     "eureka_service",
-    # "api_gateway",            # Uncomment when ready
+    "api_gateway",
 ]
