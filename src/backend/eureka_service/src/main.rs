@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use crate::app_state::AppState;
+use crate::app_state::{AppState, ServiceEntry};
 use axum::routing::{get, post};
 use axum::Router;
 
@@ -19,14 +19,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("JWT_PRIVATE_KEY").expect("jwt_private_key must be set in env");
     let jwt_public_key: String =
         std::env::var("JWT_PUBLIC_KEY").expect("jwt_public_key must be set in env");
-    let registered_services: Arc<RwLock<HashMap<String, String>>> =
+    let registered_services: Arc<RwLock<HashMap<String, ServiceEntry>>> =
         Arc::new(RwLock::new(HashMap::new()));
 
     let app_state = AppState {
         jwt_private_key,
         jwt_public_key,
-        registered_services,
+        registered_services: Arc::clone(&registered_services),
     };
+
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+
+            let mut services = registered_services.write().unwrap();
+            let before = services.len();
+
+            services.retain(|_, entry| entry.last_heartbeat.elapsed().as_secs() < 90);
+
+            let removed = before - services.len();
+            if removed > 0 {
+                tracing::info!("Cleaned up {} stale services", removed);
+            }
+        }
+    });
 
     let app = Router::new()
         .route("/health", get(routes::health::health))

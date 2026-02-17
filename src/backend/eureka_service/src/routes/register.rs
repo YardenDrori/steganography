@@ -1,4 +1,4 @@
-use crate::app_state::AppState;
+use crate::app_state::{AppState, ServiceEntry};
 use crate::dtos::{RegisterRequest, RegisterResponse};
 use axum::extract::State;
 use axum::Json;
@@ -9,7 +9,12 @@ pub async fn register(
 ) -> Json<RegisterResponse> {
     // write() locks the HashMap for writing
     let mut services = state.registered_services.write().unwrap();
-    services.insert(payload.service_name.clone(), payload.service_url.clone());
+
+    let entry = ServiceEntry {
+        service_url: payload.service_url.clone(),
+        last_heartbeat: tokio::time::Instant::now(),
+    };
+    services.insert(payload.service_name.clone(), entry);
 
     tracing::info!(
         "Registered: {} -> {}",

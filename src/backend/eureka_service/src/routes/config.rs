@@ -2,6 +2,7 @@ use crate::app_state::AppState;
 use crate::dtos::ConfigResponse;
 use axum::extract::{Path, State};
 use axum::Json;
+use std::collections::HashMap;
 
 pub async fn get_config(
     State(state): State<AppState>,
@@ -17,10 +18,14 @@ pub async fn get_config(
         None
     };
 
+    let services: HashMap<String, String> = services
+        .iter()
+        .map(|(name, entry)| (name.clone(), entry.service_url.clone()))
+        .collect();
+
     Json(ConfigResponse {
         jwt_public_key: state.jwt_public_key.clone(),
         jwt_private_key,
-        services: services.clone(),
+        services: services,
     })
 }
-
