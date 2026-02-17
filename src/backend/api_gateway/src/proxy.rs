@@ -69,13 +69,16 @@ pub async fn auth_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let configs = state.eureka_configs.read().unwrap();
-    let auth_url = configs
+    let auth_url= 
+        state
+        .eureka_configs
+        .write()
+        .unwrap()
         .services
         .get("auth_service")
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
-
-    proxy_request(auth_url, req).await
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
+        .clone();
+    proxy_request(&auth_url, req).await
 }
 
 /// Handler for /api/user/*
@@ -83,13 +86,17 @@ pub async fn user_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let configs = state.eureka_configs.read().unwrap();
-    let user_url = configs
+    let user_url= 
+        state
+        .eureka_configs
+        .write()
+        .unwrap()
         .services
         .get("user_service")
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
+        .clone();
 
-    proxy_request(user_url, req).await
+    proxy_request(&user_url, req).await
 }
 
 /// Handler for /api/files/*
@@ -97,13 +104,17 @@ pub async fn files_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let configs = state.eureka_configs.read().unwrap();
-    let files_url = configs
+    let files_url= 
+        state
+        .eureka_configs
+        .write()
+        .unwrap()
         .services
         .get("files_service")
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
+        .clone();
 
-    proxy_request(files_url, req).await
+    proxy_request(&files_url, req).await
 }
 
 /// Handler for /api/embed/*
@@ -111,11 +122,15 @@ pub async fn embed_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let configs = state.eureka_configs.read().unwrap();
-    let steg_url = configs
+    let steg_url= 
+        state
+        .eureka_configs
+        .write()
+        .unwrap()
         .services
         .get("steganography_service")
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
+        .clone();
 
-    proxy_request(steg_url, req).await
+    proxy_request(&steg_url, req).await
 }
