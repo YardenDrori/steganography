@@ -1057,13 +1057,9 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "dotenvy",
- "hex",
- "rand 0.8.5",
- "rsa",
  "serde",
  "serde_json",
  "shared_global",
- "sqlx",
  "tokio",
  "tracing",
  "tracing-subscriber",

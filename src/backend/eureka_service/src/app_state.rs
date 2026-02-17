@@ -1,10 +1,10 @@
-use sqlx::{Pool, Postgres};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub pool: Pool<Postgres>,
     pub jwt_private_key: String,
     pub jwt_public_key: String,
     pub internal_api_key: String,
-    pub service_host: String,
+    pub registered_services: Arc<RwLock<HashMap<String, String>>>,
 }
