@@ -19,19 +19,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("JWT_PRIVATE_KEY").expect("jwt_private_key must be set in env");
     let jwt_public_key: String =
         std::env::var("JWT_PUBLIC_KEY").expect("jwt_public_key must be set in env");
-    let internal_api_key: String =
-        std::env::var("INTERNAL_API_KEY").expect("internal_api_key must be set in env");
     let registered_services: Arc<RwLock<HashMap<String, String>>> =
         Arc::new(RwLock::new(HashMap::new()));
 
     let app_state = AppState {
         jwt_private_key,
         jwt_public_key,
-        internal_api_key,
         registered_services,
     };
 
-    let app = Router::new().with_state(app_state);
+    let app = Router::new()
+        .route("/health", get(routes::health::health))
+        .route("/register", post(routes::register::register))
+        .route("/config/:service_name", get(routes::config::get_config))
+        .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3005")
         .await

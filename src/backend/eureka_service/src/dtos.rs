@@ -7,7 +7,6 @@ pub struct ConfigResponse {
     pub jwt_public_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jwt_private_key: Option<String>,
-    pub internal_api_key: String,
     pub services: HashMap<String, String>,
 }
 
@@ -30,12 +29,11 @@ pub struct RegisterRequest {
 #[derive(Debug, Serialize)]
 pub struct RegisterResponse {
     pub message: String,
-    pub service_name: String,
     pub service_url: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct DiscoverResponse {
-    pub service_name: String,
-    pub service_url: String,
-}
+// #[derive(Debug, Serialize)]
+// pub struct DiscoverResponse {
+//     pub service_name: String,
+//     pub service_url: String,
+// }
