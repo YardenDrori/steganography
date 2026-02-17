@@ -19,24 +19,14 @@ pub struct AdminOrInternal(pub Option<i64>);
 #[async_trait]
 impl<S> FromRequestParts<S> for AdminOrInternal
 where
-    S: Send + Sync + HasJwtPublicKey + HasInternalApiKey,
+    S: Send + Sync + HasJwtPublicKey,
 {
     type Rejection = (StatusCode, Json<ErrorBody>);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        //try internal service auth (check for X-Internal-API-Key header)
-        let internal_api_key = state.internal_api_key();
-        if let Some(header) = parts
-            .headers
-            .get("X-Internal-API-Key")
-            .and_then(|h| h.to_str().ok())
-        {
-            if header == internal_api_key {
-                return Ok(AdminOrInternal(None));
-            }
-        }
+        //TODO: Add mTLS verification here
+        //currently it is basically the same as the Admin request
 
-        // If internal auth failed try JWT admin auth
         let jwt_public_key = state.jwt_public_key();
         let auth_header = parts
             .headers
