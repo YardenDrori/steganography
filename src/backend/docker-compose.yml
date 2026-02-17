@@ -10,8 +10,6 @@ services:
       PORT: 3005
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      SERVICE_HOST: docker
     ports:
       - "3005:3005"
     healthcheck:
@@ -210,7 +208,6 @@ services:
       - microservices_network
 
 volumes:
-  eureka_postgres_data:
   auth_postgres_data:
   user_postgres_data:
   files_postgres_data:

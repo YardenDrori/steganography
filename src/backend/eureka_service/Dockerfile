@@ -27,7 +27,6 @@ RUN apk add --no-cache libgcc curl
 WORKDIR /app
 
 COPY --from=builder /build/eureka_service/target/release/eureka_service /app/eureka_service
-COPY --from=builder /build/eureka_service/migrations /app/migrations
 
 EXPOSE 3005
 
