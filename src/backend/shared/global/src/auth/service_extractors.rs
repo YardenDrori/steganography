@@ -16,7 +16,7 @@ where
 {
     type Rejection = (StatusCode, Json<ErrorBody>);
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(_parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         tracing::warn!("Called unimplemented method: InternalService: FromRequestParts");
         Err((
             StatusCode::NOT_IMPLEMENTED,
