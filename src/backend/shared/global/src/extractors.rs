@@ -31,14 +31,12 @@ where
 
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
         // First, deserialize the JSON
-        let Json(payload) = Json::<T>::from_request(req, state)
-            .await
-            .map_err(|_err| {
-                (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorBody::new("Invalid JSON format")),
-                )
-            })?;
+        let Json(payload) = Json::<T>::from_request(req, state).await.map_err(|_err| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorBody::new("Invalid JSON format")),
+            )
+        })?;
 
         // Then validate the payload
         payload.validate().map_err(|e| {

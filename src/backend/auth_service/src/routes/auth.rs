@@ -15,7 +15,6 @@ pub async fn register(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> Result<(StatusCode, Json<LoginResponse>), UserServiceError> {
-    let internal_api_key = app_state.internal_api_key;
     let user_service_url = app_state.user_service_url;
     let jwt_private_key = &app_state.jwt_private_key;
     let pool = &app_state.pool;
@@ -24,7 +23,6 @@ pub async fn register(
 
     let user_response = register_user(
         &pool,
-        &internal_api_key,
         &user_service_url,
         &payload.user_name,
         &payload.first_name,
@@ -64,12 +62,10 @@ pub async fn login(
 
     let jwt_private_key = &app_state.jwt_private_key;
     let pool = &app_state.pool;
-    let internal_api_key = &app_state.internal_api_key;
     let user_service_url = &app_state.user_service_url;
 
     let login_response = login_user(
         &pool,
-        &internal_api_key,
         &user_service_url,
         payload.email.as_deref(),
         payload.user_name.as_deref(),

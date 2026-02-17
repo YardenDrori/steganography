@@ -12,7 +12,6 @@ use std::str::FromStr;
 
 pub async fn register_user(
     pool: &PgPool,
-    internal_api_key: &str,
     user_service_url: &str,
     user_name: &str,
     first_name: &str,
@@ -55,7 +54,6 @@ pub async fn register_user(
 
     let response = client
         .post(format!("{}/users", user_service_url))
-        .header("X-Internal-API-Key", internal_api_key)
         .json(&user_create_request)
         .send()
         .await
@@ -122,7 +120,7 @@ pub async fn register_user(
                 error = ?e,
                 "Step 3: Failed to assign role, initiating compensation"
             );
-            compensate_delete_user(&user_service_url, &internal_api_key, user_id).await?;
+            compensate_delete_user(&user_service_url, user_id).await?;
             return Err(UserServiceError::DatabaseError(e));
         }
     }
@@ -139,7 +137,6 @@ pub async fn register_user(
 
 pub async fn login_user(
     pool: &PgPool,
-    internal_api_key: &str,
     user_service_url: &str,
     email: Option<&str>,
     user_name: Option<&str>,
@@ -164,8 +161,10 @@ pub async fn login_user(
     });
 
     let response = client
-        .post(format!("{}/internal/auth/verify-credentials", user_service_url))
-        .header("X-Internal-API-Key", internal_api_key)
+        .post(format!(
+            "{}/internal/auth/verify-credentials",
+            user_service_url
+        ))
         .json(&verify_request)
         .send()
         .await
@@ -228,7 +227,6 @@ pub async fn get_user_roles(pool: &PgPool, user_id: i64) -> Result<Roles, sqlx::
 
 pub async fn compensate_delete_user(
     user_service_url: &str,
-    internal_api_key: &str,
     user_id: i64,
 ) -> Result<(), UserServiceError> {
     const ATTEMPTS: u8 = 3;
@@ -244,7 +242,6 @@ pub async fn compensate_delete_user(
     for i in 0..ATTEMPTS {
         let response: reqwest::Response = match client
             .delete(format!("{}/users/{}", user_service_url, user_id))
-            .header("X-Internal-API-Key", internal_api_key)
             .send()
             .await
         {
@@ -298,7 +295,6 @@ pub async fn compensate_delete_user(
 /// Helper function to sync user active status to user_service
 async fn sync_user_status_to_user_service(
     user_service_url: &str,
-    internal_api_key: &str,
     user_id: i64,
     is_active: bool,
 ) -> Result<(), UserServiceError> {
@@ -318,7 +314,6 @@ async fn sync_user_status_to_user_service(
             "{}/internal/users/{}/status",
             user_service_url, user_id
         ))
-        .header("X-Internal-API-Key", internal_api_key)
         .json(&sync_request)
         .send()
         .await
@@ -355,7 +350,6 @@ async fn sync_user_status_to_user_service(
 
 pub async fn deactivate_user(
     pool: &PgPool,
-    internal_api_key: &str,
     user_service_url: &str,
     user_id: i64,
 ) -> Result<(), UserServiceError> {
@@ -369,7 +363,7 @@ pub async fn deactivate_user(
         user_id = %user_id,
         "Step 1: Deactivating user in user_service"
     );
-    sync_user_status_to_user_service(user_service_url, internal_api_key, user_id, false).await?;
+    sync_user_status_to_user_service(user_service_url, user_id, false).await?;
 
     tracing::info!(
         user_id = %user_id,
@@ -409,7 +403,6 @@ pub async fn deactivate_user(
 
 pub async fn activate_user(
     pool: &PgPool,
-    internal_api_key: &str,
     user_service_url: &str,
     user_id: i64,
 ) -> Result<(), UserServiceError> {
@@ -418,7 +411,7 @@ pub async fn activate_user(
         "Activating user account"
     );
 
-    sync_user_status_to_user_service(user_service_url, internal_api_key, user_id, true).await?;
+    sync_user_status_to_user_service(user_service_url, user_id, true).await?;
 
     tracing::info!(
         user_id = %user_id,

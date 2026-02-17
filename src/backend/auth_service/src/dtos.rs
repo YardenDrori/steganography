@@ -24,10 +24,18 @@ pub struct RegisterRequest {
     pub password: String,
 
     // Profile fields
-    #[validate(length(min = 1, max = 50, message = "First name must be between 1 and 50 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 50,
+        message = "First name must be between 1 and 50 characters"
+    ))]
     pub first_name: String,
 
-    #[validate(length(min = 1, max = 50, message = "Last name must be between 1 and 50 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 50,
+        message = "Last name must be between 1 and 50 characters"
+    ))]
     pub last_name: String,
 
     pub phone_number: Option<String>,
@@ -35,7 +43,7 @@ pub struct RegisterRequest {
 }
 
 fn validate_username(username: &str) -> Result<(), validator::ValidationError> {
-    shared_global::validation::validate_username(username)
+    auth_user::validation::validate_username(username)
 }
 
 // DTOs for login

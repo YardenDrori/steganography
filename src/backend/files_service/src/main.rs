@@ -1,8 +1,8 @@
 use crate::app_state::AppState;
 use axum::routing::{delete, get, post};
 use axum::Router;
-use minior::Minio;
 use minior::aws_sdk_s3::Client as S3Client;
+use minior::Minio;
 use shared_global::db::postgres::create_pool;
 use std::sync::Arc;
 
@@ -16,8 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
     dotenvy::dotenv().ok();
 
-    let eureka_url =
-        std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
+    let eureka_url = std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in env");
 
@@ -50,7 +49,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to fetch config from eureka");
 
     let jwt_public_key = config.jwt_public_key;
-    let internal_api_key = config.internal_api_key;
 
     tracing::info!(
         "Loaded config from eureka - public_key len={}",
@@ -58,8 +56,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Register self with eureka
-    let self_url = std::env::var("SELF_URL")
-        .unwrap_or_else(|_| "http://files_service:3004".to_string());
+    let self_url =
+        std::env::var("SELF_URL").unwrap_or_else(|_| "http://files_service:3004".to_string());
     shared_global::eureka::register_service(&eureka_url, "files_service", &self_url)
         .await
         .expect("Failed to register with eureka");
@@ -76,14 +74,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_state = AppState {
         pool,
         jwt_public_key,
-        internal_api_key,
         minio: Arc::new(minio),
         minio_bucket,
     };
 
     // Build router
     let app = Router::new()
-        .route("/files/prepare", post(routes::prepare_upload::prepare_upload))
+        .route(
+            "/files/prepare",
+            post(routes::prepare_upload::prepare_upload),
+        )
         .route(
             "/files/:id/confirm",
             post(routes::confirm_upload::confirm_upload),

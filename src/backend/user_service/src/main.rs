@@ -21,8 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    let eureka_url =
-        std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
+    let eureka_url = std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
 
     let database_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
@@ -33,7 +32,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to fetch config from eureka");
 
     let jwt_public_key = config.jwt_public_key;
-    let internal_api_key = config.internal_api_key;
     let auth_service_url = config
         .services
         .get("auth_service")
@@ -47,8 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Register self with eureka
-    let self_url = std::env::var("SELF_URL")
-        .unwrap_or_else(|_| "http://user_service:3002".to_string());
+    let self_url =
+        std::env::var("SELF_URL").unwrap_or_else(|_| "http://user_service:3002".to_string());
     shared_global::eureka::register_service(&eureka_url, "user_service", &self_url)
         .await
         .expect("Failed to register with eureka");
@@ -65,7 +63,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_state = AppState {
         pool: pool,
         jwt_public_key: jwt_public_key,
-        internal_api_key: internal_api_key,
         auth_service_url: auth_service_url,
     };
 

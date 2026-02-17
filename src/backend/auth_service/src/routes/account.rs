@@ -15,10 +15,9 @@ pub async fn deactivate_my_account(
     );
 
     let pool = &app_state.pool;
-    let internal_api_key = &app_state.internal_api_key;
     let user_service_url = &app_state.user_service_url;
 
-    user_service::deactivate_user(pool, internal_api_key, user_service_url, user_id).await?;
+    user_service::deactivate_user(pool, user_service_url, user_id).await?;
 
     tracing::info!(
         user_id = %user_id,
@@ -39,10 +38,9 @@ pub async fn activate_user_admin(
     );
 
     let pool = &app_state.pool;
-    let internal_api_key = &app_state.internal_api_key;
     let user_service_url = &app_state.user_service_url;
 
-    user_service::activate_user(pool, internal_api_key, user_service_url, user_id).await?;
+    user_service::activate_user(pool, user_service_url, user_id).await?;
 
     tracing::info!(
         user_id = %user_id,
@@ -63,10 +61,9 @@ pub async fn deactivate_user_admin(
     );
 
     let pool = &app_state.pool;
-    let internal_api_key = &app_state.internal_api_key;
     let user_service_url = &app_state.user_service_url;
 
-    user_service::deactivate_user(pool, internal_api_key, user_service_url, user_id).await?;
+    user_service::deactivate_user(pool, user_service_url, user_id).await?;
 
     tracing::info!(
         user_id = %user_id,
