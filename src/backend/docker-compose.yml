@@ -8,6 +8,10 @@ services:
     environment:
       RUST_LOG: info
       PORT: 3005
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      SERVICE_HOST: docker
     ports:
       - "3005:3005"
     healthcheck:
