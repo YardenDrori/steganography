@@ -14,6 +14,7 @@ use axum::{
 /// 2. Internal services (via X-Internal-API-Key header)
 ///
 /// Returns None if internal service, Some(user_id) if admin user
+// TODO: currently admin-only. add mTLS for service-to-service auth in the future.
 pub struct AdminOrInternal(pub Option<i64>);
 
 #[async_trait]
