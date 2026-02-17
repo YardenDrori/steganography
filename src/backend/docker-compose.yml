@@ -1,31 +1,11 @@
 services:
   # ==================== EUREKA SERVICE ====================
-  eureka_postgres:
-    image: postgres:16-alpine
-    container_name: eureka_postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: eureka_db
-    ports:
-      - "5436:5432"
-    volumes:
-      - eureka_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - microservices_network
-
   eureka_service:
     build:
       context: .
       dockerfile: eureka_service/Dockerfile
     container_name: eureka_service
     environment:
-      DATABASE_URL: postgres://postgres:postgres@eureka_postgres:5432/eureka_db
       RUST_LOG: info
       PORT: 3005
     ports:
