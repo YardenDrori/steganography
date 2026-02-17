@@ -10,9 +10,6 @@ services:
       PORT: 3005
     ports:
       - "3005:3005"
-    depends_on:
-      eureka_postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
       interval: 10s
