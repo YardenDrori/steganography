@@ -19,3 +19,8 @@ pub struct UserResponse {
 pub struct HealthResponse {
     pub status: String,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EurekaHeartBeatRequest {
+    pub service_name: String,
+}

@@ -48,6 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/health", get(routes::health::health))
         .route("/register", post(routes::register::register))
         .route("/config/:service_name", get(routes::config::get_config))
+        .route("/heartbeat", post(routes::heartbeat::heartbeat))
         .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3005")
