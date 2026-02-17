@@ -69,8 +69,8 @@ pub async fn auth_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let auth_url = state
-        .eureka_configs
+    let configs = state.eureka_configs.read().unwrap();
+    let auth_url = configs
         .services
         .get("auth_service")
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
@@ -83,8 +83,8 @@ pub async fn user_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let user_url = state
-        .eureka_configs
+    let configs = state.eureka_configs.read().unwrap();
+    let user_url = configs
         .services
         .get("user_service")
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
@@ -97,8 +97,8 @@ pub async fn files_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let files_url = state
-        .eureka_configs
+    let configs = state.eureka_configs.read().unwrap();
+    let files_url = configs
         .services
         .get("files_service")
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
@@ -111,8 +111,8 @@ pub async fn embed_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let steg_url = state
-        .eureka_configs
+    let configs = state.eureka_configs.read().unwrap();
+    let steg_url = configs
         .services
         .get("steganography_service")
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
