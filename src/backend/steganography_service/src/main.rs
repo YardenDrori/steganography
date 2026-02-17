@@ -40,6 +40,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .route("/auth/login", post(routes::auth::login))
         .with_state(app_state);
 
+    // Spawn heartbeat task
+    let eureka_url_clone = eureka_url.clone();
+    let self_url_clone = self_url.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            if let Err(e) = shared_global::eureka::register_service(
+                &eureka_url_clone,
+                "steganography_service",
+                &self_url_clone,
+            )
+            .await
+            {
+                tracing::warn!("Heartbeat failed: {}", e);
+            } else {
+                tracing::info!("Heartbeat sent");
+            }
+        }
+    });
+
     // Start server on port 3003
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3003")
         .await

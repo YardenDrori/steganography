@@ -49,6 +49,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .with_state(state.into());
 
+    // Spawn heartbeat task
+    let eureka_url_clone = eureka_url.clone();
+    let self_url_clone = self_url.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            if let Err(e) = shared_global::eureka::register_service(
+                &eureka_url_clone,
+                "api_gateway",
+                &self_url_clone,
+            )
+            .await
+            {
+                tracing::warn!("Heartbeat failed: {}", e);
+            } else {
+                tracing::info!("Heartbeat sent");
+            }
+        }
+    });
+
     // Start server on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
