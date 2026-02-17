@@ -5,7 +5,6 @@ use std::collections::HashMap;
 pub struct EurekaConfig {
     pub jwt_public_key: String,
     pub jwt_private_key: Option<String>,
-    pub internal_api_key: String,
     pub services: HashMap<String, String>,
 }
 
