@@ -1,4 +1,5 @@
 mod app_state;
+use std::sync::{Arc, RwLock};
 mod proxy;
 use axum::routing::any;
 use axum::Router;
@@ -20,8 +21,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .expect("Failed to fetch config from eureka");
 
+    let config = Arc::new(RwLock::new(config));
+
     let state = AppState {
-        eureka_configs: config,
+        eureka_configs: Arc::clone(&config),
         client: reqwest::Client::new(),
     };
 
@@ -65,6 +68,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tracing::warn!("Heartbeat failed: {}", e);
             } else {
                 tracing::info!("Heartbeat sent");
+            }
+        }
+    });
+
+    let configs_for_refresh = Arc::clone(&config);
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            match shared_global::eureka::fetch_config(&eureka_url, "api_gateway").await {
+                Ok(fresh_config) => {
+                    let mut configs = configs_for_refresh.write().unwrap();
+                    *configs = fresh_config;
+                    tracing::info!("Refreshed service URLs from eureka");
+                }
+                Err(e) => tracing::warn!("Failed to refresh config: {}", e),
             }
         }
     });
