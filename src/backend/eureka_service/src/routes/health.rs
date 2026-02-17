@@ -1,10 +1,8 @@
 use axum::Json;
-
-use crate::dtos::HealthResponse;
+use shared_global::dtos::HealthResponse;
 
 pub async fn health() -> Json<HealthResponse> {
     Json(HealthResponse {
-        status: "healthy".to_string(),
-        service: "eureka_service".to_string(),
+        status: "ok".to_string(),
     })
 }

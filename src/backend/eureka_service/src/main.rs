@@ -4,7 +4,6 @@ use std::sync::{Arc, RwLock};
 use crate::app_state::AppState;
 use axum::routing::{get, post};
 use axum::Router;
-use shared_global::db::postgres::create_pool;
 
 mod app_state;
 mod dtos;
@@ -22,9 +21,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("JWT_PUBLIC_KEY").expect("jwt_public_key must be set in env");
     let internal_api_key: String =
         std::env::var("INTERNAL_API_KEY").expect("internal_api_key must be set in env");
-
-    tracing::info!("todo");
-
     let registered_services: Arc<RwLock<HashMap<String, String>>> =
         Arc::new(RwLock::new(HashMap::new()));
 

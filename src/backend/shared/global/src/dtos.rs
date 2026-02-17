@@ -14,3 +14,8 @@ pub struct UserResponse {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct HealthResponse {
+    pub status: String,
+}
