@@ -1,4 +1,3 @@
-use crate::auth::internal::HasInternalApiKey;
 use crate::auth::jwt::{verify_jwt, HasJwtPublicKey};
 use crate::auth::roles::Role;
 use crate::errors::ErrorBody;
