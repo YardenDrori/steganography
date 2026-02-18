@@ -15,7 +15,7 @@ pub async fn get_public_key(
     Ok((
         StatusCode::OK,
         Json(PublicKeyResponse {
-            public_key: app_state.jwt_public_key.clone(),
+            public_key: app_state.eureka_config.read().unwrap().jwt_public_key.clone(),
         }),
     ))
 }

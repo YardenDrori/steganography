@@ -15,8 +15,25 @@ pub async fn register(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> Result<(StatusCode, Json<LoginResponse>), UserServiceError> {
-    let user_service_url = app_state.user_service_url;
-    let jwt_private_key = &app_state.jwt_private_key;
+    let user_service_url: String;
+    let jwt_private_key: String;
+    {
+        let config = app_state.eureka_config.read().unwrap();
+        user_service_url = config
+            .services
+            .get("user_service")
+            .ok_or(UserServiceError::ExternalServiceError(
+                "user_service not found in eureka".to_string(),
+            ))?
+            .clone();
+        jwt_private_key =
+            config
+                .jwt_private_key
+                .clone()
+                .ok_or(UserServiceError::ExternalServiceError(
+                    "jwt_private_key not found in eureka".to_string(),
+                ))?;
+    }
     let pool = &app_state.pool;
 
     tracing::info!("Registration attempt for username: {}", payload.user_name);
@@ -36,7 +53,7 @@ pub async fn register(
 
     // Generate tokens for auto-login after registration
     let access_token =
-        token_service::create_access_token(user_response.id, pool, jwt_private_key).await?;
+        token_service::create_access_token(user_response.id, pool, &jwt_private_key).await?;
     let refresh_token = token_service::create_refresh_token(pool, user_response.id, None).await?;
 
     tracing::info!("User registered successfully with tokens");
@@ -60,9 +77,26 @@ pub async fn login(
         payload.user_name
     );
 
-    let jwt_private_key = &app_state.jwt_private_key;
+    let jwt_private_key: String;
+    let user_service_url: String;
+    {
+        let config = app_state.eureka_config.read().unwrap();
+        jwt_private_key =
+            config
+                .jwt_private_key
+                .clone()
+                .ok_or(UserServiceError::ExternalServiceError(
+                    "jwt_private_key not found in eureka".to_string(),
+                ))?;
+        user_service_url = config
+            .services
+            .get("user_service")
+            .ok_or(UserServiceError::ExternalServiceError(
+                "user_service not found in eureka".to_string(),
+            ))?
+            .clone();
+    }
     let pool = &app_state.pool;
-    let user_service_url = &app_state.user_service_url;
 
     let login_response = login_user(
         &pool,
@@ -84,11 +118,19 @@ pub async fn refresh(
     ValidatedJson(payload): ValidatedJson<RefreshTokenRequest>,
 ) -> Result<(StatusCode, Json<RefreshTokenResponse>), UserServiceError> {
     tracing::info!("Token refresh request received");
-    let jwt_private_key = &app_state.jwt_private_key;
+    let jwt_private_key = app_state
+        .eureka_config
+        .read()
+        .unwrap()
+        .jwt_private_key
+        .clone()
+        .ok_or(UserServiceError::ExternalServiceError(
+            "jwt_private_key not found in eureka".to_string(),
+        ))?;
     let pool = &app_state.pool;
 
     let (access_token, refresh_token) =
-        token_service::refresh_access_token(pool, &payload.refresh_token, jwt_private_key).await?;
+        token_service::refresh_access_token(pool, &payload.refresh_token, &jwt_private_key).await?;
 
     tracing::info!("Token refreshed successfully");
     Ok((

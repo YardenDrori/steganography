@@ -88,11 +88,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_state(app_state);
 
     //refresh configs
+    let eureka_url_clone = eureka_url.clone();
     let configs_for_refresh = Arc::clone(&config);
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-            match shared_global::eureka::fetch_config(&eureka_url, "auth_service").await {
+            match shared_global::eureka::fetch_config(&eureka_url_clone, "auth_service").await {
                 Ok(fresh_config) => {
                     let mut configs = configs_for_refresh.write().unwrap();
                     *configs = fresh_config;
@@ -104,12 +105,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Spawn heartbeat task
-    let eureka_url_clone = eureka_url.clone();
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-            if let Err(e) =
-                shared_global::eureka::send_heartbeat(&eureka_url_clone, "auth_service").await
+            if let Err(e) = shared_global::eureka::send_heartbeat(&eureka_url, "auth_service").await
             {
                 tracing::warn!("Heartbeat failed: {}", e);
             } else {

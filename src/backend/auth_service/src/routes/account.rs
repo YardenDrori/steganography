@@ -15,9 +15,18 @@ pub async fn deactivate_my_account(
     );
 
     let pool = &app_state.pool;
-    let user_service_url = &app_state.user_service_url;
+    let user_service_url = app_state
+        .eureka_config
+        .read()
+        .unwrap()
+        .services
+        .get("user_service")
+        .ok_or(UserServiceError::ExternalServiceError(
+            "user_service not found in eureka".to_string(),
+        ))?
+        .clone();
 
-    user_service::deactivate_user(pool, user_service_url, user_id).await?;
+    user_service::deactivate_user(pool, &user_service_url, user_id).await?;
 
     tracing::info!(
         user_id = %user_id,
@@ -38,9 +47,18 @@ pub async fn activate_user_admin(
     );
 
     let pool = &app_state.pool;
-    let user_service_url = &app_state.user_service_url;
+    let user_service_url = app_state
+        .eureka_config
+        .read()
+        .unwrap()
+        .services
+        .get("user_service")
+        .ok_or(UserServiceError::ExternalServiceError(
+            "user_service not found in eureka".to_string(),
+        ))?
+        .clone();
 
-    user_service::activate_user(pool, user_service_url, user_id).await?;
+    user_service::activate_user(pool, &user_service_url, user_id).await?;
 
     tracing::info!(
         user_id = %user_id,
@@ -61,9 +79,18 @@ pub async fn deactivate_user_admin(
     );
 
     let pool = &app_state.pool;
-    let user_service_url = &app_state.user_service_url;
+    let user_service_url = app_state
+        .eureka_config
+        .read()
+        .unwrap()
+        .services
+        .get("user_service")
+        .ok_or(UserServiceError::ExternalServiceError(
+            "user_service not found in eureka".to_string(),
+        ))?
+        .clone();
 
-    user_service::deactivate_user(pool, user_service_url, user_id).await?;
+    user_service::deactivate_user(pool, &user_service_url, user_id).await?;
 
     tracing::info!(
         user_id = %user_id,
