@@ -67,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     });
-
+    //spawn refresh configs task
     let configs_for_refresh = Arc::clone(&config);
     tokio::spawn(async move {
         loop {
@@ -82,18 +82,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     });
-
-    for i in 1..10 {
-        if !config.read().unwrap().services.contains_key("user_service") {
-            tracing::info!("couldn't find user_service in eureka configs waiting 30S and retrying. (attempt {}/10)", i);
-            sleep(Duration::new(30, 0)).await;
-        } else {
-            break;
-        }
-    }
-    if !config.read().unwrap().services.contains_key("user_service") {
-        panic!("no user_service found from eureka service maximum attempt limit reached");
-    }
 
     // Start server on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
