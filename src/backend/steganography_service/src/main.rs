@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             if let Err(e) =
-                shared_global::eureka::refresh_service(&eureka_url_clone, "steganography_service")
+                shared_global::eureka::send_heartbeat(&eureka_url_clone, "steganography_service")
                     .await
             {
                 tracing::warn!("Heartbeat failed: {}", e);

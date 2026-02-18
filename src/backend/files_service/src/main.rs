@@ -95,16 +95,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Spawn heartbeat task
     let eureka_url_clone = eureka_url.clone();
-    let self_url_clone = self_url.clone();
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-            if let Err(e) = shared_global::eureka::register_service(
-                &eureka_url_clone,
-                "files_service",
-                &self_url_clone,
-            )
-            .await
+            if let Err(e) =
+                shared_global::eureka::send_heartbeat(&eureka_url_clone, "files_service").await
             {
                 tracing::warn!("Heartbeat failed: {}", e);
             } else {
