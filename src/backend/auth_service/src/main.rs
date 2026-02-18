@@ -7,7 +7,9 @@ mod models;
 mod repositories;
 mod routes;
 mod services;
-use shared_global::db::postgres::create_pool;
+use shared_global::eureka;
+use shared_global::{db::postgres::create_pool, eureka::EurekaConfig};
+use std::sync::{Arc, RwLock};
 
 use crate::app_state::AppState;
 use axum::{
@@ -29,25 +31,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
 
     // Fetch shared config from eureka
+
     let config = shared_global::eureka::fetch_config(&eureka_url, "auth_service")
         .await
         .expect("Failed to fetch config from eureka");
 
-    let jwt_private_key = config
-        .jwt_private_key
-        .expect("Eureka should provide jwt_private_key for auth_service");
-    let jwt_public_key = config.jwt_public_key;
-    let user_service_url = config
-        .services
-        .get("user_service")
-        .cloned()
-        .expect("user_service URL not found in eureka registry");
+    let config: Arc<RwLock<eureka::EurekaConfig>> = Arc::new(RwLock::new(config));
 
-    tracing::info!(
-        "Loaded config from eureka - private_key len={}, public_key len={}",
-        jwt_private_key.len(),
-        jwt_public_key.len()
-    );
+    tracing::info!("Loaded config from eureka");
 
     // Register self with eureka
     let self_url =
@@ -66,10 +57,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create app state
     let app_state = AppState {
-        jwt_private_key,
-        jwt_public_key,
-        user_service_url,
         pool: pool.clone(),
+        eureka_config: Arc::clone(&config),
     };
 
     // Build router
@@ -96,6 +85,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             delete(routes::tokens::revoke_user_tokens),
         )
         .with_state(app_state);
+
+    //refresh configs
+    let configs_for_refresh = Arc::clone(&config);
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            match shared_global::eureka::fetch_config(&eureka_url, "auth_service").await {
+                Ok(fresh_config) => {
+                    let mut configs = configs_for_refresh.write().unwrap();
+                    *configs = fresh_config;
+                    tracing::info!("Refreshed service URLs from eureka");
+                }
+                Err(e) => tracing::warn!("Failed to refresh config: {}", e),
+            }
+        }
+    });
 
     // Spawn heartbeat task
     let eureka_url_clone = eureka_url.clone();
