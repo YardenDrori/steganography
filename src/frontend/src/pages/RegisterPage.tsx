@@ -1,19 +1,85 @@
+import { register } from "../api/auth";
+import { useState } from "react";
+
 function RegisterPage() {
+  const [form, setForm] = useState<{
+    user_name: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone_number: string;
+    is_male: boolean | undefined;
+    password: string;
+  }>({
+    user_name: "Xx_DickSucka892_xX",
+    first_name: "Joe",
+    last_name: "Schmo",
+    email: "JoeSchmo@theilluminati.com",
+    phone_number: "6969696969",
+    is_male: undefined,
+    password: "123456",
+  });
+  const [confirmPassword, setConfirmPassword] = useState("123456");
+
+  async function handleSubmit(e: React.SubmitEvent) {
+    e.preventDefault();
+    register(form);
+  }
+
   return (
-    <form>
+    <form onSubmit={handleSubmit}>
       <p>values with '*' indicate mandatory field</p>
-      <input type="text" placeholder="Username*" />
-      <input type="text" placeholder="First name*" />
-      <input type="text" placeholder="Last name*" />
-      <input type="email" placeholder="Email address*" />
-      <input type="tel" placeholder="phone number" />
-      <select>
+      <input
+        type="text"
+        placeholder="Username*"
+        value={form.user_name}
+        onChange={(e) => setForm({ ...form, user_name: e.target.value })}
+      />
+      <input
+        type="text"
+        placeholder="First name*"
+        value={form.first_name}
+        onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+      />
+      <input
+        type="text"
+        placeholder="Last name*"
+        value={form.last_name}
+        onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+      />
+      <input
+        type="email"
+        placeholder="Email address*"
+        value={form.email}
+        onChange={(e) => setForm({ ...form, email: e.target.value })}
+      />
+      <input
+        type="tel"
+        placeholder="phone number"
+        value={form.phone_number}
+        onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
+      />
+      <select
+        value={form.is_male === undefined ? "" : form.is_male ? "true" : "false"}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            is_male:
+              e.target.value === undefined ? undefined : e.target.value === "" ? true : false,
+          })
+        }
+      >
         <option value="">Select gender</option>
         <option value="true">Male</option>
         <option value="false">Female</option>
       </select>
-      <input type="password" placeholder="password*" />
-      <input type="password" placeholder="confirm password*" />
+      <input type="password" placeholder="password*" value={form.password} />
+      <input
+        type="password"
+        placeholder="confirm password*"
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+      />
       <button type="submit">Sign up</button>
     </form>
   );

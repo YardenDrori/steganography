@@ -18,6 +18,7 @@ pub async fn register(
     let user_service_url: String;
     let jwt_private_key: String;
     {
+        tracing::info!("received register request with values of:\n{:?}", payload);
         let config = app_state.eureka_config.read().unwrap();
         user_service_url = config
             .services
