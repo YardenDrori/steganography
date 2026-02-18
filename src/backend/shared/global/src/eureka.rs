@@ -71,3 +71,24 @@ pub async fn register_service(
         Err(format!("Failed to register with eureka: {}", response.status()).into())
     }
 }
+/// sends heartbeat to eureka
+pub async fn refresh_service(
+    eureka_url: &str,
+    service_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/heartbeat", eureka_url);
+
+    let body = serde_json::json!({
+        "service_name": service_name,
+    });
+
+    let response = client.post(&url).json(&body).send().await?;
+
+    if response.status().is_success() {
+        tracing::info!("Successfully registered {} with eureka", service_name);
+        Ok(())
+    } else {
+        Err(format!("Failed to register with eureka: {}", response.status()).into())
+    }
+}
