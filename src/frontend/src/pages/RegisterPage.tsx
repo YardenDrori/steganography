@@ -17,13 +17,13 @@ function RegisterPage() {
     email: "JoeSchmo@theilluminati.com",
     phone_number: "6969696969",
     is_male: undefined,
-    password: "123456",
+    password: "12345678",
   });
-  const [confirmPassword, setConfirmPassword] = useState("123456");
+  const [confirmPassword, setConfirmPassword] = useState("12345678");
 
   async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
-    register(form);
+    if (confirmPassword === form.password) register(form);
   }
 
   return (
@@ -73,7 +73,12 @@ function RegisterPage() {
         <option value="true">Male</option>
         <option value="false">Female</option>
       </select>
-      <input type="password" placeholder="password*" value={form.password} />
+      <input
+        type="password"
+        placeholder="password*"
+        value={form.password}
+        onChange={(e) => setForm({ ...form, password: e.target.value })}
+      />
       <input
         type="password"
         placeholder="confirm password*"
