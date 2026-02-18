@@ -11,3 +11,4 @@ cd ../files_service
 sqlx migrate run
 cargo sqlx prepare
 cd ..
+docker-compose down
