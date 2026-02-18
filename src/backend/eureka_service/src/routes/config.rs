@@ -2,6 +2,7 @@ use crate::app_state::AppState;
 use crate::dtos::ConfigResponse;
 use axum::extract::{Path, State};
 use axum::Json;
+use base64::{self, engine::general_purpose, Engine};
 use std::collections::HashMap;
 
 pub async fn get_config(
@@ -12,11 +13,24 @@ pub async fn get_config(
 
     // Only auth_service gets the private key
     // TODO add mTLS validation so that we dont rely just on the service's name
+
     let jwt_private_key = if service_name == "auth_service" {
-        Some(state.jwt_private_key.clone())
+        let private_key_string = general_purpose::STANDARD
+            .decode(&state.jwt_private_key)
+            .expect("Invalid base64 for JWT_PRIVATE_KEY");
+        let private_key_string =
+            String::from_utf8(private_key_string).expect("JWT_PRIVATE_KEY is not valid UTF-8");
+        Some(private_key_string)
     } else {
         None
     };
+
+    // Same for public key
+    let jwt_public_key = general_purpose::STANDARD
+        .decode(&state.jwt_public_key)
+        .expect("Invalid base64 for JWT_PUBLIC_KEY");
+    let jwt_public_key =
+        String::from_utf8(jwt_public_key).expect("JWT_PUBLIC_KEY is not valid UTF-8");
 
     let services: HashMap<String, String> = services
         .iter()
@@ -24,8 +38,8 @@ pub async fn get_config(
         .collect();
 
     Json(ConfigResponse {
-        jwt_public_key: state.jwt_public_key.clone(),
+        jwt_public_key,
         jwt_private_key,
-        services: services,
+        services,
     })
 }
