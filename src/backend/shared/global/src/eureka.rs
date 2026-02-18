@@ -72,7 +72,7 @@ pub async fn register_service(
     }
 }
 /// sends heartbeat to eureka
-pub async fn refresh_service(
+pub async fn send_heartbeat(
     eureka_url: &str,
     service_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {

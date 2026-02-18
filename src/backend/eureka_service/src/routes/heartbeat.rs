@@ -9,21 +9,24 @@ pub async fn heartbeat(
     State(state): State<AppState>,
     Json(payload): Json<EurekaHeartBeatRequest>,
 ) -> StatusCode {
+    if doheartbeat(&state, &payload.service_name).await {
+        return StatusCode::OK;
+    }
+    return StatusCode::NOT_FOUND;
+}
+pub async fn doheartbeat(state: &AppState, service_name: &str) -> bool {
     let mut services = state.registered_services.write().unwrap();
 
-    tracing::info!("Received heartbeat request from {}.", payload.service_name);
+    tracing::info!("Received heartbeat request from {}.", &service_name);
 
-    if !services.contains_key(&payload.service_name) {
+    if !services.contains_key(service_name) {
         tracing::warn!(
             "Could not find matching key pair for {} in registered_services.",
-            payload.service_name
+            &service_name
         );
-        return StatusCode::NOT_FOUND;
+        return false;
     }
-    services
-        .get_mut(&payload.service_name)
-        .unwrap()
-        .last_heartbeat = Instant::now();
+    services.get_mut(service_name).unwrap().last_heartbeat = Instant::now();
 
-    StatusCode::OK
+    return true;
 }
