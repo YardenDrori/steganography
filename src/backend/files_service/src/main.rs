@@ -4,7 +4,7 @@ use axum::Router;
 use minior::aws_sdk_s3::Client as S3Client;
 use minior::Minio;
 use shared_global::db::postgres::create_pool;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 mod app_state;
 mod dtos;
@@ -48,12 +48,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .expect("Failed to fetch config from eureka");
 
-    let jwt_public_key = config.jwt_public_key;
+    let config = Arc::new(RwLock::new(config));
 
-    tracing::info!(
-        "Loaded config from eureka - public_key len={}",
-        jwt_public_key.len()
-    );
+    tracing::info!("Loaded config from eureka");
 
     // Register self with eureka
     let self_url =
@@ -73,9 +70,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create app state
     let app_state = AppState {
         pool,
-        jwt_public_key,
         minio: Arc::new(minio),
         minio_bucket,
+        eurekea_config: Arc::clone(&config),
     };
 
     // Build router
@@ -104,6 +101,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tracing::warn!("Heartbeat failed: {}", e);
             } else {
                 tracing::info!("Heartbeat sent");
+            }
+        }
+    });
+
+    //spawn refresh configs task
+    let configs_for_refresh = Arc::clone(&config);
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            match shared_global::eureka::fetch_config(&eureka_url, "files_service").await {
+                Ok(fresh_config) => {
+                    let mut configs = configs_for_refresh.write().unwrap();
+                    *configs = fresh_config;
+                    tracing::info!("Refreshed service URLs from eureka");
+                }
+                Err(e) => tracing::warn!("Failed to refresh config: {}", e),
             }
         }
     });

@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use crate::app_state::AppState;
 use crate::routes::{auth, delete_users, patch_users, post_users, sync};
 use axum::routing::{delete, get, patch, post};
@@ -31,18 +33,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .expect("Failed to fetch config from eureka");
 
-    let jwt_public_key = config.jwt_public_key;
-    let auth_service_url = config
-        .services
-        .get("auth_service")
-        .cloned()
-        .unwrap_or_else(|| "http://auth_service:3001".to_string());
+    let config = Arc::new(RwLock::new(config));
 
-    tracing::info!(
-        "Loaded config from eureka - public_key len={}, auth_service_url={}",
-        jwt_public_key.len(),
-        auth_service_url
-    );
+    tracing::info!("Loaded config from eureka",);
 
     // Register self with eureka
     let self_url =
@@ -62,8 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create app state
     let app_state = AppState {
         pool: pool,
-        jwt_public_key: jwt_public_key,
-        auth_service_url: auth_service_url,
+        eureka_config: Arc::clone(&config),
     };
 
     // Build router
@@ -92,6 +84,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tracing::warn!("Heartbeat failed: {}", e);
             } else {
                 tracing::info!("Heartbeat sent");
+            }
+        }
+    });
+    //spawn refresh configs task
+    let configs_for_refresh = Arc::clone(&config);
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            match shared_global::eureka::fetch_config(&eureka_url, "user_service").await {
+                Ok(fresh_config) => {
+                    let mut configs = configs_for_refresh.write().unwrap();
+                    *configs = fresh_config;
+                    tracing::info!("Refreshed service URLs from eureka");
+                }
+                Err(e) => tracing::warn!("Failed to refresh config: {}", e),
             }
         }
     });

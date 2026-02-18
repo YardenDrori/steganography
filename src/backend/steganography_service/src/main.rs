@@ -1,6 +1,8 @@
 mod app_state;
 pub mod errors;
 mod routes;
+use std::sync::{Arc, RwLock};
+
 use crate::app_state::AppState;
 use axum::Router;
 mod services;
@@ -21,6 +23,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .expect("Failed to fetch config from eureka");
 
+    let config = Arc::new(RwLock::new(config));
+
     tracing::info!("Loaded config from eureka");
 
     // Register self with eureka
@@ -31,7 +35,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to register with eureka");
 
     // Create app state
-    let app_state = AppState {};
+    let app_state = AppState {
+        eureka_config: Arc::clone(&config),
+    };
 
     // Build router
     let app = Router::new()
@@ -52,6 +58,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tracing::warn!("Heartbeat failed: {}", e);
             } else {
                 tracing::info!("Heartbeat sent");
+            }
+        }
+    });
+    //spawn refresh configs task
+    let configs_for_refresh = Arc::clone(&config);
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            match shared_global::eureka::fetch_config(&eureka_url, "steganography_service").await {
+                Ok(fresh_config) => {
+                    let mut configs = configs_for_refresh.write().unwrap();
+                    *configs = fresh_config;
+                    tracing::info!("Refreshed service URLs from eureka");
+                }
+                Err(e) => tracing::warn!("Failed to refresh config: {}", e),
             }
         }
     });
