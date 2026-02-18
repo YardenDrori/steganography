@@ -69,10 +69,9 @@ pub async fn auth_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let auth_url= 
-        state
+    let auth_url = state
         .eureka_configs
-        .write()
+        .read()
         .unwrap()
         .services
         .get("auth_service")
@@ -86,10 +85,9 @@ pub async fn user_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let user_url= 
-        state
+    let user_url = state
         .eureka_configs
-        .write()
+        .read()
         .unwrap()
         .services
         .get("user_service")
@@ -104,10 +102,9 @@ pub async fn files_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let files_url= 
-        state
+    let files_url = state
         .eureka_configs
-        .write()
+        .read()
         .unwrap()
         .services
         .get("files_service")
@@ -122,10 +119,9 @@ pub async fn embed_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {
-    let steg_url= 
-        state
+    let steg_url = state
         .eureka_configs
-        .write()
+        .read()
         .unwrap()
         .services
         .get("steganography_service")
