@@ -9,7 +9,8 @@ pub async fn register(
     Json(payload): Json<RegisterRequest>,
 ) -> Json<RegisterResponse> {
     // write() locks the HashMap for writing
-    let mut services = state.registered_services.write().unwrap();
+    // potetntially race condition??? idk how to fix this tho
+    let services = state.registered_services.read().unwrap().clone();
 
     if services.contains_key(&payload.service_name) {
         tracing::warn!(
@@ -17,19 +18,20 @@ pub async fn register(
             &payload.service_name
         );
         if doheartbeat(&state, &payload.service_name).await {
-            Json(RegisterResponse {
+            return Json(RegisterResponse {
                 message: "send register request while already registered interperted as heartbeat."
                     .to_string(),
                 service_url: payload.service_url.clone(),
             });
         } else {
-            Json(RegisterResponse {
+            return Json(RegisterResponse {
                 message: "send register request while already registered failed to interpret as heartbeat."
                     .to_string(),
                 service_url: payload.service_url.clone(),
             });
         }
     }
+    let mut services = state.registered_services.write().unwrap();
 
     let entry = ServiceEntry {
         service_url: payload.service_url.clone(),
