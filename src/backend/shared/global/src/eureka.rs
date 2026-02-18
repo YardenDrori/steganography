@@ -79,16 +79,13 @@ pub async fn send_heartbeat(
     let client = reqwest::Client::new();
     let url = format!("{}/heartbeat", eureka_url);
 
-    let body = serde_json::json!({
-        "service_name": service_name,
-    });
+    let body = serde_json::json!({ "service_name": service_name });
 
     let response = client.post(&url).json(&body).send().await?;
 
     if response.status().is_success() {
-        tracing::info!("Successfully registered {} with eureka", service_name);
         Ok(())
     } else {
-        Err(format!("Failed to register with eureka: {}", response.status()).into())
+        Err(format!("Heartbeat failed: {}", response.status()).into())
     }
 }
