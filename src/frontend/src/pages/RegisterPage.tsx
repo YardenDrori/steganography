@@ -1,5 +1,6 @@
 import { register } from "../api/auth";
 import { useState } from "react";
+import { tryCatch } from "../api/tryCatch";
 
 function RegisterPage() {
   const [form, setForm] = useState<{
@@ -20,10 +21,19 @@ function RegisterPage() {
     password: "12345678",
   });
   const [confirmPassword, setConfirmPassword] = useState("12345678");
+  const [error, setError] = useState<String | null>(null);
 
   async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
-    if (confirmPassword === form.password) register(form);
+    if (confirmPassword === form.password) {
+      const [data, caughtError] = await tryCatch(register(form));
+      if (caughtError) {
+        setError(caughtError);
+        return;
+      } else {
+        console.log(data);
+      }
+    } else setError("passwords don't match");
   }
 
   return (
@@ -85,6 +95,7 @@ function RegisterPage() {
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)}
       />
+      {error && <p style={{ color: "red" }}>{error}</p>}
       <button type="submit">Sign up</button>
     </form>
   );
