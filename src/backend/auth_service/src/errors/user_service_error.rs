@@ -14,6 +14,8 @@ pub enum UserServiceError {
     InvalidCredentials,
     JwtError(jsonwebtoken::errors::Error),
     ExternalServiceError(String), // For HTTP calls to other microservices
+    ParsingError,
+    MissingRefreshToken,
 }
 
 impl IntoResponse for UserServiceError {
@@ -29,6 +31,8 @@ impl IntoResponse for UserServiceError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to sync with external service",
             ),
+            Self::ParsingError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
+            Self::MissingRefreshToken => (StatusCode::UNAUTHORIZED, "Missing refresh token"),
         };
 
         (status, Json(ErrorBody::new(message))).into_response()

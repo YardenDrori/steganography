@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const BASE_URL = "http://localhost:3000";
+axios.defaults.withCredentials = true;
 
 export async function login(email: string, password: string) {
   try {

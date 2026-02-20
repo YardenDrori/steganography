@@ -4,7 +4,8 @@ mod proxy;
 use axum::routing::any;
 use axum::Router;
 use tokio::time::{sleep, Duration};
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
+use axum::http::HeaderValue;
 
 use crate::app_state::AppState;
 
@@ -39,10 +40,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to register with eureka");
 
     // cors stuff
+    let frontend_url = std::env::var("FRONTEND_URL")
+        .unwrap_or_else(|_| "http://localhost:5173".to_string());
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(frontend_url.parse::<HeaderValue>().expect("Invalid FRONTEND_URL"))
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::PATCH,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers([
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::AUTHORIZATION,
+        ])
+        .allow_credentials(true);
 
     // Build router
     let app = Router::new()

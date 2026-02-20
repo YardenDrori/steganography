@@ -7,8 +7,8 @@ mod models;
 mod repositories;
 mod routes;
 mod services;
+use shared_global::db::postgres::create_pool;
 use shared_global::eureka;
-use shared_global::{db::postgres::create_pool, eureka::EurekaConfig};
 use std::sync::{Arc, RwLock};
 use tokio::time::{sleep, Duration};
 

@@ -143,7 +143,7 @@ pub async fn login_user(
     password: &str,
     device_info: Option<&str>,
     jwt_private_key: &str,
-) -> Result<LoginResponse, UserServiceError> {
+) -> Result<(LoginResponse, String), UserServiceError> {
     tracing::info!(
         email = ?email,
         user_name = ?user_name,
@@ -196,11 +196,13 @@ pub async fn login_user(
 
     tracing::info!(user_id = %user_id, "Login successful");
 
-    Ok(LoginResponse {
-        user: user_profile,
-        access_token: jwt_token,
+    Ok((
+        LoginResponse {
+            user: user_profile,
+            access_token: jwt_token,
+        },
         refresh_token,
-    })
+    ))
 }
 
 pub async fn get_user_roles(pool: &PgPool, user_id: i64) -> Result<Roles, sqlx::Error> {

@@ -62,26 +62,10 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     pub user: UserResponse,
     pub access_token: String,
-    pub refresh_token: String,
-}
-
-// DTO for refresh token request
-#[derive(Debug, Deserialize, Validate)]
-pub struct RefreshTokenRequest {
-    #[validate(length(min = 1, message = "Refresh token cannot be empty"))]
-    pub refresh_token: String,
 }
 
 // DTO for refresh token response
 #[derive(Debug, Serialize)]
 pub struct RefreshTokenResponse {
     pub access_token: String,
-    pub refresh_token: String,
-}
-
-// DTO for logout request
-#[derive(Debug, Deserialize, Validate)]
-pub struct LogoutRequest {
-    #[validate(length(min = 1, message = "Refresh token cannot be empty"))]
-    pub refresh_token: String,
 }
