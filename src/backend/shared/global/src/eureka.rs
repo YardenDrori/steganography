@@ -20,7 +20,7 @@ pub async fn fetch_config(
 
     let mut last_error = None;
     for attempt in 1..=10 {
-        tracing::info!(
+        tracing::debug!(
             "Fetching config from eureka (attempt {}/10): {}",
             attempt,
             url
@@ -28,7 +28,7 @@ pub async fn fetch_config(
         match client.get(&url).send().await {
             Ok(response) if response.status().is_success() => {
                 let config: EurekaConfig = response.json().await?;
-                tracing::info!("Successfully fetched config from eureka");
+                tracing::debug!("Successfully fetched config from eureka");
                 return Ok(config);
             }
             Ok(response) => {

@@ -17,7 +17,7 @@ pub async fn heartbeat(
 pub async fn doheartbeat(state: &AppState, service_name: &str) -> bool {
     let mut services = state.registered_services.write().unwrap();
 
-    tracing::info!("Received heartbeat request from {}.", &service_name);
+    tracing::debug!("Received heartbeat request from {}.", &service_name);
 
     if !services.contains_key(service_name) {
         tracing::warn!(

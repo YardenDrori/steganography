@@ -97,7 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(fresh_config) => {
                     let mut configs = configs_for_refresh.write().unwrap();
                     *configs = fresh_config;
-                    tracing::info!("Refreshed service URLs from eureka");
+                    tracing::debug!("Refreshed service URLs from eureka");
                 }
                 Err(e) => tracing::warn!("Failed to refresh config: {}", e),
             }
@@ -112,14 +112,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             {
                 tracing::warn!("Heartbeat failed: {}", e);
             } else {
-                tracing::info!("Heartbeat sent");
+                tracing::debug!("Heartbeat sent");
             }
         }
     });
 
     for i in 1..10 {
         if !config.read().unwrap().services.contains_key("user_service") {
-            tracing::info!("couldn't find user_service in eureka configs waiting 30S and retrying. (attempt {}/10)", i);
+            tracing::warn!("couldn't find user_service in eureka configs waiting 30S and retrying. (attempt {}/10)", i);
             sleep(Duration::new(30, 0)).await;
         } else {
             break;
