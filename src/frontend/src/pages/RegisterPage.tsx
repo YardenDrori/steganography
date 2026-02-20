@@ -69,9 +69,9 @@ function RegisterPage() {
           })
         }
       >
-        <option value="">Select gender</option>
-        <option value="true">Male</option>
-        <option value="false">Female</option>
+        <option value={""}>Select gender</option>
+        <option value={"true"}>Male</option>
+        <option value={"false"}>Female</option>
       </select>
       <input
         type="password"

@@ -40,9 +40,15 @@ where
 
         // Then validate the payload
         payload.validate().map_err(|e| {
+            let messages: Vec<String> = e
+                .field_errors()
+                .values()
+                .flat_map(|errors| errors.iter())
+                .filter_map(|err| err.message.as_ref().map(|m| m.to_string()))
+                .collect();
             (
                 StatusCode::BAD_REQUEST,
-                Json(ErrorBody::new(&format!("Validation error: {:?}", e))),
+                Json(ErrorBody::new(&messages.join(", "))),
             )
         })?;
 

@@ -27,6 +27,9 @@ export async function register(form: {
     return await axios.post(`${BASE_URL}/api/auth/register`, form);
   } catch (err) {
     console.log("failed to signup - " + err);
+    if (axios.isAxiosError(err)) {
+      console.log(err.response?.data);
+    }
     throw err;
   }
 }
