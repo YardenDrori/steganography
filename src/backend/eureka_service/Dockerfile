@@ -1,33 +1,23 @@
-# Build stage
-FROM rust:1.91-alpine AS builder
-
-RUN apk add --no-cache \
-  musl-dev \
-  pkgconf \
-  openssl-dev \
-  openssl-libs-static
-
+FROM lukemathwalker/cargo-chef:latest-rust-1-alpine AS chef
 WORKDIR /build
+RUN apk add --no-cache musl-dev pkgconf openssl-dev openssl-libs-static
 
-COPY shared/global ./shared/global
-COPY eureka_service ./eureka_service
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-WORKDIR /build/eureka_service
+FROM chef AS cooker
+COPY --from=planner /build/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
 
-ENV SQLX_OFFLINE=true
+FROM chef AS builder
+COPY --from=cooker /build /build
+COPY . .
+RUN cargo build --release -p eureka_service
 
-RUN cargo build --release
-
-
-# Runtime stage
 FROM alpine:3.22
-
 RUN apk add --no-cache libgcc curl
-
 WORKDIR /app
-
-COPY --from=builder /build/eureka_service/target/release/eureka_service /app/eureka_service
-
+COPY --from=builder /build/target/release/eureka_service /app/eureka_service
 EXPOSE 3005
-
 CMD ["./eureka_service"]
