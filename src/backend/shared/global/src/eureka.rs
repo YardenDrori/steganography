@@ -6,7 +6,6 @@ pub struct EurekaConfig {
     pub jwt_public_key: String,
     pub jwt_private_key: Option<String>,
     pub services: HashMap<String, String>,
-    print_heartbeats: bool,
 }
 
 /// Fetches shared config from eureka for the given service.
