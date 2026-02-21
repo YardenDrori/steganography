@@ -17,11 +17,21 @@ type AuthContextType = {
   accessToken: string | null;
   user: User | null;
   setAccessToken: (token: string | null) => void;
-  setUser: (user: object | null) => void;
+  setUser: (user: User | null) => void;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
 export function AuthProvider(props: { children: React.ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  return (
+    <AuthContext.Provider value={{ accessToken, user, setAccessToken, setUser }}>
+      {props.children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  return useContext(AuthContext)!;
 }
