@@ -1,6 +1,8 @@
 import { register } from "../api/auth";
 import { useState } from "react";
 import { tryCatch } from "../api/tryCatch";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 function RegisterPage() {
   const [form, setForm] = useState<{
@@ -22,6 +24,8 @@ function RegisterPage() {
   });
   const [confirmPassword, setConfirmPassword] = useState("12345678");
   const [error, setError] = useState<String | null>(null);
+  const auth = useAuth();
+  const navigator = useNavigate();
 
   async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
@@ -32,6 +36,8 @@ function RegisterPage() {
         return;
       } else {
         console.log(data);
+        auth.setAccessToken(data?.data.access_token);
+        navigator("/");
       }
     } else setError("passwords don't match");
   }
