@@ -15,6 +15,14 @@ export async function login(email: string, password: string) {
   }
 }
 
+export async function refresh() {
+  try {
+    return await axios.post(`${BASE_URL}/api/auth/refresh`);
+  } catch (err) {
+    throw err;
+  }
+}
+
 export async function logout() {
   try {
     return await axios.post(`${BASE_URL}/api/auth/logout`);
