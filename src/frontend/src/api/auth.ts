@@ -15,6 +15,15 @@ export async function login(email: string, password: string) {
   }
 }
 
+export async function logout() {
+  try {
+    return await axios.post(`${BASE_URL}/api/auth/logout`);
+  } catch (err) {
+    console.log("failed to logout - " + err);
+    throw err;
+  }
+}
+
 export async function register(form: {
   user_name: string;
   first_name: string;
