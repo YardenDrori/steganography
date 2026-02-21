@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { login } from "../api/auth";
 import { tryCatch } from "../api/tryCatch";
+import { useAuth } from "../context/AuthContext";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,6 +14,8 @@ function LoginPage() {
     if (caughtError) {
       setError(caughtError);
     } else {
+      const auth = useAuth();
+      auth.setAccessToken(data?.data.access_token);
       console.log(data);
     }
   }
