@@ -9,7 +9,7 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const auth = useAuth();
-  const navigator = useNavigate();
+  const navigate = useNavigate();
 
   async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
@@ -20,27 +20,29 @@ function LoginPage() {
       console.log(data);
       auth.setAccessToken(data?.data.access_token);
       auth.setUser(data?.data.user);
-      navigator("/");
+      navigate("/");
     }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      <button type="submit">Login</button>
-    </form>
+    <>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {error && <p style={{ color: "red" }}>{error}</p>}
+        <button type="submit">Login</button>
+      </form>
+    </>
   );
 }
 

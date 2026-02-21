@@ -16,13 +16,13 @@ function App() {
       const [refreshData, refreshErr] = await tryCatch(refresh());
       if (refreshErr) return;
 
-      const accessToken = refreshData.data.access_token;
+      const accessToken = refreshData?.data.access_token;
       setAccessToken(accessToken);
 
       const [userData, userErr] = await tryCatch(getCurrentUser(accessToken));
       if (userErr) return;
 
-      setUser(userData.data);
+      setUser(userData?.data);
     }
     tryRestoreSession();
   }, []);

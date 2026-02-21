@@ -20,7 +20,9 @@ function DashboardPage() {
   return (
     <div>
       <h1>Dashboard</h1>
-      <p>Welcome, {user?.first_name} {user?.last_name}</p>
+      <p>
+        Welcome, {user?.first_name} {user?.last_name}
+      </p>
       <p>Username: {user?.user_name}</p>
       <p>Email: {user?.email}</p>
       <button onClick={handleLogout}>Logout</button>
