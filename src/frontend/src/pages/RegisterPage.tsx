@@ -37,6 +37,7 @@ function RegisterPage() {
       } else {
         console.log(data);
         auth.setAccessToken(data?.data.access_token);
+        auth.setUser(data?.data.user);
         navigator("/");
       }
     } else setError("passwords don't match");
