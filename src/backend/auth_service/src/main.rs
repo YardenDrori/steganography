@@ -91,6 +91,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
+    // Spawn token cleanup task
+    let pool_for_cleanup = pool.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60 * 60)).await;
+            match repositories::token_repository::cleanup_expired_tokens(&pool_for_cleanup).await {
+                Ok(n) => tracing::info!("Cleaned up {} expired refresh tokens", n),
+                Err(e) => tracing::warn!("Token cleanup failed: {}", e),
+            }
+        }
+    });
+
     //refresh configs
     let eureka_url_clone = eureka_url.clone();
     let configs_for_refresh = Arc::clone(&config);
