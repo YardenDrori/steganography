@@ -75,15 +75,32 @@ pub async fn update_user(
     tracing::info!(user_id = %user_id, "Updating user profile");
 
     // Check if user exists
-    user_repository::get_user_by_id(pool, user_id)
+    let user = user_repository::get_user_by_id(pool, user_id)
         .await
         .map_err(|e| UserServiceError::DatabaseError(e))?
         .ok_or(UserServiceError::NotFound)?;
+
+    //check if new username/email is occupied
+    if user_repository::get_user_by_email_or_username(pool, None, request.user_name.as_deref())
+        .await
+        .is_ok()
+    {
+        tracing::info!("Attempted to modify user name of {} (id: {}) but the requested username ({:?}) was already occupied", &user.user_name(), &user.id(), request.user_name);
+        return Err(UserServiceError::UsernameAlreadyExists);
+    }
+    if user_repository::get_user_by_email_or_username(pool, request.user_name.as_deref(), None)
+        .await
+        .is_ok()
+    {
+        tracing::info!("Attempted to modify user name of {} (id: {}) but the requested username ({:?}) was already occupied", &user.user_name(), &user.id(), request.user_name);
+        return Err(UserServiceError::UsernameAlreadyExists);
+    }
 
     // Update user
     let updated_user = user_repository::update_user(
         pool,
         user_id,
+        request.user_name.as_deref(),
         request.first_name.as_deref(),
         request.last_name.as_deref(),
         request.email.as_deref(),
@@ -93,7 +110,7 @@ pub async fn update_user(
     .await
     .map_err(|e| UserServiceError::DatabaseError(e))?;
 
-    tracing::info!(user_id = %user_id, "User profile updated");
+    tracing::info!(user_id = %user_id, "User profile updated New username: {:?}, new firstname: {:?}, new lastname: {:?}, new Email: {:?} new phone number: {:?}, {:?}", request.user_name, request.first_name, request.last_name, request.email, request.phone_number, request.is_male);
     Ok(updated_user.into())
 }
 

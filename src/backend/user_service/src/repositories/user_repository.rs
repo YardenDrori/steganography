@@ -61,6 +61,7 @@ pub async fn create_user(
 pub async fn update_user(
     pool: &PgPool,
     user_id: i64,
+    user_name: Option<&str>,
     first_name: Option<&str>,
     last_name: Option<&str>,
     email: Option<&str>,
@@ -72,15 +73,17 @@ pub async fn update_user(
         r#"
         UPDATE users
         SET
-            first_name = COALESCE($2, first_name),
-            last_name = COALESCE($3, last_name),
-            email = COALESCE($4, email),
-            phone_number = COALESCE($5, phone_number),
-            is_male = COALESCE($6, is_male),
+            user_name = COALESCE($2, user_name),
+            first_name = COALESCE($3, first_name),
+            last_name = COALESCE($4, last_name),
+            email = COALESCE($5, email),
+            phone_number = COALESCE($6, phone_number),
+            is_male = COALESCE($7, is_male),
             updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
         "#,
         user_id,
+        user_name,
         first_name,
         last_name,
         email,

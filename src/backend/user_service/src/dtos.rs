@@ -47,7 +47,7 @@ pub struct UpdateUserRequest {
         message = "Username must be between 3 and 50 characters"
     ))]
     #[validate(custom(function = "validate_username"))]
-    pub user_name: String,
+    pub user_name: Option<String>,
 
     #[validate(length(
         min = 1,
