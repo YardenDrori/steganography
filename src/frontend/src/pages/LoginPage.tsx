@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const auth = useAuth();
@@ -13,7 +13,7 @@ function LoginPage() {
 
   async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
-    const [data, caughtError] = await tryCatch(login(email, password));
+    const [data, caughtError] = await tryCatch(login(emailOrUsername, password));
     if (caughtError) {
       setError(caughtError);
     } else {
@@ -28,10 +28,10 @@ function LoginPage() {
     <>
       <form onSubmit={handleSubmit}>
         <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="Email or Username"
+          value={emailOrUsername}
+          onChange={(e) => setEmailOrUsername(e.target.value)}
         />
         <input
           type="password"

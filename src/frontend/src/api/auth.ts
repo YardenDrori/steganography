@@ -3,15 +3,30 @@ import axios from "axios";
 const BASE_URL = "http://localhost:3000";
 axios.defaults.withCredentials = true;
 
-export async function login(email: string, password: string) {
-  try {
-    return await axios.post(`${BASE_URL}/api/auth/login`, {
-      email,
-      password,
-    });
-  } catch (err) {
-    console.log("failed to login - " + err);
-    throw err;
+export async function login(emailOrUsername: string, password: string) {
+  //determine if the value is an email or a username
+  if (emailOrUsername.includes("@")) {
+    //email
+    try {
+      return await axios.post(`${BASE_URL}/api/auth/login`, {
+        email: emailOrUsername,
+        password,
+      });
+    } catch (err) {
+      console.log("failed to login - " + err);
+      throw err;
+    }
+  } else {
+    //username
+    try {
+      return await axios.post(`${BASE_URL}/api/auth/login`, {
+        user_name: emailOrUsername,
+        password,
+      });
+    } catch (err) {
+      console.log("failed to login - " + err);
+      throw err;
+    }
   }
 }
 
