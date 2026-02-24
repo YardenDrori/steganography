@@ -43,17 +43,18 @@ pub async fn register(
                 "user_service not found in eureka".to_string(),
             ))?
             .clone();
-        jwt_private_key = config
-            .jwt_private_key
-            .clone()
-            .ok_or(UserServiceError::ExternalServiceError(
-                "jwt_private_key not found in eureka".to_string(),
-            ))?;
-        let (a, r) = config
-            .jwt_duration_access_and_refresh
-            .ok_or(UserServiceError::ExternalServiceError(
+        jwt_private_key =
+            config
+                .jwt_private_key
+                .clone()
+                .ok_or(UserServiceError::ExternalServiceError(
+                    "jwt_private_key not found in eureka".to_string(),
+                ))?;
+        let (a, r) = config.jwt_duration_access_and_refresh.ok_or(
+            UserServiceError::ExternalServiceError(
                 "jwt_duration_access_and_refresh not found in eureka".to_string(),
-            ))?;
+            ),
+        )?;
         access_dur = a;
         refresh_dur = r;
     }
@@ -118,12 +119,13 @@ pub async fn login(
     let refresh_dur: i64;
     {
         let config = app_state.eureka_config.read().unwrap();
-        jwt_private_key = config
-            .jwt_private_key
-            .clone()
-            .ok_or(UserServiceError::ExternalServiceError(
-                "jwt_private_key not found in eureka".to_string(),
-            ))?;
+        jwt_private_key =
+            config
+                .jwt_private_key
+                .clone()
+                .ok_or(UserServiceError::ExternalServiceError(
+                    "jwt_private_key not found in eureka".to_string(),
+                ))?;
         user_service_url = config
             .services
             .get("user_service")
@@ -131,11 +133,11 @@ pub async fn login(
                 "user_service not found in eureka".to_string(),
             ))?
             .clone();
-        let (a, r) = config
-            .jwt_duration_access_and_refresh
-            .ok_or(UserServiceError::ExternalServiceError(
+        let (a, r) = config.jwt_duration_access_and_refresh.ok_or(
+            UserServiceError::ExternalServiceError(
                 "jwt_duration_access_and_refresh not found in eureka".to_string(),
-            ))?;
+            ),
+        )?;
         access_dur = a;
         refresh_dur = r;
     }
@@ -175,25 +177,28 @@ pub async fn refresh(
 ) -> Result<(StatusCode, HeaderMap, Json<RefreshTokenResponse>), UserServiceError> {
     tracing::info!("Token refresh request received");
 
-    let refresh_token =
-        extract_refresh_token(&headers).ok_or(UserServiceError::MissingRefreshToken)?;
+    let refresh_token = extract_refresh_token(&headers).ok_or({
+        tracing::info!("invalid or expired refresh token received as input");
+        UserServiceError::MissingRefreshToken
+    })?;
 
     let jwt_private_key: String;
     let access_dur: i64;
     let refresh_dur: i64;
     {
         let config = app_state.eureka_config.read().unwrap();
-        jwt_private_key = config
-            .jwt_private_key
-            .clone()
-            .ok_or(UserServiceError::ExternalServiceError(
-                "jwt_private_key not found in eureka".to_string(),
-            ))?;
-        let (a, r) = config
-            .jwt_duration_access_and_refresh
-            .ok_or(UserServiceError::ExternalServiceError(
+        jwt_private_key =
+            config
+                .jwt_private_key
+                .clone()
+                .ok_or(UserServiceError::ExternalServiceError(
+                    "jwt_private_key not found in eureka".to_string(),
+                ))?;
+        let (a, r) = config.jwt_duration_access_and_refresh.ok_or(
+            UserServiceError::ExternalServiceError(
                 "jwt_duration_access_and_refresh not found in eureka".to_string(),
-            ))?;
+            ),
+        )?;
         access_dur = a;
         refresh_dur = r;
     }
