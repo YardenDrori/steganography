@@ -24,18 +24,16 @@ where
     type Rejection = (StatusCode, Json<ErrorBody>);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        //TODO: Add mTLS verification here
-        //currently it is basically the same as the Admin request
-
         let jwt_public_key = state.jwt_public_key();
-        let auth_header = parts
+
+        // No Authorization header = internal service call (TODO: replace with mTLS)
+        let Some(auth_header) = parts
             .headers
             .get("authorization")
             .and_then(|h| h.to_str().ok())
-            .ok_or((
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorBody::new("Unauthorized")),
-            ))?;
+        else {
+            return Ok(AdminOrInternal(None));
+        };
 
         let token = auth_header
             .strip_prefix("Bearer ")
@@ -55,11 +53,10 @@ where
         // Check if user has admin role
         for role in claims.roles {
             if role == Role::Admin {
-                return Ok(AdminOrInternal(Some(claims.sub))); // Admin user
+                return Ok(AdminOrInternal(Some(claims.sub)));
             }
         }
 
-        // Not internal service and not admin
         Err((StatusCode::FORBIDDEN, Json(ErrorBody::new("Forbidden"))))
     }
 }

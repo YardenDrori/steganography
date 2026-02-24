@@ -61,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build router
     let app = Router::new()
         .route("/api/auth/*path", any(proxy::auth_handler))
-        .route("/api/user/*path", any(proxy::user_handler))
+        .route("/api/users/*path", any(proxy::user_handler))
         .route("/api/files/*path", any(proxy::files_handler))
         .route("/api/embed/*path", any(proxy::embed_handler))
         .layer(cors)
