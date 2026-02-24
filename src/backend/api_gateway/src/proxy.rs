@@ -26,7 +26,7 @@ pub async fn proxy_request(service_url: &str, req: Request) -> Result<Response, 
     // Build the full URL to the backend service
     let url = format!("{}{}", service_url, stripped_path);
 
-    tracing::debug!("Proxying {} to {}", path_and_query, url);
+    tracing::info!("Proxying {} to {}", path_and_query, url);
 
     // NOW consume the request to get the body
     let body = axum::body::to_bytes(req.into_body(), usize::MAX)
