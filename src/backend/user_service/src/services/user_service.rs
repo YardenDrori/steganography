@@ -75,7 +75,7 @@ pub async fn update_user(
     tracing::info!(user_id = %user_id, "Updating user profile");
 
     // Check if user exists
-    let existing_user = user_repository::get_user_by_id(pool, user_id)
+    user_repository::get_user_by_id(pool, user_id)
         .await
         .map_err(|e| UserServiceError::DatabaseError(e))?
         .ok_or(UserServiceError::NotFound)?;

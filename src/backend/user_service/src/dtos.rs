@@ -42,6 +42,14 @@ fn validate_username(username: &str) -> Result<(), validator::ValidationError> {
 #[derive(Debug, Serialize, Deserialize, Clone, Validate)]
 pub struct UpdateUserRequest {
     #[validate(length(
+        min = 3,
+        max = 50,
+        message = "Username must be between 3 and 50 characters"
+    ))]
+    #[validate(custom(function = "validate_username"))]
+    pub user_name: String,
+
+    #[validate(length(
         min = 1,
         max = 50,
         message = "First name must be between 1 and 50 characters"
@@ -59,6 +67,7 @@ pub struct UpdateUserRequest {
     pub email: Option<String>,
 
     pub phone_number: Option<String>,
+
     pub is_male: Option<bool>,
 }
 
