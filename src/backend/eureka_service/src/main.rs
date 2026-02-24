@@ -21,10 +21,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("JWT_PUBLIC_KEY").expect("jwt_public_key must be set in env");
     let registered_services: Arc<RwLock<HashMap<String, ServiceEntry>>> =
         Arc::new(RwLock::new(HashMap::new()));
+    let access_token_duration_minutes: i64 = std::env::var("ACCESS_TOKEN_DURATION_MINS")
+        .expect("access_token_duration_minutes must be set in env")
+        .parse()
+        .expect("failed to parse access_token_duration_minutes to i64");
+    let refresh_token_duration_minutes: i64 = std::env::var("REFRESH_TOKEN_DURATION_MINS")
+        .expect("refresh_token_duration_minutes must be set in env")
+        .parse()
+        .expect("failed to parse refresh_token_duration_minutes to i64");
 
     let app_state = AppState {
         jwt_private_key,
         jwt_public_key,
+        jwt_duration_access_and_refresh: (
+            access_token_duration_minutes,
+            refresh_token_duration_minutes,
+        ),
         registered_services: Arc::clone(&registered_services),
     };
 

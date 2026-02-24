@@ -10,6 +10,9 @@ services:
       PORT: 3005
       JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      # ---DEBUG VALUES---
+      ACCESS_TOKEN_DURATION_MINS: 10
+      REFRESH_TOKEN_DURATION_MINS: 1
     ports:
       - "3005:3005"
     healthcheck:

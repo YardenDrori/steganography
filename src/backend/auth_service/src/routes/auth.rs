@@ -9,11 +9,11 @@ use axum::http::StatusCode;
 use axum::Json;
 use shared_global::extractors::ValidatedJson;
 
-fn build_refresh_cookie(token: &str) -> String {
+fn build_refresh_cookie(token: &str, refresh_duration_mins: i64) -> String {
     format!(
         "refresh_token={}; HttpOnly; SameSite=Strict; Path=/; Max-Age={}",
         token,
-        7 * 24 * 60 * 60
+        refresh_duration_mins * 60,
     )
 }
 
@@ -30,10 +30,13 @@ pub async fn register(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> Result<(StatusCode, HeaderMap, Json<LoginResponse>), UserServiceError> {
+    tracing::info!("received register request with values of:\n{:?}", payload);
+
     let user_service_url: String;
     let jwt_private_key: String;
+    let access_dur: i64;
+    let refresh_dur: i64;
     {
-        tracing::info!("received register request with values of:\n{:?}", payload);
         let config = app_state.eureka_config.read().unwrap();
         user_service_url = config
             .services
@@ -42,13 +45,19 @@ pub async fn register(
                 "user_service not found in eureka".to_string(),
             ))?
             .clone();
-        jwt_private_key =
-            config
-                .jwt_private_key
-                .clone()
-                .ok_or(UserServiceError::ExternalServiceError(
-                    "jwt_private_key not found in eureka".to_string(),
-                ))?;
+        jwt_private_key = config
+            .jwt_private_key
+            .clone()
+            .ok_or(UserServiceError::ExternalServiceError(
+                "jwt_private_key not found in eureka".to_string(),
+            ))?;
+        let (a, r) = config
+            .jwt_duration_access_and_refresh
+            .ok_or(UserServiceError::ExternalServiceError(
+                "jwt_duration_access_and_refresh not found in eureka".to_string(),
+            ))?;
+        access_dur = a;
+        refresh_dur = r;
     }
     let pool = &app_state.pool;
 
@@ -67,18 +76,21 @@ pub async fn register(
     )
     .await?;
 
-    // Generate tokens for auto-login after registration
     let access_token =
-        token_service::create_access_token(user_response.id, pool, &jwt_private_key).await?;
-    let refresh_token = token_service::create_refresh_token(pool, user_response.id, None).await?;
+        token_service::create_access_token(user_response.id, pool, &jwt_private_key, access_dur)
+            .await?;
+    let refresh_token =
+        token_service::create_refresh_token(pool, user_response.id, None, refresh_dur).await?;
 
     let mut headers = HeaderMap::new();
     headers.insert(
         SET_COOKIE,
-        build_refresh_cookie(&refresh_token).parse().map_err(|_| {
-            tracing::error!("failed to parse refresh token to axum object");
-            UserServiceError::ParsingError
-        })?,
+        build_refresh_cookie(&refresh_token, refresh_dur)
+            .parse()
+            .map_err(|_| {
+                tracing::error!("failed to parse refresh token to axum object");
+                UserServiceError::ParsingError
+            })?,
     );
 
     tracing::info!("User registered successfully with tokens");
@@ -104,15 +116,16 @@ pub async fn login(
 
     let jwt_private_key: String;
     let user_service_url: String;
+    let access_dur: i64;
+    let refresh_dur: i64;
     {
         let config = app_state.eureka_config.read().unwrap();
-        jwt_private_key =
-            config
-                .jwt_private_key
-                .clone()
-                .ok_or(UserServiceError::ExternalServiceError(
-                    "jwt_private_key not found in eureka".to_string(),
-                ))?;
+        jwt_private_key = config
+            .jwt_private_key
+            .clone()
+            .ok_or(UserServiceError::ExternalServiceError(
+                "jwt_private_key not found in eureka".to_string(),
+            ))?;
         user_service_url = config
             .services
             .get("user_service")
@@ -120,6 +133,13 @@ pub async fn login(
                 "user_service not found in eureka".to_string(),
             ))?
             .clone();
+        let (a, r) = config
+            .jwt_duration_access_and_refresh
+            .ok_or(UserServiceError::ExternalServiceError(
+                "jwt_duration_access_and_refresh not found in eureka".to_string(),
+            ))?;
+        access_dur = a;
+        refresh_dur = r;
     }
     let pool = &app_state.pool;
 
@@ -131,16 +151,20 @@ pub async fn login(
         &payload.password,
         payload.device_info.as_deref(),
         &jwt_private_key,
+        access_dur,
+        refresh_dur,
     )
     .await?;
 
     let mut headers = HeaderMap::new();
     headers.insert(
         SET_COOKIE,
-        build_refresh_cookie(&refresh_token).parse().map_err(|_| {
-            tracing::error!("failed to parse refresh token to axum object");
-            UserServiceError::ParsingError
-        })?,
+        build_refresh_cookie(&refresh_token, refresh_dur)
+            .parse()
+            .map_err(|_| {
+                tracing::error!("failed to parse refresh token to axum object");
+                UserServiceError::ParsingError
+            })?,
     );
 
     tracing::info!("User logged in successfully");
@@ -156,24 +180,40 @@ pub async fn refresh(
     let refresh_token =
         extract_refresh_token(&headers).ok_or(UserServiceError::MissingRefreshToken)?;
 
-    let jwt_private_key = app_state
-        .eureka_config
-        .read()
-        .unwrap()
-        .jwt_private_key
-        .clone()
-        .ok_or(UserServiceError::ExternalServiceError(
-            "jwt_private_key not found in eureka".to_string(),
-        ))?;
+    let jwt_private_key: String;
+    let access_dur: i64;
+    let refresh_dur: i64;
+    {
+        let config = app_state.eureka_config.read().unwrap();
+        jwt_private_key = config
+            .jwt_private_key
+            .clone()
+            .ok_or(UserServiceError::ExternalServiceError(
+                "jwt_private_key not found in eureka".to_string(),
+            ))?;
+        let (a, r) = config
+            .jwt_duration_access_and_refresh
+            .ok_or(UserServiceError::ExternalServiceError(
+                "jwt_duration_access_and_refresh not found in eureka".to_string(),
+            ))?;
+        access_dur = a;
+        refresh_dur = r;
+    }
     let pool = &app_state.pool;
 
-    let (access_token, new_refresh_token) =
-        token_service::refresh_access_token(pool, &refresh_token, &jwt_private_key).await?;
+    let (access_token, new_refresh_token) = token_service::refresh_access_token(
+        pool,
+        &refresh_token,
+        &jwt_private_key,
+        access_dur,
+        refresh_dur,
+    )
+    .await?;
 
     let mut response_headers = HeaderMap::new();
     response_headers.insert(
         SET_COOKIE,
-        build_refresh_cookie(&new_refresh_token)
+        build_refresh_cookie(&new_refresh_token, refresh_dur)
             .parse()
             .map_err(|_| UserServiceError::ParsingError)?,
     );
@@ -198,7 +238,6 @@ pub async fn logout(
     let pool = &app_state.pool;
     token_service::revoke_refresh_token(pool, &refresh_token).await?;
 
-    // Clear the cookie by setting Max-Age=0
     let mut response_headers = HeaderMap::new();
     response_headers.insert(
         SET_COOKIE,

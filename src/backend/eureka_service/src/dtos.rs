@@ -7,6 +7,7 @@ pub struct ConfigResponse {
     pub jwt_public_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jwt_private_key: Option<String>,
+    pub jwt_duration_access_and_refresh: Option<(i64, i64)>,
     pub services: HashMap<String, String>,
 }
 

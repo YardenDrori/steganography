@@ -9,9 +9,7 @@ use sha2::{Digest, Sha256};
 use shared_global::auth::roles::Roles;
 use sqlx::PgPool;
 
-const ACCESS_TOKEN_DURATION_SECONDS: i64 = 10 * 60; // 10 minutes
 const REFRESH_TOKEN_LENGTH: usize = 64;
-const REFRESH_TOKEN_DURATION_DAYS: i64 = 14;
 const MAX_COLLISION_ATTEMPTS: u8 = 3;
 
 // Generates a cryptographically secure random refresh token
@@ -38,11 +36,12 @@ pub async fn create_access_token(
     user_id: i64,
     pool: &PgPool,
     private_key_pem: &str,
+    validation_time: i64,
 ) -> Result<String, UserServiceError> {
     tracing::debug!("Creating access token for user_id={}", user_id);
     let now = Utc::now();
     let issued_at = now.timestamp();
-    let expires_at = issued_at + ACCESS_TOKEN_DURATION_SECONDS;
+    let expires_at = issued_at + validation_time * 60;
     let roles = get_user_roles(pool, user_id)
         .await
         .map_err(|e| UserServiceError::DatabaseError(e))?;
@@ -58,9 +57,10 @@ pub async fn create_refresh_token(
     pool: &PgPool,
     user_id: i64,
     device_info: Option<String>,
+    validation_time: i64,
 ) -> Result<String, UserServiceError> {
     tracing::debug!("Creating refresh token for user_id={}", user_id);
-    let expires_at = Utc::now() + Duration::days(REFRESH_TOKEN_DURATION_DAYS);
+    let expires_at = Utc::now() + Duration::minutes(validation_time);
 
     // Try to generate unique token (retry on collision)
     for attempt in 0..MAX_COLLISION_ATTEMPTS {
@@ -113,6 +113,8 @@ pub async fn refresh_access_token(
     pool: &PgPool,
     refresh_token: &str,
     jwt_private_key: &str,
+    access_token_validation_time: i64,
+    refresh_token_validation_time: i64,
 ) -> Result<(String, String), UserServiceError> {
     tracing::debug!("Attempting to refresh access token");
     // Hash the provided token to look it up
@@ -148,13 +150,20 @@ pub async fn refresh_access_token(
     let user_id = stored_token.user_id();
 
     // Generate new access token
-    let new_access_token = create_access_token(user_id, &pool, jwt_private_key).await?;
+    let new_access_token = create_access_token(
+        user_id,
+        &pool,
+        jwt_private_key,
+        access_token_validation_time,
+    )
+    .await?;
 
     // Generate new refresh token
     let new_refresh_token = create_refresh_token(
         pool,
         user_id,
         stored_token.device_info().map(|s| s.to_string()),
+        refresh_token_validation_time,
     )
     .await?;
 
