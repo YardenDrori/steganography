@@ -83,13 +83,13 @@ function RegisterPage() {
             setForm({
               ...form,
               is_male:
-                e.target.value === undefined ? undefined : e.target.value === "" ? true : false,
+                e.target.value === "" ? undefined : e.target.value === "true" ? true : false,
             })
           }
         >
-          <option value={""}>Select gender</option>
-          <option value={"true"}>Male</option>
-          <option value={"false"}>Female</option>
+          <option value="">Select gender</option>
+          <option value="true">Male</option>
+          <option value="false">Female</option>
         </select>
         <input
           type="password"
