@@ -33,7 +33,7 @@ services:
     container_name: api_gateway
     environment:
       EUREKA_URL: http://eureka_service:3005
-      RUST_LOG: info
+      RUST_LOG: debug
     ports:
       - "3000:3000"
     depends_on:
