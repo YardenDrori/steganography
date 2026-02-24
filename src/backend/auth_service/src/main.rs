@@ -13,6 +13,7 @@ use std::sync::{Arc, RwLock};
 use tokio::time::{sleep, Duration};
 
 use crate::app_state::AppState;
+use tower_http::trace::TraceLayer;
 use axum::{
     routing::{delete, get, patch, post},
     Router,
@@ -20,11 +21,13 @@ use axum::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
-    tracing_subscriber::fmt::init();
-
-    // Load environment variables
     dotenvy::dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     let eureka_url = std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
 
@@ -85,6 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "/internal/users/:id/tokens",
             delete(routes::tokens::revoke_user_tokens),
         )
+        .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
     //refresh configs

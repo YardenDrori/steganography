@@ -24,15 +24,27 @@ impl IntoResponse for UserServiceError {
             Self::EmailAlreadyExists => (StatusCode::CONFLICT, "Email already exists"),
             Self::UsernameAlreadyExists => (StatusCode::CONFLICT, "Username already exists"),
             Self::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid credentials"),
-            Self::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
-            Self::HashingError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
-            Self::JwtError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
-            Self::ExternalServiceError(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to sync with external service",
-            ),
-            Self::ParsingError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::MissingRefreshToken => (StatusCode::UNAUTHORIZED, "Missing refresh token"),
+            Self::DatabaseError(ref e) => {
+                tracing::error!(error = ?e, "Database error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            }
+            Self::HashingError(ref e) => {
+                tracing::error!(error = ?e, "Password hashing error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            }
+            Self::JwtError(ref e) => {
+                tracing::error!(error = ?e, "JWT error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            }
+            Self::ExternalServiceError(ref msg) => {
+                tracing::error!(error = %msg, "External service error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Failed to sync with external service")
+            }
+            Self::ParsingError => {
+                tracing::error!("Parsing error");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            }
         };
 
         (status, Json(ErrorBody::new(message))).into_response()

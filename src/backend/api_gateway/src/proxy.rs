@@ -26,7 +26,7 @@ pub async fn proxy_request(service_url: &str, req: Request) -> Result<Response, 
     // Build the full URL to the backend service
     let url = format!("{}{}", service_url, stripped_path);
 
-    tracing::info!("Proxying {} to {}", path_and_query, url);
+    tracing::debug!("Proxying {} to {}", path_and_query, url);
 
     // NOW consume the request to get the body
     let body = axum::body::to_bytes(req.into_body(), usize::MAX)
@@ -43,7 +43,10 @@ pub async fn proxy_request(service_url: &str, req: Request) -> Result<Response, 
         .body(body.to_vec())
         .send()
         .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+        .map_err(|e| {
+            tracing::error!(url = %url, error = %e, "Failed to reach backend service");
+            StatusCode::BAD_GATEWAY
+        })?;
 
     // Build response to send back to frontend
     let mut response = Response::builder().status(backend_response.status());
@@ -75,7 +78,10 @@ pub async fn auth_handler(
         .unwrap()
         .services
         .get("auth_service")
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
+        .ok_or_else(|| {
+            tracing::error!("auth_service not found in eureka config");
+            StatusCode::SERVICE_UNAVAILABLE
+        })?
         .clone();
     proxy_request(&auth_url, req).await
 }
@@ -91,7 +97,10 @@ pub async fn user_handler(
         .unwrap()
         .services
         .get("user_service")
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
+        .ok_or_else(|| {
+            tracing::error!("user_service not found in eureka config");
+            StatusCode::SERVICE_UNAVAILABLE
+        })?
         .clone();
 
     proxy_request(&user_url, req).await
@@ -108,7 +117,10 @@ pub async fn files_handler(
         .unwrap()
         .services
         .get("files_service")
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
+        .ok_or_else(|| {
+            tracing::error!("files_service not found in eureka config");
+            StatusCode::SERVICE_UNAVAILABLE
+        })?
         .clone();
 
     proxy_request(&files_url, req).await
@@ -125,7 +137,10 @@ pub async fn embed_handler(
         .unwrap()
         .services
         .get("steganography_service")
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
+        .ok_or_else(|| {
+            tracing::error!("steganography_service not found in eureka config");
+            StatusCode::SERVICE_UNAVAILABLE
+        })?
         .clone();
 
     proxy_request(&steg_url, req).await

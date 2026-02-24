@@ -1,5 +1,6 @@
 use crate::app_state::AppState;
 use axum::routing::{delete, get, post};
+use tower_http::trace::TraceLayer;
 use axum::Router;
 use minior::aws_sdk_s3::Client as S3Client;
 use minior::Minio;
@@ -13,8 +14,13 @@ mod routes;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt::init();
     dotenvy::dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     let eureka_url = std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
 
@@ -88,6 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/files/:id", get(routes::get_file::get_file))
         .route("/files", get(routes::list_files::list_files))
         .route("/files/:id", delete(routes::delete_file::delete_file))
+        .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
     // Spawn heartbeat task

@@ -2,6 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::app_state::AppState;
 use crate::routes::{auth, delete_users, patch_users, post_users, sync};
+use tower_http::trace::TraceLayer;
 use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use routes::get_users;
@@ -17,11 +18,13 @@ mod services;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
-    tracing_subscriber::fmt::init();
-
-    // Load environment variables
     dotenvy::dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     let eureka_url = std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
 
@@ -71,6 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "/internal/auth/verify-credentials",
             post(auth::verify_credentials),
         )
+        .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
     // Spawn heartbeat task

@@ -5,16 +5,20 @@ use axum::routing::any;
 use axum::Router;
 use tokio::time::{sleep, Duration};
 use tower_http::cors::CorsLayer;
+use tower_http::trace::TraceLayer;
 use axum::http::HeaderValue;
 
 use crate::app_state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
-    tracing_subscriber::fmt::init();
-    // Load environment variables
     dotenvy::dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     let eureka_url = std::env::var("EUREKA_URL").expect("EUREKA_URL must be set in env");
 
@@ -65,6 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/files/*path", any(proxy::files_handler))
         .route("/api/embed/*path", any(proxy::embed_handler))
         .layer(cors)
+        .layer(TraceLayer::new_for_http())
         .with_state(state.into());
 
     // Spawn heartbeat task

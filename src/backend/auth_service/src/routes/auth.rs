@@ -30,8 +30,6 @@ pub async fn register(
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> Result<(StatusCode, HeaderMap, Json<LoginResponse>), UserServiceError> {
-    tracing::info!("received register request with values of:\n{:?}", payload);
-
     let user_service_url: String;
     let jwt_private_key: String;
     let access_dur: i64;

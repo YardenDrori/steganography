@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use crate::app_state::{AppState, ServiceEntry};
 use axum::routing::{get, post};
 use axum::Router;
+use tower_http::trace::TraceLayer;
 
 mod app_state;
 mod dtos;
@@ -12,8 +13,13 @@ mod routes;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt::init();
     dotenvy::dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     let jwt_private_key: String =
         std::env::var("JWT_PRIVATE_KEY").expect("jwt_private_key must be set in env");
@@ -61,6 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/register", post(routes::register::register))
         .route("/config/:service_name", get(routes::config::get_config))
         .route("/heartbeat", post(routes::heartbeat::heartbeat))
+        .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3005")
