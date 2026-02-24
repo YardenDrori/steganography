@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -10,10 +10,8 @@ import { tryCatch } from "./api/tryCatch";
 
 function ProtectedRoute(props: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
-  const navigate = useNavigate();
-
   if (isLoading) return null;
-  if (!user) navigate("/login");
+  if (!user) return <Navigate to={"/login"} />;
   return props.children;
 }
 
