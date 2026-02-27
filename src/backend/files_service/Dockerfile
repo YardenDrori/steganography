@@ -18,6 +18,6 @@ RUN cargo build --release -p files_service
 FROM alpine:3.22
 RUN apk add --no-cache libgcc
 WORKDIR /app
-COPY --from=builder /build/target/release/files_service /app/steganography_service
-EXPOSE 3003
+COPY --from=builder /build/target/release/files_service /app/files_service
+EXPOSE 3004
 CMD ["./files_service"]
