@@ -160,61 +160,30 @@ services:
     networks:
       - microservices_network
 
-  files_minio:
-    image: minio/minio:latest
-    container_name: files_minio
-    command: server /data --console-address ":9001"
+  files_service:
+    build:
+      context: .
+      dockerfile: files_service/Dockerfile
+    container_name: files_service
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      DATABASE_URL: postgres://postgres:postgres@files_postgres:5432/files_db
+      EUREKA_URL: http://eureka_service:3005
+      RUST_LOG: info
+      PORT: 3004
     ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - files_minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "3004:3004"
+    depends_on:
+      files_postgres:
+        condition: service_healthy
+      eureka_service:
+        condition: service_healthy
     networks:
       - microservices_network
-
-  # files_service:
-  #   build:
-  #     context: .
-  #     dockerfile: files_service/Dockerfile
-  #   container_name: files_service
-  #   environment:
-  #     DATABASE_URL: postgres://postgres:postgres@files_postgres:5432/files_db
-  #     MINIO_ENDPOINT: http://files_minio:9000
-  #     MINIO_ACCESS_KEY: minioadmin
-  #     MINIO_SECRET_KEY: minioadmin
-  #     MINIO_BUCKET: userfiles
-  #     MINIO_USE_SSL: "false"
-  #     EUREKA_URL: http://eureka_service:3005
-  #     AWS_ACCESS_KEY_ID: minioadmin
-  #     AWS_SECRET_ACCESS_KEY: minioadmin
-  #     AWS_DEFAULT_REGION: us-east-1
-  #     RUST_LOG: info
-  #     PORT: 3004
-  #   ports:
-  #     - "3004:3004"
-  #   depends_on:
-  #     files_postgres:
-  #       condition: service_healthy
-  #     files_minio:
-  #       condition: service_healthy
-  #     eureka_service:
-  #       condition: service_healthy
-  #   networks:
-  #     - microservices_network
 
 volumes:
   auth_postgres_data:
   user_postgres_data:
   files_postgres_data:
-  files_minio_data:
 
 networks:
   microservices_network:
