@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 shared_global = { path = "../shared/global" }
 auth_user = { path = "../shared/auth_user" }
-axum = {"0.7", features= ["multipart"]}
+axum = {version = "0.7", features= ["multipart"]}
 tokio = { version = "1", features = ["full"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["fs", "trace", "cors"] }
@@ -19,4 +19,4 @@ sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "mac
 dotenvy = "0.15"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 rust-s3 = "0.37.1"
-uuid = {"1.21.0", features = ["v4"]}
+uuid = {version = "1.21.0", features = ["v4"]}
