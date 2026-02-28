@@ -13,10 +13,9 @@ pub struct PartInfo {
     pub etag: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct UploadPartResponse {
-    pub part_number: u32,
-    pub etag: String,
+    pub part: PartInfo,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -30,7 +29,6 @@ pub struct CompleteRequest {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FileResponse {
     pub id: i64,
-    pub user_id: i64,
     pub filename: String,
     pub created_at: DateTime<Utc>,
 }
