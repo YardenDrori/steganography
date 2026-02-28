@@ -55,15 +55,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     sqlx::migrate!().run(&pool).await?;
 
     // Create app state
-    let app_state = AppState {
-        pool: pool,
-        eureka_config: Arc::clone(&config),
-    };
+    // let app_state = AppState {
+    //     pool: pool,
+    //     eureka_config: Arc::clone(&config),
+    // };
 
     // Build router
-    let app = Router::new()
-        .layer(TraceLayer::new_for_http())
-        .with_state(app_state);
+    let app = Router::new().layer(TraceLayer::new_for_http());
+    // .with_state(app_state);
 
     // Spawn heartbeat task
     let eureka_url_clone = eureka_url.clone();
