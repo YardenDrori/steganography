@@ -1,5 +1,5 @@
-use crate::entities::file::FileEntity;
 use crate::models::file::File;
+use crate::{entities::file::FileEntity, errors::files_service_errors::FilesServiceError};
 use sqlx::{pool, query, query_as, PgPool};
 
 pub async fn create_file(
@@ -18,9 +18,12 @@ pub async fn create_file(
         object_key,
     )
     .fetch_one(pool)
-    .await;
-    // TODO: call unimplemented method get file by ID and return its output
-    todo!()
+    .await?
+    .id;
+    let file = get_file_by_id(pool, result)
+        .await?
+        .ok_or(Err(FilesServiceError::DatabaseError(())));
+    Ok(file)
 }
 
 pub async fn get_file_by_id(pool: &PgPool, id: i64) -> Result<Option<File>, sqlx::Error> {
@@ -33,7 +36,8 @@ pub async fn get_file_by_id(pool: &PgPool, id: i64) -> Result<Option<File>, sqlx
         id,
     )
     .fetch_optional(pool)
-    .await?;
+    .await?
+    .map(|db| db.into());
     Ok(result)
 }
 //
