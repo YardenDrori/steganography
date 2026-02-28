@@ -22,7 +22,7 @@ pub async fn create_file(
     .id;
     let file = get_file_by_id(pool, result)
         .await?
-        .ok_or(Err(FilesServiceError::DatabaseError(())));
+        .ok_or(sqlx::Error::RowNotFound)?;
     Ok(file)
 }
 
@@ -36,10 +36,30 @@ pub async fn get_file_by_id(pool: &PgPool, id: i64) -> Result<Option<File>, sqlx
         id,
     )
     .fetch_optional(pool)
-    .await?
+    .aait?
     .map(|db| db.into());
     Ok(result)
 }
+
+pub async fn list_file_by_user_id(
+    pool: &PgPool,
+    id: i64,
+) -> Result<Option<Vec<File>>, sqlx::Error> {
+    let result: Vec<FileEntity> = query_as!(
+        FileEntity,
+        r#"
+        SELECT id, user_id, filename, object_key, created_at
+        FROM files
+        WHERE id = $1
+        "#,
+        id,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    todo!()
+}
+
 //
 // pub async fn create_user(
 //     pool: &PgPool,
