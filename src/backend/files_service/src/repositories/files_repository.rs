@@ -1,6 +1,6 @@
+use crate::entities::file::FileEntity;
 use crate::models::file::File;
-use crate::{entities::file::FileEntity, errors::files_service_errors::FilesServiceError};
-use sqlx::{pool, query, query_as, PgPool};
+use sqlx::{query, query_as, PgPool};
 
 pub async fn create_file(
     pool: &PgPool,
@@ -47,7 +47,7 @@ pub async fn list_file_by_user_id(pool: &PgPool, id: i64) -> Result<Vec<File>, s
         r#"
         SELECT id, user_id, filename, object_key, created_at
         FROM files
-        WHERE id = $1
+        WHERE user_id = $1
         "#,
         id,
     )
@@ -57,7 +57,7 @@ pub async fn list_file_by_user_id(pool: &PgPool, id: i64) -> Result<Vec<File>, s
     Ok(result.into_iter().map(|i| i.into()).collect())
 }
 
-pub async fn delete_file(pool: &PgPool, file_id: i64) -> Result<(), sqlx::Error> {
+pub async fn delete_file(pool: &PgPool, file_id: i64) -> Result<bool, sqlx::Error> {
     let result = query!(
         r#"
         DELETE FROM files WHERE id = $1
@@ -66,5 +66,5 @@ pub async fn delete_file(pool: &PgPool, file_id: i64) -> Result<(), sqlx::Error>
     )
     .execute(pool)
     .await?;
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
