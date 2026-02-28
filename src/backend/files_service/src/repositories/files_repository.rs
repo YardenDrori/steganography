@@ -24,12 +24,17 @@ pub async fn create_file(
 }
 
 pub async fn get_file_by_id(pool: &PgPool, id: i64) -> Result<Option<File>, sqlx::Error> {
-    let result = query!(
-        r#"SELECT id, user_id, filename, object_key
+    let result = query_as!(
+        FileEntity,
+        r#"SELECT id, user_id, filename, object_key, created_at
         FROM files
-        WHERE id = $"#
+        WHERE id = $1
+        "#,
+        id,
     )
-    todo!()
+    .fetch_optional(pool)
+    .await?;
+    Ok(result)
 }
 //
 // pub async fn create_user(
