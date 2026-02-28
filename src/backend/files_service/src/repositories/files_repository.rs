@@ -2,25 +2,13 @@ use crate::entities::file::FileEntity;
 use crate::models::file::File;
 use sqlx::{query, query_as, PgPool};
 
-pub async fn create_file(pool: &PgPool, user_id: i64) -> Result<Option<File>, sqlx::Error> {
-    let result = query_as!(
-        FileEntity,
-        r#"
-        SELECT id, user_name, first_name,
-        last_name, is_male,
-        email, phone_number, password_hash,
-        created_at as "created_at: _",
-        updated_at as "updated_at: _",
-        is_active, is_verified
-        FROM users
-        WHERE id = $1
-        "#,
-        user_id
-    )
-    .fetch_optional(pool)
-    .await?
-    .map(|db| db.into());
-    Ok(result)
+pub async fn create_file(
+    pool: &PgPool,
+    user_id: i64,
+    filename: &str,
+    object_key: &str,
+) -> Result<File, sqlx::Error> {
+    todo!()
 }
 
 pub async fn create_user(
