@@ -8,6 +8,15 @@ pub async fn create_file(
     filename: &str,
     object_key: &str,
 ) -> Result<File, sqlx::Error> {
+    let result = query!(
+        r#"
+        INSERT INTO files (user_id, filename, object_key)
+        VALUES($1,$2,$3) RETURNING id
+        "#,
+        user_id,
+        filename,
+        object_key,
+    );
     todo!()
 }
 
