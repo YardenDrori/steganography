@@ -3,12 +3,13 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use s3::error::S3Error;
 use shared_global::errors::ErrorBody;
 
 #[derive(Debug)]
 pub enum FilesServiceError {
     DatabaseError(sqlx::Error),
-    StorageError(String),
+    StorageError(S3Error),
     Unauthorized,
     NotFound,
 }
