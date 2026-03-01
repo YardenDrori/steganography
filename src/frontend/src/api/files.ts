@@ -102,3 +102,41 @@ export async function completeUpload(
     throw err;
   }
 }
+
+export async function uploadFile(
+  accessToken: string,
+  file: File,
+): Promise<FileItem> {
+  try {
+    const CHUNK_SIZE = 1024 * 1024 * 10; //10 mbs
+    const { upload_id: uploadId, object_key: objectKey } =
+      await initiateUpload(accessToken);
+    const parts: PartInfo[] = [];
+
+    let partNumber = 1;
+    for (let start = 0; start < file.size; start += CHUNK_SIZE) {
+      const chunk = file.slice(start, start + CHUNK_SIZE);
+      const part = await uploadChunk(
+        accessToken,
+        objectKey,
+        uploadId,
+        partNumber,
+        chunk,
+      );
+      parts.push(part.part);
+      partNumber++;
+    }
+    const fileItem = await completeUpload(
+      accessToken,
+      uploadId,
+      objectKey,
+      file.name,
+      parts,
+    );
+
+    return fileItem;
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+}
