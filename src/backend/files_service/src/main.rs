@@ -64,14 +64,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         endpoint: (std::env::var("MINIO_ENDPOINT").expect("minio_endpoint must be in env")),
     };
     let credentials = Credentials {
-        access_key: Some(std::env::var("ACCESS_KEY").expect("access_key must be in env")),
-        secret_key: Some(std::env::var("SECRET_KEY").expect("secret_key must be in env")),
+        access_key: Some(std::env::var("MINIO_ACCESS_KEY").expect("access_key must be in env")),
+        secret_key: Some(std::env::var("MINIO_SECRET_KEY").expect("secret_key must be in env")),
         security_token: None,
         session_token: None,
         expiration: None,
     };
-    let bucket =
-        Bucket::new(&bucket_name, region, credentials).expect("failed to initialize bucket. error");
+    let bucket = Bucket::new(&bucket_name, region, credentials)
+        .expect("failed to initialize bucket. error")
+        .with_path_style();
 
     // Create app state
     let app_state = AppState {
@@ -83,12 +84,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build router
     let app = Router::new()
         .layer(TraceLayer::new_for_http())
-        .route(
-            "/files/tempnamecauseimbadatnamingendpointsstart",
-            post(post_files::initiate),
-        )
-        .route("/files/tmp2", post(post_files::upload_chunk))
-        .route("file/tmp3", post(post_files::complete_upload))
+        .route("/files/initiate", post(post_files::initiate))
+        .route("/files/upload-chunk", post(post_files::upload_chunk))
+        .route("/file/complete", post(post_files::complete_upload))
         .with_state(app_state);
 
     // Spawn heartbeat task
