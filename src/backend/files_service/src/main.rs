@@ -1,12 +1,10 @@
 use crate::app_state::AppState;
-use std::sync::{Arc, RwLock};
-// use crate::routes::{auth, delete_users, patch_users, post_users, sync};
 use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use s3::creds::Credentials;
 use s3::{Bucket, Region};
-// use routes::get_users;
 use shared_global::db::postgres::create_pool;
+use std::sync::{Arc, RwLock};
 use tower_http::trace::TraceLayer;
 mod app_state;
 mod dtos;
@@ -81,18 +79,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build router
     let app = Router::new()
-        .layer(TraceLayer::new_for_http())
         .route("/files/initiate", post(routes::post_files::initiate))
         .route(
             "/files/upload-chunk",
             post(routes::post_files::upload_chunk),
         )
-        .route("/file/complete", post(routes::post_files::complete_upload))
+        .route("/files/complete", post(routes::post_files::complete_upload))
         .route("/files/me", get(routes::get_files::get_files_for_user))
         .route("/files/:id", get(routes::get_files::get_download_url))
         .route("/files/:id", patch(routes::patch_files::rename_file))
         .route("/files/:id", delete(routes::delete_files::delete_file))
-        .with_state(app_state);
+        .with_state(app_state)
+        .layer(TraceLayer::new_for_http());
 
     // Spawn heartbeat task
     let eureka_url_clone = eureka_url.clone();
