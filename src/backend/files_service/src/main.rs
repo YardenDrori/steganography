@@ -1,8 +1,12 @@
 use crate::app_state::AppState;
+use crate::routes::post_files;
+use crate::services::files_service;
 use std::sync::{Arc, RwLock};
 // use crate::routes::{auth, delete_users, patch_users, post_users, sync};
 use axum::routing::{delete, get, patch, post};
 use axum::Router;
+use s3::creds::Credentials;
+use s3::{region, Bucket, Region};
 // use routes::get_users;
 use shared_global::db::postgres::create_pool;
 use tower_http::trace::TraceLayer;
@@ -54,15 +58,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Run database migrations
     sqlx::migrate!().run(&pool).await?;
 
+    let bucket_name = std::env::var("MINIO_BUCKET").expect("minio_bucket must be set up in env");
+    let region = Region::Custom {
+        region: ("yo how are you?".to_string()),
+        endpoint: (std::env::var("MINIO_ENDPOINT").expect("minio_endpoint must be in env")),
+    };
+    let credentials = Credentials {
+        access_key: Some(std::env::var("ACCESS_KEY").expect("access_key must be in env")),
+        secret_key: Some(std::env::var("SECRET_KEY").expect("secret_key must be in env")),
+        security_token: None,
+        session_token: None,
+        expiration: None,
+    };
+    let bucket =
+        Bucket::new(&bucket_name, region, credentials).expect("failed to initialize bucket. error");
+
     // Create app state
-    // let app_state = AppState {
-    //     pool: pool,
-    //     eureka_config: Arc::clone(&config),
-    // };
+    let app_state = AppState {
+        pool: pool,
+        eureka_config: Arc::clone(&config),
+        bucket: bucket,
+    };
 
     // Build router
-    let app = Router::new().layer(TraceLayer::new_for_http());
-    // .with_state(app_state);
+    let app = Router::new()
+        .layer(TraceLayer::new_for_http())
+        .route(
+            "/files/tempnamecauseimbadatnamingendpointsstart",
+            post(post_files::initiate),
+        )
+        .route("/files/tmp2", post(post_files::upload_chunk))
+        .route("file/tmp3", post(post_files::complete_upload))
+        .with_state(app_state);
 
     // Spawn heartbeat task
     let eureka_url_clone = eureka_url.clone();

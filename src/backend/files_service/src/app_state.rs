@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 pub struct AppState {
     pub pool: Pool<Postgres>,
     pub eureka_config: Arc<RwLock<EurekaConfig>>,
-    pub bucket: Bucket,
+    pub bucket: Box<Bucket>,
 }
 
 impl shared_global::auth::jwt::HasJwtPublicKey for AppState {
