@@ -14,6 +14,7 @@ use crate::{
 /// Extractor for authenticated user from API Gateway headers
 /// Gateway adds X-User-Id header after verifying JWT
 pub struct AuthenticatedUser(pub i64);
+pub struct AuthenticatedUserIsAdmin(pub i64, pub bool);
 pub struct RequireAdmin(pub i64);
 
 #[async_trait]
@@ -111,5 +112,62 @@ where
         }
 
         return Err((StatusCode::FORBIDDEN, Json(ErrorBody::new("Forbidden"))));
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for AuthenticatedUserIsAdmin
+where
+    S: Send + Sync + HasJwtPublicKey,
+{
+    type Rejection = (StatusCode, Json<ErrorBody>);
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let jwt_public_key = state.jwt_public_key();
+        let headers = parts
+            .headers
+            .get("authorization")
+            .ok_or((
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorBody::new("No authorization header found")),
+            ))?
+            .to_str()
+            .map_err(|_| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorBody::new("Invalid Authorization header format")),
+                )
+            })?;
+
+        let token = headers
+            .strip_prefix("Bearer ")
+            .or_else(|| headers.strip_prefix("bearer "))
+            .ok_or((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorBody::new(
+                    "Authorization header must use Bearer scheme",
+                )),
+            ))?;
+
+        let claims = verify_jwt(&token, &jwt_public_key).map_err(|e| {
+            tracing::error!("JWT verification failed: {:?}", e);
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorBody::new("Invalid or expired token")),
+            )
+        })?;
+
+        let mut is_admin: bool = false;
+
+        for role in claims.roles {
+            if role == Role::Admin {
+                is_admin = true;
+            }
+        }
+
+        Ok(AuthenticatedUserIsAdmin {
+            0: claims.sub,
+            1: is_admin,
+        })
     }
 }
