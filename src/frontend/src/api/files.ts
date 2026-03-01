@@ -1,5 +1,4 @@
 import axios from "axios";
-import { tryCatch } from "./tryCatch";
 
 const BASE_URL = "http://localhost:3000";
 
@@ -39,6 +38,65 @@ export async function renameFile(
     return await axios.patch(`${BASE_URL}/api/files/${fileId}`, body, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+}
+
+export async function initiateUpload(
+  accessToken: string,
+): Promise<InitiateResponse> {
+  try {
+    const response = await axios.post(`${BASE_URL}/api/files/initiate`, null, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return response.data;
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+}
+
+export async function uploadChunk(
+  accessToken: string,
+  objectKey: string,
+  uploadId: string,
+  partNumber: number,
+  chunk: Blob,
+): Promise<UploadPartResponse> {
+  try {
+    const response = await axios.post(
+      `${BASE_URL}/api/files/upload-chunk?part_number=${partNumber}&upload_id=${uploadId}&object_key=${objectKey}`,
+      chunk,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    return response.data;
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+}
+
+export async function completeUpload(
+  accessToken: string,
+  uploadId: string,
+  objectKey: string,
+  filename: string,
+  parts: PartInfo[],
+): Promise<FileItem> {
+  try {
+    const response = await axios.post(
+      `${BASE_URL}/api/files/complete`,
+      {
+        upload_id: uploadId,
+        object_key: objectKey,
+        filename: filename,
+        parts: parts,
+      },
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    return response.data;
   } catch (err) {
     console.log(err);
     throw err;

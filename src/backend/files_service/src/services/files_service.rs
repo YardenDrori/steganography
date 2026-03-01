@@ -1,11 +1,12 @@
-use s3::{Bucket, request::{ResponseData, ResponseDataStream}, serde_types::Part};
+use s3::{
+    request::{ResponseData, ResponseDataStream},
+    serde_types::Part,
+    Bucket,
+};
 use sqlx::PgPool;
 
 use crate::{
-    dtos::{
-        CompleteRequest, FileResponse, InitiateResponse, PartInfo,
-        UploadPartResponse,
-    },
+    dtos::{CompleteRequest, FileResponse, InitiateResponse, PartInfo, UploadPartResponse},
     errors::files_service_errors::FilesServiceError,
     models::file::File,
     repositories::{
