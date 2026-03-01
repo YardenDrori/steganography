@@ -1,5 +1,5 @@
+use crate::entities::file::FileEntity;
 use crate::models::file::File;
-use crate::{entities::file::FileEntity, errors::files_service_errors::FilesServiceError};
 use sqlx::{query, query_as, PgPool};
 
 pub async fn create_file(

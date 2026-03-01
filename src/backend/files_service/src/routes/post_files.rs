@@ -2,16 +2,13 @@ use axum::{
     body::Bytes,
     extract::{Query, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
     Json,
 };
-use s3::{bucket, command::Multipart};
 use serde::{Deserialize, Serialize};
 use shared_global::auth::user_extractors::AuthenticatedUser;
-use shared_global::extractors::ValidatedJson;
 
 use crate::{
-    app_state::{self, AppState},
+    app_state::AppState,
     dtos::{CompleteRequest, FileResponse, InitiateResponse, UploadPartResponse},
     errors::files_service_errors::FilesServiceError,
     services::{
