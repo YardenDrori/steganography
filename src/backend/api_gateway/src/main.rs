@@ -3,7 +3,6 @@ use std::sync::{Arc, RwLock};
 mod proxy;
 use axum::routing::any;
 use axum::Router;
-use tokio::time::{sleep, Duration};
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use axum::http::HeaderValue;
