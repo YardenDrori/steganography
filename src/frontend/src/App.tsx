@@ -8,6 +8,7 @@ import { useAuth } from "./context/AuthContext";
 import { refresh } from "./api/auth";
 import { getCurrentUser } from "./api/user";
 import { tryCatch } from "./api/tryCatch";
+import FilesPage from "./pages/FilesPage";
 
 function ProtectedRoute(props: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -58,6 +59,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-files"
+          element={
+            <ProtectedRoute>
+              <FilesPage />
             </ProtectedRoute>
           }
         />
