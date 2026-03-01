@@ -1,12 +1,16 @@
 use std::slice::ChunkBy;
 
 use s3::{bucket, request::ResponseData, serde_types::Part, Bucket};
-use sqlx::{pool, PgPool};
+use sqlx::{error::DatabaseError, pool, PgPool};
 
 use crate::{
-    dtos::{CompleteRequest, FileResponse, InitiateResponse, PartInfo, UploadPartResponse},
+    dtos::{
+        CompleteRequest, DownloadRequest, DownloadResponse, FileResponse, InitiateResponse,
+        PartInfo, UploadPartResponse,
+    },
     errors::files_service_errors::FilesServiceError,
-    repositories::files_repository::create_file,
+    models::file::File,
+    repositories::files_repository::{self, create_file, get_file_by_id, list_file_by_user_id},
 };
 
 pub async fn initiate_upload(bucket: &Bucket) -> Result<InitiateResponse, FilesServiceError> {
@@ -82,4 +86,69 @@ pub async fn complete_upload(
         filename: file_response.filename().to_string(),
         created_at: file_response.created_at(),
     })
+}
+
+pub async fn list_files(
+    pool: &PgPool,
+    user_id: i64,
+) -> Result<Vec<FileResponse>, FilesServiceError> {
+    let files = list_file_by_user_id(pool, user_id)
+        .await
+        .map_err(|e| FilesServiceError::DatabaseError(e))?;
+    Ok(files
+        .into_iter()
+        .map(|i| i.into())
+        .collect::<Vec<FileResponse>>())
+}
+
+pub async fn get_download_url(
+    bucket: &Bucket,
+    pool: &PgPool,
+    requesting_user_id: i64,
+    is_admin: bool,
+    file_id: i64,
+) -> Result<DownloadResponse, FilesServiceError> {
+    let file = validate_ownership(pool, requesting_user_id, is_admin, file_id).await?;
+    Ok(DownloadResponse {
+        download_url: bucket
+            .presign_get(file.object_key(), 3600, None)
+            .await
+            .map_err(|e| FilesServiceError::StorageError(e))?
+            .to_string(),
+    })
+}
+
+pub async fn delete_file(
+    bucket: &Bucket,
+    pool: &PgPool,
+    file_id: i64,
+    requesting_user_id: i64,
+    is_admin: bool,
+) -> Result<(), FilesServiceError> {
+    let file = validate_ownership(pool, requesting_user_id, is_admin, file_id).await?;
+
+    bucket
+        .delete_object(file.object_key())
+        .await
+        .map_err(|e| FilesServiceError::StorageError(e))?;
+    files_repository::delete_file(pool, file_id)
+        .await
+        .map_err(|e| FilesServiceError::DatabaseError(e))?;
+    Ok(())
+}
+
+pub async fn validate_ownership(
+    pool: &PgPool,
+    requesting_user_id: i64,
+    is_admin: bool,
+    file_id: i64,
+) -> Result<File, FilesServiceError> {
+    let file = get_file_by_id(pool, file_id)
+        .await
+        .map_err(|e| FilesServiceError::DatabaseError(e))?
+        .ok_or(FilesServiceError::NotFound)?;
+    if !is_admin && requesting_user_id != file.user_id() {
+        return Err(FilesServiceError::Unauthorized);
+    }
+    Ok(file)
 }
