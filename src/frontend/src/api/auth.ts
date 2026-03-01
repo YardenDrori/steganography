@@ -21,7 +21,12 @@ export async function login(emailOrUsername: string, password: string) {
 }
 
 export async function refresh() {
-  return await axios.post(`${BASE_URL}/api/auth/refresh`);
+  try {
+    return await axios.post(`${BASE_URL}/api/auth/refresh`);
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 }
 
 export async function logout() {
@@ -38,35 +43,55 @@ export async function changePassword(
   old_password: string,
   new_password: string,
 ) {
-  return await axios.post(
-    `${BASE_URL}/api/auth/change-password`,
-    { old_password, new_password },
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  );
+  try {
+    return await axios.post(
+      `${BASE_URL}/api/auth/change-password`,
+      { old_password, new_password },
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 }
 
 export async function logoutAllDevices(accessToken: string) {
-  return await axios.post(
-    `${BASE_URL}/api/auth/logout-all`,
-    {},
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  );
+  try {
+    return await axios.post(
+      `${BASE_URL}/api/auth/logout-all`,
+      {},
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 }
 
 export async function sendVerificationEmail(accessToken: string) {
-  return await axios.post(
-    `${BASE_URL}/api/auth/send-verification`,
-    {},
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  );
+  try {
+    return await axios.post(
+      `${BASE_URL}/api/auth/send-verification`,
+      {},
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 }
 
 export async function deleteAccount(accessToken: string) {
-  return await axios.post(
-    `${BASE_URL}/api/auth/deactivate`,
-    {},
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  );
+  try {
+    return await axios.post(
+      `${BASE_URL}/api/auth/deactivate`,
+      {},
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
 }
 
 export async function register(form: {
