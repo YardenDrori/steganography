@@ -25,7 +25,9 @@ function DashboardPage() {
       </p>
       <p>Username: {user?.user_name}</p>
       <p>Email: {user?.email}</p>
-      <button type="button" onClick={() => navigate("/settings")}>Settings</button>
+      <button type="button" onClick={() => navigate("/settings")}>
+        Settings
+      </button>
       <button onClick={handleLogout}>Logout</button>
     </div>
   );

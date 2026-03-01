@@ -30,7 +30,14 @@ export function AuthProvider(props: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   return (
     <AuthContext.Provider
-      value={{ accessToken, user, isLoading, setAccessToken, setUser, setIsLoading }}
+      value={{
+        accessToken,
+        user,
+        isLoading,
+        setAccessToken,
+        setUser,
+        setIsLoading,
+      }}
     >
       {props.children}
     </AuthContext.Provider>

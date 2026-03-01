@@ -21,7 +21,7 @@ export async function updateProfile(
     email: string;
     phone_number: string;
     is_male: boolean | null | undefined;
-  }
+  },
 ) {
   return await axios.patch(`${BASE_URL}/api/users/me`, data, {
     headers: authHeader(accessToken),

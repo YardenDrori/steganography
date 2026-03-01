@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getFiles, uploadFile, downloadFile, deleteFile, renameFile } from "../api/files";
+import {
+  getFiles,
+  uploadFile,
+  downloadFile,
+  deleteFile,
+  renameFile,
+} from "../api/files";
 import { tryCatch } from "../api/tryCatch";
 import type { FileItem } from "../api/files";
 
@@ -14,16 +20,22 @@ function MyFilesPage() {
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  useEffect(() => {
-    fetchFiles();
-  }, [accessToken]);
-
   async function fetchFiles() {
     const [data, err] = await tryCatch(getFiles(accessToken!));
     if (err) setError(err);
     else setFiles(data?.data ?? []);
     setIsLoading(false);
   }
+
+  useEffect(() => {
+    async function fetchFiles() {
+      const [data, err] = await tryCatch(getFiles(accessToken!));
+      if (err) setError(err);
+      else setFiles(data?.data ?? []);
+      setIsLoading(false);
+    }
+    fetchFiles();
+  }, [accessToken]);
 
   async function handleUpload() {
     if (!selectedFile) return;
@@ -44,27 +56,38 @@ function MyFilesPage() {
 
   async function handleRename(id: number) {
     if (!renameValue.trim()) return;
-    const [, err] = await tryCatch(renameFile(accessToken!, id, { new_name: renameValue }));
+    const [, err] = await tryCatch(
+      renameFile(accessToken!, id, { new_name: renameValue }),
+    );
     if (err) {
       setError(err);
     } else {
-      setFiles((prev) => prev.map((f) => f.id === id ? { ...f, filename: renameValue } : f));
+      setFiles((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, filename: renameValue } : f)),
+      );
       setRenamingId(null);
       setRenameValue("");
     }
   }
 
   async function handleDownload(file: FileItem) {
-    const [, err] = await tryCatch(downloadFile(accessToken!, file.id, file.filename));
+    const [, err] = await tryCatch(
+      downloadFile(accessToken!, file.id, file.filename),
+    );
     if (err) setError(err);
   }
 
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", fontFamily: "sans-serif" }}>
+    <div
+      style={{ maxWidth: 600, margin: "40px auto", fontFamily: "sans-serif" }}
+    >
       <h1>My Files</h1>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        <input type="file" onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)} />
+        <input
+          type="file"
+          onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+        />
         <button onClick={handleUpload} disabled={!selectedFile || uploading}>
           {uploading ? "Uploading..." : "Upload"}
         </button>
@@ -77,20 +100,47 @@ function MyFilesPage() {
 
       <ul style={{ listStyle: "none", padding: 0 }}>
         {files.map((file) => (
-          <li key={file.id} style={{ borderBottom: "1px solid #ccc", padding: "12px 0", display: "flex", alignItems: "center", gap: 8 }}>
+          <li
+            key={file.id}
+            style={{
+              borderBottom: "1px solid #ccc",
+              padding: "12px 0",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
             {renamingId === file.id ? (
               <>
-                <input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} autoFocus />
+                <input
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  autoFocus
+                />
                 <button onClick={() => handleRename(file.id)}>Save</button>
                 <button onClick={() => setRenamingId(null)}>Cancel</button>
               </>
             ) : (
               <>
                 <span style={{ flex: 1 }}>{file.filename}</span>
-                <small style={{ color: "#888" }}>{file.created_at.slice(0, 10)}</small>
+                <small style={{ color: "#888" }}>
+                  {file.created_at.slice(0, 10)}
+                </small>
                 <button onClick={() => handleDownload(file)}>Download</button>
-                <button onClick={() => { setRenamingId(file.id); setRenameValue(file.filename); }}>Rename</button>
-                <button onClick={() => handleDelete(file.id)} style={{ color: "red" }}>Delete</button>
+                <button
+                  onClick={() => {
+                    setRenamingId(file.id);
+                    setRenameValue(file.filename);
+                  }}
+                >
+                  Rename
+                </button>
+                <button
+                  onClick={() => handleDelete(file.id)}
+                  style={{ color: "red" }}
+                >
+                  Delete
+                </button>
               </>
             )}
           </li>
