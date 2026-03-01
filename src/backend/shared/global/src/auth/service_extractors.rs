@@ -3,7 +3,7 @@ use axum::{
     async_trait,
     extract::FromRequestParts,
     http::{
-        request::{self, Parts},
+        request::Parts,
         StatusCode,
     },
     Json,

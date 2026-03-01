@@ -71,13 +71,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_path_style();
 
     // Create bucket if it doesn't exist
-    match bucket.create_bucket().await {
-        Ok(_) => tracing::info!("Bucket '{}' created", bucket_name),
-        Err(s3::error::S3Error::HttpFailWithBody(409, _)) => {
-            tracing::info!("Bucket '{}' already exists", bucket_name)
-        }
-        Err(e) => panic!("Failed to create bucket '{}': {:?}", bucket_name, e),
-    }
+    // match bucket.().await {
+    //     Ok(_) => tracing::info!("Bucket '{}' created", bucket_name),
+    //     Err(s3::error::S3Error::HttpFailWithBody(409, _)) => {
+    //         tracing::info!("Bucket '{}' already exists", bucket_name)
+    //     }
+    //     Err(e) => panic!("Failed to create bucket '{}': {:?}", bucket_name, e),
+    // }
 
     // Create app state
     let app_state = AppState {

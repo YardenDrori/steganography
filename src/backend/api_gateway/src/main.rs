@@ -89,7 +89,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let configs_for_refresh = Arc::clone(&config);
     tokio::spawn(async move {
         loop {
-            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             match shared_global::eureka::fetch_config(&eureka_url, "api_gateway").await {
                 Ok(fresh_config) => {
                     let mut configs = configs_for_refresh.write().unwrap();
@@ -98,6 +97,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 Err(e) => tracing::warn!("Failed to refresh config: {}", e),
             }
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
         }
     });
 
