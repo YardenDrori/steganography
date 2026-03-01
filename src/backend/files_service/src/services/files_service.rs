@@ -8,7 +8,10 @@ use crate::{
     },
     errors::files_service_errors::FilesServiceError,
     models::file::File,
-    repositories::files_repository::{self, create_file, get_file_by_id, list_file_by_user_id},
+    repositories::{
+        self,
+        files_repository::{self, create_file, get_file_by_id, list_file_by_user_id},
+    },
 };
 
 pub async fn initiate_upload(bucket: &Bucket) -> Result<InitiateResponse, FilesServiceError> {
@@ -130,6 +133,20 @@ pub async fn delete_file(
         .await
         .map_err(|e| FilesServiceError::StorageError(e))?;
     files_repository::delete_file(pool, file_id)
+        .await
+        .map_err(|e| FilesServiceError::DatabaseError(e))?;
+    Ok(())
+}
+
+pub async fn rename_file(
+    pool: &PgPool,
+    file_id: i64,
+    requesting_user_id: i64,
+    is_admin: bool,
+    new_name: &str,
+) -> Result<(), FilesServiceError> {
+    validate_ownership(pool, requesting_user_id, is_admin, file_id).await?;
+    repositories::files_repository::update_file_name(pool, file_id, &new_name)
         .await
         .map_err(|e| FilesServiceError::DatabaseError(e))?;
     Ok(())

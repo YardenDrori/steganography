@@ -1,5 +1,5 @@
-use crate::entities::file::FileEntity;
 use crate::models::file::File;
+use crate::{entities::file::FileEntity, errors::files_service_errors::FilesServiceError};
 use sqlx::{query, query_as, PgPool};
 
 pub async fn create_file(
@@ -67,4 +67,22 @@ pub async fn delete_file(pool: &PgPool, file_id: i64) -> Result<bool, sqlx::Erro
     .execute(pool)
     .await?;
     Ok(result.rows_affected() > 0)
+}
+pub async fn update_file_name(
+    pool: &PgPool,
+    file_id: i64,
+    new_name: &str,
+) -> Result<bool, sqlx::Error> {
+    let result = query!(
+        r#"
+        UPDATE files
+        SET filename = $1
+        WHERE id = $2
+        "#,
+        new_name,
+        file_id,
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() == 1)
 }
