@@ -1,12 +1,10 @@
-use std::slice::ChunkBy;
-
-use s3::{bucket, request::ResponseData, serde_types::Part, Bucket};
-use sqlx::{error::DatabaseError, pool, PgPool};
+use s3::{request::ResponseData, serde_types::Part, Bucket};
+use sqlx::PgPool;
 
 use crate::{
     dtos::{
-        CompleteRequest, DownloadRequest, DownloadResponse, FileResponse, InitiateResponse,
-        PartInfo, UploadPartResponse,
+        CompleteRequest, DownloadResponse, FileResponse, InitiateResponse, PartInfo,
+        UploadPartResponse,
     },
     errors::files_service_errors::FilesServiceError,
     models::file::File,
