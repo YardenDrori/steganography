@@ -1,13 +1,15 @@
 use axum::{
+    body::Body,
     extract::{Path, State},
     http::StatusCode,
+    response::Response,
     Json,
 };
 use shared_global::auth::user_extractors::{AuthenticatedUser, AuthenticatedUserIsAdmin};
 
 use crate::{
     app_state::AppState,
-    dtos::{DownloadResponse, FileResponse},
+    dtos::FileResponse,
     errors::files_service_errors::FilesServiceError,
     services::{self, files_service::list_files},
 };
@@ -32,17 +34,17 @@ pub async fn get_files_for_user(
     Ok((StatusCode::OK, Json(files_found)))
 }
 
-pub async fn get_download_url(
+pub async fn download_file(
     State(app_state): State<AppState>,
     AuthenticatedUserIsAdmin(user, is_admin): AuthenticatedUserIsAdmin,
     Path(file_id): Path<i64>,
-) -> Result<(StatusCode, Json<DownloadResponse>), FilesServiceError> {
+) -> Result<Response, FilesServiceError> {
     tracing::info!(
-        "User with id {} requested download url for file with object_id {}",
+        "User with id {} requested download of file with id {}",
         user,
         file_id
     );
-    let url = services::files_service::get_download_url(
+    let stream = services::files_service::download_file(
         &app_state.bucket,
         &app_state.pool,
         user,
@@ -52,16 +54,18 @@ pub async fn get_download_url(
     .await
     .map_err(|e| {
         tracing::error!(
-            "Failed to send download link back to user with id {}. error: {:?}",
+            "Failed to stream file {} to user {}. error: {:?}",
+            file_id,
             user,
             e
         );
         e
     })?;
-    tracing::info!(
-        "successfully sent download url to user with id {} for file with object_id {}",
-        user,
-        file_id
-    );
-    Ok((StatusCode::OK, Json(url)))
+    tracing::info!("Streaming file {} to user {}", file_id, user);
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "application/octet-stream")
+        .body(Body::from_stream(stream.bytes))
+        .unwrap();
+    Ok(response)
 }

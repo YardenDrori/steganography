@@ -12,7 +12,7 @@ services:
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
       # ---DEBUG VALUES---
       ACCESS_TOKEN_DURATION_MINS: 10
-      REFRESH_TOKEN_DURATION_MINS: 1
+      REFRESH_TOKEN_DURATION_MINS: 14400 #10 days
     ports:
       - "3005:3005"
     healthcheck:

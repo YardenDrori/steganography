@@ -50,7 +50,3 @@ pub struct RenameFileRequest {
     pub new_name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DownloadResponse {
-    pub download_url: String,
-}

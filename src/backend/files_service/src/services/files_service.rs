@@ -1,9 +1,9 @@
-use s3::{request::ResponseData, serde_types::Part, Bucket};
+use s3::{Bucket, request::{ResponseData, ResponseDataStream}, serde_types::Part};
 use sqlx::PgPool;
 
 use crate::{
     dtos::{
-        CompleteRequest, DownloadResponse, FileResponse, InitiateResponse, PartInfo,
+        CompleteRequest, FileResponse, InitiateResponse, PartInfo,
         UploadPartResponse,
     },
     errors::files_service_errors::FilesServiceError,
@@ -102,21 +102,18 @@ pub async fn list_files(
         .collect::<Vec<FileResponse>>())
 }
 
-pub async fn get_download_url(
+pub async fn download_file(
     bucket: &Bucket,
     pool: &PgPool,
     requesting_user_id: i64,
     is_admin: bool,
     file_id: i64,
-) -> Result<DownloadResponse, FilesServiceError> {
+) -> Result<ResponseDataStream, FilesServiceError> {
     let file = validate_ownership(pool, requesting_user_id, is_admin, file_id).await?;
-    Ok(DownloadResponse {
-        download_url: bucket
-            .presign_get(file.object_key(), 3600, None)
-            .await
-            .map_err(|e| FilesServiceError::StorageError(e))?
-            .to_string(),
-    })
+    bucket
+        .get_object_stream(file.object_key())
+        .await
+        .map_err(|e| FilesServiceError::StorageError(e))
 }
 
 pub async fn delete_file(
