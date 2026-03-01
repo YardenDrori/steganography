@@ -28,19 +28,14 @@ pub async fn proxy_request(service_url: &str, req: Request) -> Result<Response, 
 
     tracing::info!("Proxying {} to {}", path_and_query, url);
 
-    // NOW consume the request to get the body
-    let body = axum::body::to_bytes(req.into_body(), usize::MAX)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
     // Make the HTTP client
     let client = reqwest::Client::new();
 
-    // Forward the request using extracted values
+    // Forward the request — stream the body directly without buffering
     let backend_response = client
         .request(method, &url)
         .headers(headers)
-        .body(body.to_vec())
+        .body(reqwest::Body::wrap_stream(req.into_body().into_data_stream()))
         .send()
         .await
         .map_err(|e| {
@@ -56,14 +51,8 @@ pub async fn proxy_request(service_url: &str, req: Request) -> Result<Response, 
         response = response.header(key, value);
     }
 
-    // Get body from backend
-    let body_bytes = backend_response
-        .bytes()
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
     response
-        .body(Body::from(body_bytes))
+        .body(Body::from_stream(backend_response.bytes_stream()))
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
