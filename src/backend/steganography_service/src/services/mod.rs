@@ -1,1 +1,1 @@
-pub mod embed_image;
+pub mod files_client;

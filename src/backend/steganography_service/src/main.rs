@@ -1,7 +1,7 @@
 mod app_state;
 pub mod errors;
 mod routes;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use crate::app_state::AppState;
 use axum::Router;
@@ -37,14 +37,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await
         .expect("Failed to register with eureka");
 
-    // Create app state
+    let client = reqwest::Client::new();
+
     let app_state = AppState {
+        client,
         eureka_config: Arc::clone(&config),
     };
 
     // Build router
     let app = Router::new()
-        .route("/embed/video", post(routes::embed_video))
+        // .route("/embed/video", post(routes::embed_video))
         // .route("/auth/register", post(routes::auth::register))
         // .route("/auth/login", post(routes::auth::login))
         .layer(TraceLayer::new_for_http())
