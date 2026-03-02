@@ -2,7 +2,7 @@ mod app_state;
 pub mod dtos;
 pub mod errors;
 mod routes;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 use crate::app_state::AppState;
 use axum::Router;
@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build router
     let app = Router::new()
-        // .route("/embed/video", post(routes::embed_video))
+        .route("/embed/video", post(routes::embed_video::embed_video))
         // .route("/auth/register", post(routes::auth::register))
         // .route("/auth/login", post(routes::auth::login))
         .layer(TraceLayer::new_for_http())
