@@ -1,6 +1,15 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1-alpine AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
 WORKDIR /build
-RUN apk add --no-cache musl-dev pkgconf openssl-dev openssl-libs-static
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    clang \
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libavfilter-dev \
+    libswresample-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 FROM chef AS planner
 COPY . .
@@ -15,8 +24,10 @@ COPY --from=cooker /build /build
 COPY . .
 RUN cargo build --release -p steganography_service
 
-FROM alpine:3.22
-RUN apk add --no-cache libgcc
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /build/target/release/steganography_service /app/steganography_service
 EXPOSE 3003
