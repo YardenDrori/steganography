@@ -24,7 +24,7 @@ cargo build
 cargo build -p auth_service
 
 # Run a specific service locally (requires .env)
-cargo run -p eureka_service
+RUST_LOG=debug cargo run -p eureka_service
 
 # Check for errors without building
 cargo check
@@ -43,6 +43,15 @@ docker compose up --build eureka_service
 
 # Lint
 cargo clippy
+
+# After changing sqlx queries in a service (compile-time query checking)
+cargo sqlx prepare -p auth_service
+
+# Prepare DBs and run migrations locally (starts Postgres containers, migrates, then tears down)
+bash prep_dbs.sh
+
+# Smoke-test all services (must be running)
+bash test_apis.sh
 ```
 
 ## Frontend Commands (run from `src/frontend/`)
@@ -89,7 +98,10 @@ Service URLs are resolved at request time from the in-memory `EurekaConfig`. COR
 | `files_service` | 3004 | Postgres (port 5435) | Currently a skeleton, no routes yet |
 
 ### Shared Crates (`src/backend/shared/`)
-- `shared/global` — Eureka client functions, JWT verification (`RS256`), Axum extractors (`AuthenticatedUser`, `RequireAdmin`), Postgres pool helper, error types
+- `shared/global` — Eureka client functions, JWT verification (`RS256`), Axum extractors, Postgres pool helper, error types
+  - `auth::user_extractors` — `AuthenticatedUser`, `RequireAdmin` (for user-facing routes)
+  - `auth::service_extractors` — `InternalService` extractor (for service-to-service routes, validates a shared internal token)
+  - `auth::hybrid_extractors` — routes that accept either
 - `shared/auth_user` — DTOs and validation shared between auth/user services
 
 ### Authentication Flow
@@ -108,6 +120,14 @@ Secrets live in `src/backend/.env` (gitignored). Required vars for `eureka_servi
 
 Other services only need `EUREKA_URL` and (if they have a DB) `DATABASE_URL`. `SELF_URL` overrides the URL a service registers with Eureka (defaults to the Docker service hostname).
 
+### Frontend Conventions
+
+- All async API calls use `tryCatch(promise)` from `src/frontend/src/api/tryCatch.ts`, which returns `[data, null] | [null, errorString]` — Go-style error handling with Axios.
+- Auth state lives in `AuthContext` (`context/AuthContext.tsx`). On app load, `App.tsx` attempts a silent token refresh to restore session.
+- API modules in `src/frontend/src/api/`: `auth.ts`, `user.ts`, `files.ts`.
+- Routes: `/` (Dashboard), `/my-files`, `/settings`, `/login`, `/register`. All except login/register are behind `ProtectedRoute`.
+
 ## Known Issues / TODOs
 - `files_service` has no routes implemented yet
+- `steganography_service`: only `POST /embed/video` is registered in `main.rs`; an `embed_image` handler exists in `routes/embed_image.rs` but is not wired up
 - mTLS for service-to-service auth is a future TODO (currently Eureka trusts service names at face value for private key delivery)

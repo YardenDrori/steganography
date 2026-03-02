@@ -14,6 +14,7 @@ use crate::{
 /// Extractor for authenticated user from API Gateway headers
 /// Gateway adds X-User-Id header after verifying JWT
 pub struct AuthenticatedUser(pub i64);
+pub struct AuthenticatedUserWithToken(pub i64, pub String);
 pub struct AuthenticatedUserIsAdmin(pub i64, pub bool);
 pub struct RequireAdmin(pub i64);
 
@@ -60,6 +61,55 @@ where
         })?;
         let user = AuthenticatedUser { 0: claims.sub };
         Ok(user)
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for AuthenticatedUserWithToken
+where
+    S: Send + Sync + HasJwtPublicKey,
+{
+    type Rejection = (StatusCode, Json<ErrorBody>);
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let jwt_public_key = state.jwt_public_key();
+        let headers = parts
+            .headers
+            .get("authorization")
+            .ok_or((
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorBody::new("No authorization header found")),
+            ))?
+            .to_str()
+            .map_err(|_| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorBody::new("Invalid Authorization header format")),
+                )
+            })?;
+
+        let token = headers
+            .strip_prefix("Bearer ")
+            .or_else(|| headers.strip_prefix("bearer "))
+            .ok_or((
+                StatusCode::BAD_REQUEST,
+                Json(ErrorBody::new(
+                    "Authorization header must use Bearer scheme",
+                )),
+            ))?;
+
+        let claims = verify_jwt(&token, &jwt_public_key).map_err(|e| {
+            tracing::error!("JWT verification failed: {:?}", e);
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorBody::new("Invalid or expired token")),
+            )
+        })?;
+        let user = claims.sub;
+        Ok(AuthenticatedUserWithToken {
+            0: user,
+            1: token.to_string(),
+        })
     }
 }
 
