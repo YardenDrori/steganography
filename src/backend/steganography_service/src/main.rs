@@ -1,4 +1,5 @@
 mod app_state;
+pub mod dtos;
 pub mod errors;
 mod routes;
 use std::sync::{Arc, Mutex, RwLock};
