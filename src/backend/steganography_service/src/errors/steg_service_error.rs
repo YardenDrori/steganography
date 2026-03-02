@@ -8,11 +8,15 @@ use shared_global::errors::ErrorBody;
 #[derive(Debug)]
 pub enum StegServiceError {
     ExternalServiceError(String),
+    ParsingError,
+    FileError,
 }
 
 impl IntoResponse for StegServiceError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
+            Self::ParsingError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
+            Self::FileError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::ExternalServiceError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to sync with external service",
