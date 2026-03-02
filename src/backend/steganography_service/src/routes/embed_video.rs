@@ -18,6 +18,7 @@ pub async fn embed_video(
     AuthenticatedUserWithToken(user, access_token): AuthenticatedUserWithToken,
     Json(payload): Json<EmbedFileRequest>,
 ) -> Result<(StatusCode, Json<i64>), StegServiceError> {
+    tracing::info!("User with id: {} attempting to embed video", user);
     let files_service_url = app_state
         .eureka_config
         .read()
