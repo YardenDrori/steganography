@@ -11,7 +11,8 @@ pub struct Channels {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EmbedConfigs {
     pub channels_to_embed: Channels,
-    pub bits_per_block: u8,
+    pub coefficients_to_embed: [bool; 16],
+    pub delta: u8,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
