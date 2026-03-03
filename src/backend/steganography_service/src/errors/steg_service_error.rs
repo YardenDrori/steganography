@@ -11,11 +11,13 @@ pub enum StegServiceError {
     ParsingError,
     FileError,
     EurekaConfigError,
+    FfmpegError(ffmpeg_next::Error),
 }
 
 impl IntoResponse for StegServiceError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
+            Self::FfmpegError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::EurekaConfigError => (StatusCode::BAD_GATEWAY, "Internal server error"),
             Self::ParsingError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::FileError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
