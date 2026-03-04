@@ -75,7 +75,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tokio::time::sleep(std::time::Duration::from_secs(30)).await;
             match shared_global::eureka::fetch_config(&eureka_url, "steganography_service").await {
                 Ok(fresh_config) => {
-                    let mut configs = configs_for_refresh.write().unwrap();
+                    let mut configs = configs_for_refresh
+                        .write()
+                        .expect("failed to config tokio, refresh eureka configs");
                     *configs = fresh_config;
                     tracing::debug!("Refreshed service URLs from eureka");
                 }
