@@ -1,4 +1,4 @@
-use ffmpeg_next::{format::input, threading::Config};
+use ffmpeg_next::format::input;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
@@ -169,14 +169,13 @@ fn drain_decoder(
     configs: &EmbedConfigs,
     buffer: &mut Buffer,
 ) -> Result<(), StegServiceError> {
-    let mut all_data_embedded: bool = false;
     loop {
         let mut frame = ffmpeg_next::frame::Video::empty();
         match decoder.receive_frame(&mut frame) {
             Ok(_) => {
-                let modified_frame = process_frame(&frame, &configs, buffer)?;
+                process_frame(&mut frame, &configs, buffer)?;
                 encoder
-                    .send_frame(&modified_frame)
+                    .send_frame(&frame)
                     .map_err(|e| StegServiceError::FfmpegError(e))?;
                 drain_encoder(
                     encoder,
@@ -219,10 +218,10 @@ fn drain_encoder(
 }
 
 fn process_frame(
-    frame: &ffmpeg_next::frame::Video,
+    frame: &mut ffmpeg_next::frame::Video,
     configs: &EmbedConfigs,
     buffer: &mut Buffer,
-) -> Result<ffmpeg_next::frame::Video, StegServiceError> {
+) -> Result<(), StegServiceError> {
     const Y_PLANE: usize = 0;
     const CB_PLANE: usize = 1;
     const CR_PLANE: usize = 2;
@@ -245,23 +244,23 @@ fn process_frame(
 }
 
 fn embed_in_channel(
-    frame: &ffmpeg_next::frame::Video,
+    frame: &mut ffmpeg_next::frame::Video,
     configs: &EmbedConfigs,
     buffer: &mut Buffer,
     plane_id: usize,
 ) -> Result<(), StegServiceError> {
-    //buffer chenanigans
-    if buffer.bytes_read != 0 && buffer.index >= buffer.bytes_read {
-        buffer.bytes_read = buffer
-            .reader
-            .read(&mut buffer.buffer)
-            .map_err(|_| StegServiceError::FileError)?;
-        buffer.index = 0;
-    }
-
-    let mut data = frame.data(plane_id);
+    let mut data = frame.data_mut(plane_id);
     let mut data_index = 0;
-    while data_index <= data.len() {
+    while data_index < data.len() {
+        //buffer chenanigans
+        if buffer.bytes_read != 0 && buffer.index >= buffer.bytes_read {
+            buffer.bytes_read = buffer
+                .reader
+                .read(&mut buffer.buffer)
+                .map_err(|_| StegServiceError::FileError)?;
+            buffer.index = 0;
+        }
+
         //todo
     }
 
