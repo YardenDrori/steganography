@@ -2,10 +2,23 @@ use serde::{Deserialize, Serialize};
 pub use shared_global::dtos::UserResponse;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Channels {
+pub struct YUVChannels {
     pub y: bool,
     pub cb: bool,
     pub cr: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RGBChannels {
+    pub r: bool,
+    pub g: bool,
+    pub b: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Channels {
+    pub yuv: Option<YUVChannels>,
+    pub rgb: Option<RGBChannels>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
