@@ -1,13 +1,43 @@
-use ffmpeg_next::format::input;
+use ffmpeg_next::{format::input, threading::Config};
+use std::fs::File;
+use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
+use crate::services::dct::dct_ii;
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
+
+struct Buffer {
+    reader: BufReader<File>,
+    buffer: [u8; 1028],
+    index: usize,
+    bytes_read: usize,
+}
 
 pub fn embed(
     payload_path: PathBuf,
     carrier_path: PathBuf,
-    _configs: EmbedConfigs,
+    configs: EmbedConfigs,
 ) -> Result<PathBuf, StegServiceError> {
+    //prepare buffer for reading payload data
+    // let bits_per_block = {
+    //     let mut sum = 0;
+    //     for i in 0..16 {
+    //         if configs.coefficients_to_embed[i] {
+    //             sum += 1;
+    //         }
+    //     }
+    //     sum
+    // };
+    let file_pointer = File::open(payload_path).map_err(|_| StegServiceError::FileError)?;
+    let mut buffer = Buffer {
+        reader: BufReader::new(file_pointer),
+        buffer: [0; 1028],
+        index: 0,
+        // we initialize this as 1 as we use this to know if we finished embedding by checking if
+        // this value is ever 0 signifying we read through the entire payload
+        bytes_read: 1,
+    };
+
     ffmpeg_next::init().map_err(|e| StegServiceError::FfmpegError(e))?;
 
     // --- INPUT ---
@@ -79,6 +109,7 @@ pub fn embed(
             decoder
                 .send_packet(&packet)
                 .map_err(|e| StegServiceError::FfmpegError(e))?;
+
             drain_decoder(
                 &mut decoder,
                 &mut encoder,
@@ -86,6 +117,8 @@ pub fn embed(
                 output_stream_index,
                 input_time_base,
                 output_time_base,
+                &configs,
+                &mut buffer,
             )?;
         }
     }
@@ -94,6 +127,7 @@ pub fn embed(
     decoder
         .send_eof()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
+    //TODO: get bits from payload here and pass them along
     drain_decoder(
         &mut decoder,
         &mut encoder,
@@ -101,6 +135,8 @@ pub fn embed(
         output_stream_index,
         input_time_base,
         output_time_base,
+        &configs,
+        &mut buffer,
     )?;
 
     // flush encoder
@@ -130,12 +166,15 @@ fn drain_decoder(
     output_stream_index: usize,
     input_time_base: ffmpeg_next::Rational,
     output_time_base: ffmpeg_next::Rational,
+    configs: &EmbedConfigs,
+    buffer: &mut Buffer,
 ) -> Result<(), StegServiceError> {
+    let mut all_data_embedded: bool = false;
     loop {
         let mut frame = ffmpeg_next::frame::Video::empty();
         match decoder.receive_frame(&mut frame) {
             Ok(_) => {
-                let modified_frame = process_frame(&frame)?;
+                let modified_frame = process_frame(&frame, &configs, buffer)?;
                 encoder
                     .send_frame(&modified_frame)
                     .map_err(|e| StegServiceError::FfmpegError(e))?;
@@ -180,7 +219,51 @@ fn drain_encoder(
 }
 
 fn process_frame(
-    _frame: &ffmpeg_next::frame::Video,
+    frame: &ffmpeg_next::frame::Video,
+    configs: &EmbedConfigs,
+    buffer: &mut Buffer,
 ) -> Result<ffmpeg_next::frame::Video, StegServiceError> {
+    const Y_PLANE: usize = 0;
+    const CB_PLANE: usize = 1;
+    const CR_PLANE: usize = 2;
+
+    //allows to add more codecs, eng RGB also allows prioritizing best channel to embed in by
+    //changing order of if statements for sensible defaults
+    if let Some(yuv) = &configs.channels_to_embed.yuv {
+        if yuv.y {
+            embed_in_channel(frame, configs, buffer, Y_PLANE)?;
+        }
+        if yuv.cb {
+            embed_in_channel(frame, configs, buffer, CB_PLANE)?;
+        }
+        if yuv.cr {
+            embed_in_channel(frame, configs, buffer, CR_PLANE)?;
+        }
+    }
+
+    todo!()
+}
+
+fn embed_in_channel(
+    frame: &ffmpeg_next::frame::Video,
+    configs: &EmbedConfigs,
+    buffer: &mut Buffer,
+    plane_id: usize,
+) -> Result<(), StegServiceError> {
+    //buffer chenanigans
+    if buffer.bytes_read != 0 && buffer.index >= buffer.bytes_read {
+        buffer.bytes_read = buffer
+            .reader
+            .read(&mut buffer.buffer)
+            .map_err(|_| StegServiceError::FileError)?;
+        buffer.index = 0;
+    }
+
+    let mut data = frame.data(plane_id);
+    let mut data_index = 0;
+    while data_index <= data.len() {
+        //todo
+    }
+
     todo!()
 }
