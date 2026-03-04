@@ -12,6 +12,7 @@ pub enum StegServiceError {
     FileError,
     EurekaConfigError,
     FfmpegError(ffmpeg_next::Error),
+    Other(String),
 }
 
 impl IntoResponse for StegServiceError {
@@ -22,6 +23,10 @@ impl IntoResponse for StegServiceError {
             Self::ParsingError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::FileError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::ExternalServiceError(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to sync with external service",
+            ),
+            Self::Other(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to sync with external service",
             ),
