@@ -1,5 +1,7 @@
-use ffmpeg_next::decoder::Video;
+use ffmpeg_next::codec::codec;
+use ffmpeg_next::codec::traits::Encoder;
 use ffmpeg_next::format::input;
+use ffmpeg_next::{decoder::Video, encoder};
 use std::path::PathBuf;
 
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
@@ -27,9 +29,12 @@ pub fn embed(
         .video()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
 
-    let input_codec = decoder.codec().ok_or(StegServiceError::FfmpegError(
-        ffmpeg_next::Error::InvalidData,
-    ))?;
+    let input_codec = decoder
+        .codec()
+        .ok_or(StegServiceError::FfmpegError(
+            ffmpeg_next::Error::InvalidData,
+        ))?
+        .id();
 
     //finally we cast start doing shit with frames jesus christ ffmpeg has so much setup to it
     for (stream, packet) in input_context.packets() {
@@ -46,7 +51,14 @@ pub fn embed(
         .map_err(|e| StegServiceError::FfmpegError(e))?;
     extract_and_process_frame(&mut decoder)?;
 
-    // TODO: handle re-encoding after we handle each frame, somehow
+    let codec = ffmpeg_next::codec::encoder::find(input_codec).ok_or(
+        StegServiceError::FfmpegError(ffmpeg_next::Error::EncoderNotFound),
+    )?;
+    let encoder_context = ffmpeg_next::codec::Context::new_with_codec(codec);
+    let encoder = encoder_context
+        .encoder()
+        .video()
+        .map_err(|e| StegServiceError::FfmpegError(e))?;
 
     todo!()
 }
