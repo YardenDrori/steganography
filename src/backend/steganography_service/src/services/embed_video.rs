@@ -1,5 +1,5 @@
-use ffmpeg_next::codec::codec;
 use ffmpeg_next::codec::traits::Encoder;
+use ffmpeg_next::codec::{Parameters, codec};
 use ffmpeg_next::format::input;
 use ffmpeg_next::{decoder::Video, encoder};
 use std::path::PathBuf;
@@ -22,7 +22,8 @@ pub fn embed(
         ))?;
 
     let input_index = input.index();
-    let codec_context = ffmpeg_next::codec::Context::from_parameters(input.parameters())
+    let input_params = input.parameters();
+    let codec_context = ffmpeg_next::codec::Context::from_parameters(input_params.clone())
         .map_err(|e| StegServiceError::FfmpegError(e))?;
     let mut decoder = codec_context
         .decoder()
@@ -55,9 +56,15 @@ pub fn embed(
         StegServiceError::FfmpegError(ffmpeg_next::Error::EncoderNotFound),
     )?;
     let encoder_context = ffmpeg_next::codec::Context::new_with_codec(codec);
-    let encoder = encoder_context
+    let mut encoder = encoder_context
         .encoder()
         .video()
+        .map_err(|e| StegServiceError::FfmpegError(e))?;
+    encoder
+        .set_parameters(input_params)
+        .map_err(|e| StegServiceError::FfmpegError(e))?;
+    encoder
+        .open()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
 
     todo!()
