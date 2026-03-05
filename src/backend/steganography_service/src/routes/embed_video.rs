@@ -46,9 +46,9 @@ pub async fn embed_video(
     tracing::info!("Successfully embedded video. Attemoting to upload to files service");
 
     files_client::upload_file_to_files_service(
-        output_path,
-        carrier_path,
         payload_path,
+        carrier_path,
+        output_path,
         &app_state.client,
         &files_service_url,
         &access_token,
