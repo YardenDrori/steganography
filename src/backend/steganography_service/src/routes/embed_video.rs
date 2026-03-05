@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use crate::{
-    app_state::AppState, dtos::EmbedFileRequest, errors::steg_service_error::StegServiceError,
-    services::files_client,
+    app_state::AppState,
+    dtos::EmbedFileRequest,
+    errors::steg_service_error::StegServiceError,
+    services::{embed_video::embed, files_client},
 };
 use axum::{
     Json,
@@ -42,6 +44,11 @@ pub async fn embed_video(
             &access_token,
         )
     )?;
-
-    todo!()
+    tracing::info!("Found both carrier and payload files for user: {}", user);
+    let output_path = embed(payload_path, carrier_path, payload.configs).map_err(|e| {
+        tracing::error!("Failed to embed video");
+        e
+    });
+    tracing::info!("Successfully embedded video");
+    files_client::todo!()
 }
