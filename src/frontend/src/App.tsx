@@ -40,7 +40,7 @@ function App() {
       setIsLoading(false);
     }
     tryRestoreSession();
-  }, []);
+  }, [setAccessToken, setIsLoading, setUser]);
 
   return (
     <BrowserRouter>
