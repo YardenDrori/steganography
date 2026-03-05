@@ -12,7 +12,7 @@ pub struct PartInfo {
     pub etag: String,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UploadPartResponse {
     pub part: PartInfo,
 }
