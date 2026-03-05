@@ -5,13 +5,14 @@ use crate::{
     services::{embed_video::embed, files_client},
 };
 use axum::{Json, extract::State, http::StatusCode};
+use files_dtos::FileResponse;
 use shared_global::auth::user_extractors::AuthenticatedUserWithToken;
 
 pub async fn embed_video(
     State(app_state): State<AppState>,
     AuthenticatedUserWithToken(user, access_token): AuthenticatedUserWithToken,
     Json(payload): Json<EmbedFileRequest>,
-) -> Result<(StatusCode, Json<i64>), StegServiceError> {
+) -> Result<(StatusCode, Json<FileResponse>), StegServiceError> {
     tracing::info!("User with id: {} attempting to embed video", user);
     let files_service_url = app_state
         .eureka_config
@@ -53,7 +54,7 @@ pub async fn embed_video(
 
     tracing::info!("Successfully embedded video. Attemoting to upload to files service");
 
-    files_client::upload_file_to_files_service(
+    let steg_file_remote_pointer = files_client::upload_file_to_files_service(
         payload_path,
         carrier_path,
         output_path,
@@ -72,5 +73,5 @@ pub async fn embed_video(
         user
     );
 
-    Ok((StatusCode::OK, Json(payload.payload_id)))
+    Ok((StatusCode::CREATED, Json(steg_file_remote_pointer)))
 }

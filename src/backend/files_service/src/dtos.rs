@@ -1,16 +1,6 @@
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-
 use crate::models::file::File;
 
-pub use files_dtos::{CompleteRequest, InitiateResponse, PartInfo, UploadPartResponse};
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct FileResponse {
-    pub id: i64,
-    pub filename: String,
-    pub created_at: DateTime<Utc>,
-}
+pub use files_dtos::{CompleteRequest, FileResponse, InitiateResponse, PartInfo, UploadPartResponse};
 
 impl From<File> for FileResponse {
     fn from(file: File) -> Self {

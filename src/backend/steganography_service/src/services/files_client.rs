@@ -1,5 +1,5 @@
 use crate::errors::steg_service_error::StegServiceError;
-use files_dtos::{CompleteRequest, InitiateResponse, PartInfo, UploadPartResponse};
+use files_dtos::{CompleteRequest, FileResponse, InitiateResponse, PartInfo, UploadPartResponse};
 use reqwest::{Response, StatusCode};
 use std::path::PathBuf;
 use tempfile;
@@ -63,7 +63,7 @@ pub async fn upload_file_to_files_service(
     client: &reqwest::Client,
     files_service_url: &str,
     bearer_token: &str,
-) -> Result<StatusCode, StegServiceError> {
+) -> Result<FileResponse, StegServiceError> {
     remove_file(&payload_path)
         .await
         .map_err(|_| StegServiceError::FileError)?;
@@ -171,5 +171,10 @@ pub async fn upload_file_to_files_service(
         )));
     }
 
-    Ok(StatusCode::CREATED)
+    let file_response = response
+        .json::<FileResponse>()
+        .await
+        .map_err(|_| StegServiceError::ParsingError)?;
+
+    Ok(file_response)
 }
