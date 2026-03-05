@@ -23,7 +23,7 @@ function RegisterPage() {
     password: "12345678",
   });
   const [confirmPassword, setConfirmPassword] = useState("12345678");
-  const [error, setError] = useState<String | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const auth = useAuth();
   const navigate = useNavigate();
 
@@ -78,12 +78,18 @@ function RegisterPage() {
           onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
         />
         <select
-          value={form.is_male === undefined ? "" : form.is_male ? "true" : "false"}
+          value={
+            form.is_male === undefined ? "" : form.is_male ? "true" : "false"
+          }
           onChange={(e) =>
             setForm({
               ...form,
               is_male:
-                e.target.value === "" ? undefined : e.target.value === "true" ? true : false,
+                e.target.value === ""
+                  ? undefined
+                  : e.target.value === "true"
+                    ? true
+                    : false,
             })
           }
         >
