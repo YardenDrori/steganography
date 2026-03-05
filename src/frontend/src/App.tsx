@@ -4,6 +4,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import SettingsPage from "./pages/SettingsPage";
+import EmbedPage from "./pages/EmbedPage";
 import { useAuth } from "./context/AuthContext";
 import { refresh } from "./api/auth";
 import { getCurrentUser } from "./api/user";
@@ -67,6 +68,14 @@ function App() {
           element={
             <ProtectedRoute>
               <FilesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-files/embed"
+          element={
+            <ProtectedRoute>
+              <EmbedPage />
             </ProtectedRoute>
           }
         />
