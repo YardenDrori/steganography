@@ -36,13 +36,21 @@ pub async fn embed_video(
             &access_token,
         )
     )?;
-    tracing::info!("Found both carrier and payload files for user: {}", user);
+    tracing::info!(
+        "Found both carrier and payload files for user: {}. Attmpting to embed video",
+        user
+    );
 
-    let output_path =
-        embed(payload_path.clone(), carrier_path.clone(), payload.configs).map_err(|e| {
-            tracing::error!("Failed to embed video");
-            e
-        })?;
+    //since steg work is CPU bound thus blocking we make a dedicated thread for it to not starve
+    //other async processes in this step
+    let payload_path_clone = payload_path.clone();
+    let carrier_path_clone = carrier_path.clone();
+    let output_path = tokio::task::spawn_blocking(move || {
+        embed(payload_path_clone, carrier_path_clone, payload.configs)
+    })
+    .await
+    .map_err(|_| StegServiceError::Other("embed task panicked".to_string()))??;
+
     tracing::info!("Successfully embedded video. Attemoting to upload to files service");
 
     files_client::upload_file_to_files_service(
