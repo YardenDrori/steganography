@@ -48,8 +48,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build router
     let app = Router::new()
         .route("/embed/video", post(routes::embed_video::embed_video))
-        // .route("/auth/register", post(routes::auth::register))
-        // .route("/auth/login", post(routes::auth::login))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
