@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 shared_global = { path = "../shared/global" }
+files_dtos = { path = "../shared/files_dtos" }
 auth_user = { path = "../shared/auth_user" }
 axum = {version = "0.7", features= ["multipart"]}
 tokio = { version = "1", features = ["full"] }

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 shared_global = { path = "../shared/global" }
+files_dtos = { path = "../shared/files_dtos" }
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"

@@ -5,6 +5,7 @@ members = [
     "user_service",
     "shared/global",
     "shared/auth_user",
+    "shared/files_dtos",
     "steganography_service",
     "files_service",
     "eureka_service",

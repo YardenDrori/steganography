@@ -693,6 +693,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "files_dtos"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "files_service"
 version = "0.1.0"
 dependencies = [
@@ -700,6 +707,7 @@ dependencies = [
  "axum",
  "chrono",
  "dotenvy",
+ "files_dtos",
  "reqwest",
  "rust-s3",
  "serde",
@@ -2726,6 +2734,7 @@ dependencies = [
  "axum",
  "dotenvy",
  "ffmpeg-next",
+ "files_dtos",
  "reqwest",
  "serde",
  "serde_json",
