@@ -1,18 +1,10 @@
-use std::path::PathBuf;
-
 use crate::{
     app_state::AppState,
     dtos::EmbedFileRequest,
     errors::steg_service_error::StegServiceError,
     services::{embed_video::embed, files_client},
 };
-use axum::{
-    Json,
-    body::Body,
-    extract::{Path, State},
-    http::StatusCode,
-    response::Response,
-};
+use axum::{Json, extract::State, http::StatusCode};
 use shared_global::auth::user_extractors::AuthenticatedUserWithToken;
 
 pub async fn embed_video(
@@ -45,10 +37,32 @@ pub async fn embed_video(
         )
     )?;
     tracing::info!("Found both carrier and payload files for user: {}", user);
-    let output_path = embed(payload_path, carrier_path, payload.configs).map_err(|e| {
-        tracing::error!("Failed to embed video");
+
+    let output_path =
+        embed(payload_path.clone(), carrier_path.clone(), payload.configs).map_err(|e| {
+            tracing::error!("Failed to embed video");
+            e
+        })?;
+    tracing::info!("Successfully embedded video. Attemoting to upload to files service");
+
+    files_client::upload_file_to_files_service(
+        output_path,
+        carrier_path,
+        payload_path,
+        &app_state.client,
+        &files_service_url,
+        &access_token,
+    )
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to upload file to files service");
         e
-    });
-    tracing::info!("Successfully embedded video");
-    files_client::todo!()
+    })?;
+
+    tracing::info!(
+        "Succesfully uploaded file to files service. Steganography pipeline complete for user: {}",
+        user
+    );
+
+    Ok((StatusCode::OK, Json(payload.payload_id)))
 }
