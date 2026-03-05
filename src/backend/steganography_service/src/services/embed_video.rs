@@ -1,16 +1,17 @@
-use ffmpeg_next::format::input;
+use ffmpeg_next::format::{Pixel, input};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
-use crate::services::dct::dct_ii;
+use crate::services::dct::{dct_ii, idct_ii};
+use crate::services::qim::qim_embed;
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
 
 struct Buffer {
     reader: BufReader<File>,
     buffer: [u8; 1028],
-    index: usize,
-    bytes_read: usize,
+    bit_index: usize,
+    bits_read: usize,
 }
 
 pub fn embed(
@@ -19,7 +20,7 @@ pub fn embed(
     configs: EmbedConfigs,
 ) -> Result<PathBuf, StegServiceError> {
     //prepare buffer for reading payload data
-    // let bits_per_block = {
+    // let bits_per_block: u8 = {
     //     let mut sum = 0;
     //     for i in 0..16 {
     //         if configs.coefficients_to_embed[i] {
@@ -32,10 +33,11 @@ pub fn embed(
     let mut buffer = Buffer {
         reader: BufReader::new(file_pointer),
         buffer: [0; 1028],
-        index: 0,
+        bit_index: 1,
         // we initialize this as 1 as we use this to know if we finished embedding by checking if
         // this value is ever 0 signifying we read through the entire payload
-        bytes_read: 1,
+        bits_read: 1,
+        // bits_per_block,
     };
 
     ffmpeg_next::init().map_err(|e| StegServiceError::FfmpegError(e))?;
@@ -127,7 +129,6 @@ pub fn embed(
     decoder
         .send_eof()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
-    //TODO: get bits from payload here and pass them along
     drain_decoder(
         &mut decoder,
         &mut encoder,
@@ -229,40 +230,115 @@ fn process_frame(
     //allows to add more codecs, eng RGB also allows prioritizing best channel to embed in by
     //changing order of if statements for sensible defaults
     if let Some(yuv) = &configs.channels_to_embed.yuv {
+        // (y_width_div, y_height_div, cb_width_div, cb_height_div, cr_width_div, cr_height_div)
+        let (y_width_div, y_height_div, cb_width_div, cb_height_div, cr_width_div, cr_height_div): (u32, u32, u32, u32, u32, u32) = match frame.format() {
+            Pixel::YUV420P => (1, 1, 2, 2, 2, 2),
+            Pixel::YUV422P => (1, 1, 2, 1, 1, 1),
+            Pixel::YUV444P => (1, 1, 1, 1, 1, 1),
+            _ => return Err(StegServiceError::UnsupportedCodec),
+        };
         if yuv.y {
-            embed_in_channel(frame, configs, buffer, Y_PLANE)?;
+            embed_in_channel(
+                frame,
+                configs,
+                buffer,
+                Y_PLANE,
+                frame.width() / y_width_div,
+                frame.height() / y_height_div,
+            )?;
         }
         if yuv.cb {
-            embed_in_channel(frame, configs, buffer, CB_PLANE)?;
+            embed_in_channel(
+                frame,
+                configs,
+                buffer,
+                CB_PLANE,
+                frame.width() / cb_width_div,
+                frame.height() / cb_height_div,
+            )?;
         }
         if yuv.cr {
-            embed_in_channel(frame, configs, buffer, CR_PLANE)?;
+            embed_in_channel(
+                frame,
+                configs,
+                buffer,
+                CR_PLANE,
+                frame.width() / cr_width_div,
+                frame.height() / cr_height_div,
+            )?;
         }
+    } else {
+        return Err(StegServiceError::UnsupportedCodec);
     }
-
-    todo!()
+    Ok(())
 }
 
 fn embed_in_channel(
     frame: &mut ffmpeg_next::frame::Video,
     configs: &EmbedConfigs,
-    buffer: &mut Buffer,
+    payload_buffer: &mut Buffer,
     plane_id: usize,
+    plane_width: u32,
+    plane_height: u32,
 ) -> Result<(), StegServiceError> {
-    let mut data = frame.data_mut(plane_id);
-    let mut data_index = 0;
-    while data_index < data.len() {
-        //buffer chenanigans
-        if buffer.bytes_read != 0 && buffer.index >= buffer.bytes_read {
-            buffer.bytes_read = buffer
-                .reader
-                .read(&mut buffer.buffer)
-                .map_err(|_| StegServiceError::FileError)?;
-            buffer.index = 0;
+    let stride = frame.stride(plane_id);
+    let frame_data = frame.data_mut(plane_id);
+    let mut payload_exhausted = false;
+
+    for row in 0..(plane_height / 4) {
+        if payload_exhausted {
+            break;
         }
+        for col in 0..(plane_width / 4) {
+            //buffer chenanigans
+            if payload_buffer.bits_read != 0 && payload_buffer.bit_index >= payload_buffer.bits_read
+            {
+                payload_buffer.bits_read = payload_buffer
+                    .reader
+                    .read(&mut payload_buffer.buffer)
+                    .map_err(|_| StegServiceError::FileError)?
+                    * 8;
+                payload_buffer.bit_index = 0;
+            } else if payload_buffer.bits_read == 0 {
+                payload_exhausted = true;
+                break;
+            }
 
-        //todo
+            let frame_data_index = (row * 4) as usize * stride + (col * 4) as usize;
+
+            //we extract the block and because we need a matrix slice of the array we gotta convert it
+            //to a matrix (we still store it as an array that represents a matrix as i dont wanna
+            //refactor dct and qim it makes no difference)
+            let mut block = [0u8; 16];
+            for i in 0..4 {
+                for j in 0..4 {
+                    block[j + i * 4] = frame_data[j + frame_data_index + i * stride];
+                }
+            }
+            let mut frame_dct_representation = dct_ii(&block);
+
+            for i in 0..16 {
+                if configs.coefficients_to_embed[i] == false {
+                    continue;
+                }
+                // hell yeah i LOVE bit twiddling 😭😭😭
+                let target_bit = (payload_buffer.buffer[payload_buffer.bit_index / 8]
+                    >> (7 - payload_buffer.bit_index % 8))
+                    & 0x1
+                    == 1;
+                payload_buffer.bit_index += 1;
+
+                frame_dct_representation =
+                    qim_embed(frame_dct_representation, target_bit, configs.delta, i);
+            }
+
+            let embedded_block = idct_ii(&frame_dct_representation);
+            for i in 0..4 {
+                for j in 0..4 {
+                    frame_data[j + frame_data_index + i * stride] = embedded_block[j + i * 4];
+                }
+            }
+        }
     }
-
-    todo!()
+    Ok(())
 }
