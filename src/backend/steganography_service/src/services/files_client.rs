@@ -13,7 +13,7 @@ pub async fn download_file_to_temp(
     files_service_url: &str,
     file_id: i64,
     bearer_token: &str,
-) -> Result<PathBuf, StegServiceError> {
+) -> Result<(PathBuf, bool), StegServiceError> {
     let mut response = client
         .get(format!("{}/{}", files_service_url, file_id))
         .bearer_auth(bearer_token)
@@ -53,7 +53,25 @@ pub async fn download_file_to_temp(
 
     let (_file, file_buf) = temp_file.keep().map_err(|_| StegServiceError::FileError)?;
 
-    Ok(file_buf)
+    response = client
+        .get(format!("{}/{}", files_service_url, file_id))
+        .bearer_auth(bearer_token)
+        .send()
+        .await
+        .map_err(|e| StegServiceError::ExternalServiceError(e.to_string()))?;
+    if response.status() != StatusCode::OK {
+        return Err(StegServiceError::ExternalServiceError(format!(
+            "Received status code {}",
+            response.status()
+        )));
+    }
+    let is_carrier = response
+        .json::<FileResponse>()
+        .await
+        .map_err(|_| StegServiceError::ParsingError)?
+        .is_carrier;
+
+    Ok((file_buf, is_carrier))
 }
 
 pub async fn upload_file_to_files_service(
