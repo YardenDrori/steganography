@@ -13,7 +13,7 @@ pub async fn create_file(
     let result = query!(
         r#"
         INSERT INTO files (user_id, filename, object_key, is_carrier, is_steg_object)
-        VALUES($1,$2,$3) RETURNING id
+        VALUES($1,$2,$3,$4,$5) RETURNING id
         "#,
         user_id,
         filename,
@@ -41,7 +41,7 @@ pub async fn get_file_by_id(pool: &PgPool, id: i64) -> Result<Option<File>, sqlx
     )
     .fetch_optional(pool)
     .await?
-    .map(|db: File| db.into());
+    .map(|db| db.into());
     Ok(result)
 }
 
@@ -49,7 +49,7 @@ pub async fn list_file_by_user_id(pool: &PgPool, id: i64) -> Result<Vec<File>, s
     let result: Vec<FileEntity> = query_as!(
         FileEntity,
         r#"
-        SELECT id, user_id, filename, object_key, created_at
+        SELECT id, user_id, filename, object_key, created_at, is_carrier, is_steg_object
         FROM files
         WHERE user_id = $1
         "#,

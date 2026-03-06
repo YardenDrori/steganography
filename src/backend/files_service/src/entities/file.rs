@@ -1,7 +1,5 @@
 use chrono::{DateTime, Utc};
 
-use crate::models::file::File;
-
 #[derive(Debug, Clone)]
 pub struct FileEntity {
     pub id: i64,
