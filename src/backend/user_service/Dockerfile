@@ -9,7 +9,7 @@ RUN cargo chef prepare --recipe-path recipe.json
 FROM chef AS cooker
 COPY --from=planner /build/recipe.json recipe.json
 ENV SQLX_OFFLINE=true
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json -p user_service
 
 FROM chef AS builder
 COPY --from=cooker /build /build

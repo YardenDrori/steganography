@@ -9,7 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libswscale-dev \
     libavfilter-dev \
     libswresample-dev \
+    libavdevice-dev \
     && rm -rf /var/lib/apt/lists/*
+ENV PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig
 
 FROM chef AS planner
 COPY . .
@@ -17,14 +19,14 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS cooker
 COPY --from=planner /build/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json -p steganography_service
 
 FROM chef AS builder
 COPY --from=cooker /build /build
 COPY . .
 RUN cargo build --release -p steganography_service
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
