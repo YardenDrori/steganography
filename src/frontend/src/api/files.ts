@@ -103,16 +103,33 @@ export async function completeUpload(
   }
 }
 
+export async function getFileById(
+  accessToken: string,
+  fileId: number,
+): Promise<FileItem> {
+  try {
+    return await axios.get(`${BASE_URL}/api/files/${fileId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+}
+
 export async function downloadFile(
   accessToken: string,
   fileId: number,
   filename: string,
 ): Promise<void> {
   try {
-    const response = await axios.get(`${BASE_URL}/api/files/${fileId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      responseType: "blob",
-    });
+    const response = await axios.get(
+      `${BASE_URL}/api/files/${fileId}/download`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        responseType: "blob",
+      },
+    );
     const url = URL.createObjectURL(response.data);
     const a = document.createElement("a");
     a.href = url;
