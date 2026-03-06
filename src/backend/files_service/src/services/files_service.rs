@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use s3::{
     request::{ResponseData, ResponseDataStream},
     serde_types::Part,
@@ -14,6 +16,57 @@ use crate::{
         files_repository::{self, create_file, get_file_by_id, list_file_by_user_id},
     },
 };
+
+const SUPPORTED_CODECS: &[ffmpeg_next::codec::Id] = &[
+    ffmpeg_next::codec::Id::H264,
+    ffmpeg_next::codec::Id::HEVC,
+    ffmpeg_next::codec::Id::VP9,
+    ffmpeg_next::codec::Id::VP8,
+    ffmpeg_next::codec::Id::AV1,
+    ffmpeg_next::codec::Id::MPEG4,
+];
+
+async fn detect_is_carrier(bucket: &Bucket, object_key: &str) -> bool {
+    let data = match bucket.get_object_range(object_key, 0, Some(2_000_000)).await {
+        Ok(d) => d,
+        Err(_) => return false,
+    };
+
+    let mut tmp = match tempfile::NamedTempFile::new() {
+        Ok(f) => f,
+        Err(_) => return false,
+    };
+
+    if tmp.write_all(data.as_slice()).is_err() {
+        return false;
+    }
+
+    if ffmpeg_next::init().is_err() {
+        return false;
+    }
+
+    let input_ctx = match ffmpeg_next::format::input(tmp.path()) {
+        Ok(ctx) => ctx,
+        Err(_) => return false,
+    };
+
+    let video_stream = match input_ctx.streams().best(ffmpeg_next::media::Type::Video) {
+        Some(s) => s,
+        None => return false,
+    };
+
+    let decoder = match ffmpeg_next::codec::Context::from_parameters(video_stream.parameters())
+        .and_then(|ctx| ctx.decoder().video())
+    {
+        Ok(d) => d,
+        Err(_) => return false,
+    };
+
+    match decoder.codec() {
+        Some(c) => SUPPORTED_CODECS.contains(&c.id()),
+        None => false,
+    }
+}
 
 pub async fn initiate_upload(bucket: &Bucket) -> Result<InitiateResponse, FilesServiceError> {
     let object_key = uuid::Uuid::new_v4().to_string();
@@ -74,11 +127,15 @@ pub async fn complete_upload(
         .await
         .map_err(|e| FilesServiceError::StorageError(e))?;
 
+    let is_carrier = detect_is_carrier(bucket, &complete_request.object_key).await;
+
     let file_response = create_file(
         pool,
         uploader_id,
         &complete_request.filename,
         &complete_request.object_key,
+        is_carrier,
+        false,
     )
     .await
     .map_err(|e| FilesServiceError::DatabaseError(e))?;
