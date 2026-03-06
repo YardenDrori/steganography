@@ -34,6 +34,35 @@ pub async fn get_files_for_user(
     Ok((StatusCode::OK, Json(files_found)))
 }
 
+pub async fn get_file_by_id(
+    State(app_state): State<AppState>,
+    AuthenticatedUserIsAdmin(user, is_admin): AuthenticatedUserIsAdmin,
+    Path(file_id): Path<i64>,
+) -> Result<(StatusCode, Json<Vec<FileResponse>>), FilesServiceError> {
+    tracing::info!(
+        "User with id {} requested to view file with id {}",
+        user,
+        file_id
+    );
+    let file = services::files_service::get_file_by_id(&app_state.pool, file_id)
+        .await
+        .map_err(|e| {
+            tracing::info!(
+                "Failed to retrieve file with id {} for user with id {}, error: {:?}",
+                file_id,
+                user,
+                e
+            );
+            e
+        })?;
+    tracing::info!(
+        "Retrieved file with id {} for user with id {} successfully",
+        file_id,
+        user
+    );
+    Ok((StatusCode::OK, Json(FileResponse::from(file))))
+}
+
 pub async fn download_file(
     State(app_state): State<AppState>,
     AuthenticatedUserIsAdmin(user, is_admin): AuthenticatedUserIsAdmin,

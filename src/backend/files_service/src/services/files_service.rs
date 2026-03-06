@@ -27,7 +27,10 @@ const SUPPORTED_CODECS: &[ffmpeg_next::codec::Id] = &[
 ];
 
 async fn detect_is_carrier(bucket: &Bucket, object_key: &str) -> bool {
-    let data = match bucket.get_object_range(object_key, 0, Some(2_000_000)).await {
+    let data = match bucket
+        .get_object_range(object_key, 0, Some(2_000_000))
+        .await
+    {
         Ok(d) => d,
         Err(_) => return false,
     };
@@ -158,6 +161,17 @@ pub async fn list_files(
         .into_iter()
         .map(|i| i.into())
         .collect::<Vec<FileResponse>>())
+}
+
+pub async fn get_file_by_id(
+    pool: &PgPool,
+    file_id: i64,
+) -> Result<Option<File>, FilesServiceError> {
+    let file = get_file_by_id(pool, file_id)
+        .await
+        .map_err(|e| FilesServiceError::DatabaseError(e))?
+        .ok_or(FilesServiceError::NotFound)?;
+    Ok(Some(file))
 }
 
 pub async fn download_file(
