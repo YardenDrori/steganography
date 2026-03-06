@@ -9,6 +9,8 @@ pub struct File {
     filename: String,
     object_key: String,
     created_at: DateTime<Utc>,
+    is_carrier: bool,
+    is_steg_object: bool,
 }
 
 #[allow(dead_code)]
@@ -29,6 +31,12 @@ impl File {
     pub fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
+    pub fn is_carrier(&self) -> bool {
+        self.is_carrier
+    }
+    pub fn is_steg_object(&self) -> bool {
+        self.is_steg_object
+    }
 }
 
 //auto converts from database entity to domain model
@@ -40,6 +48,8 @@ impl From<FileEntity> for File {
             filename: entity.filename,
             object_key: entity.object_key,
             created_at: entity.created_at,
+            is_carrier: entity.is_carrier,
+            is_steg_object: entity.is_steg_object,
         }
     }
 }

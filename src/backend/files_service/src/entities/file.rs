@@ -9,4 +9,6 @@ pub struct FileEntity {
     pub filename: String,
     pub object_key: String,
     pub created_at: DateTime<Utc>,
+    pub is_carrier: bool,
+    pub is_steg_object: bool,
 }
