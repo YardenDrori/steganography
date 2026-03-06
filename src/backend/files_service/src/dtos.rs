@@ -1,6 +1,9 @@
 use crate::models::file::File;
+use serde::{Deserialize, Serialize};
 
-pub use files_dtos::{CompleteRequest, FileResponse, InitiateResponse, PartInfo, UploadPartResponse};
+pub use files_dtos::{
+    CompleteRequest, FileResponse, InitiateResponse, PartInfo, UploadPartResponse,
+};
 
 impl From<File> for FileResponse {
     fn from(file: File) -> Self {
@@ -16,4 +19,3 @@ impl From<File> for FileResponse {
 pub struct RenameFileRequest {
     pub new_name: String,
 }
-
