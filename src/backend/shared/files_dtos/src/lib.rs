@@ -23,6 +23,8 @@ pub struct FileResponse {
     pub id: i64,
     pub filename: String,
     pub created_at: DateTime<Utc>,
+    pub is_carrier: bool,
+    pub is_steg_object: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
