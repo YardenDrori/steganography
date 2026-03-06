@@ -7,15 +7,19 @@ pub async fn create_file(
     user_id: i64,
     filename: &str,
     object_key: &str,
+    is_carrier: bool,
+    is_steg_object: bool,
 ) -> Result<File, sqlx::Error> {
     let result = query!(
         r#"
-        INSERT INTO files (user_id, filename, object_key)
-        VALUES($1,$2,$3) RETURNING id
+        INSERT INTO files (user_id, filename, object_key, is_carrier, is_steg_object)
+        VALUES($1,$2,$3,$4,$5) RETURNING id
         "#,
         user_id,
         filename,
         object_key,
+        is_carrier,
+        is_steg_object,
     )
     .fetch_one(pool)
     .await?
@@ -29,7 +33,7 @@ pub async fn create_file(
 pub async fn get_file_by_id(pool: &PgPool, id: i64) -> Result<Option<File>, sqlx::Error> {
     let result = query_as!(
         FileEntity,
-        r#"SELECT id, user_id, filename, object_key, created_at
+        r#"SELECT id, user_id, filename, object_key, created_at, is_carrier, is_steg_object
         FROM files
         WHERE id = $1
         "#,
