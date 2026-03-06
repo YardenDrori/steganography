@@ -143,11 +143,23 @@ pub async fn complete_upload(
     .await
     .map_err(|e| FilesServiceError::DatabaseError(e))?;
 
-    Ok(FileResponse {
-        id: file_response.id(),
-        filename: file_response.filename().to_string(),
-        created_at: file_response.created_at(),
-    })
+    Ok(file_response.into())
+}
+
+pub async fn find_file_by_id(
+    pool: &PgPool,
+    file_id: i64,
+    requesting_user_id: i64,
+    is_admin: bool,
+) -> Result<Option<FileResponse>, FilesServiceError> {
+    let file = get_file_by_id(pool, file_id)
+        .await
+        .map_err(|e| FilesServiceError::DatabaseError(e))?
+        .ok_or(FilesServiceError::NotFound)?;
+    if !is_admin && requesting_user_id != file.user_id() {
+        return Err(FilesServiceError::Unauthorized);
+    }
+    Ok(Some(file.into()))
 }
 
 pub async fn list_files(
@@ -161,17 +173,6 @@ pub async fn list_files(
         .into_iter()
         .map(|i| i.into())
         .collect::<Vec<FileResponse>>())
-}
-
-pub async fn get_file_by_id(
-    pool: &PgPool,
-    file_id: i64,
-) -> Result<Option<File>, FilesServiceError> {
-    let file = get_file_by_id(pool, file_id)
-        .await
-        .map_err(|e| FilesServiceError::DatabaseError(e))?
-        .ok_or(FilesServiceError::NotFound)?;
-    Ok(Some(file))
 }
 
 pub async fn download_file(

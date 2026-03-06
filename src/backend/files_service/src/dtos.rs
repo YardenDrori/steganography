@@ -11,6 +11,8 @@ impl From<File> for FileResponse {
             id: file.id(),
             filename: file.filename().to_string(),
             created_at: file.created_at(),
+            is_carrier: file.is_carrier(),
+            is_steg_object: file.is_steg_object(),
         }
     }
 }
