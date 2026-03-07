@@ -237,3 +237,18 @@ pub async fn validate_ownership(
     }
     Ok(file)
 }
+
+pub async fn set_is_steg_object(
+    pool: &PgPool,
+    file_id: i64,
+    new_value: bool,
+) -> Result<(), FilesServiceError> {
+    let result =
+        repositories::files_repository::update_file_is_steg_object(pool, file_id, new_value)
+            .await
+            .map_err(|e| FilesServiceError::DatabaseError(e))?;
+    if !result {
+        return Err(FilesServiceError::DatabaseError(sqlx::Error::RowNotFound));
+    }
+    Ok(())
+}

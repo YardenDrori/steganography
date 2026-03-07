@@ -90,3 +90,22 @@ pub async fn update_file_name(
     .await?;
     Ok(result.rows_affected() == 1)
 }
+
+pub async fn update_file_is_steg_object(
+    pool: &PgPool,
+    file_id: i64,
+    new_is_steg_object: bool,
+) -> Result<bool, sqlx::Error> {
+    let result = query!(
+        r#"
+        UPDATE files
+        SET is_steg_object = $1
+        WHERE id = $2
+        "#,
+        new_is_steg_object,
+        file_id,
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}

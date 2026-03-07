@@ -77,7 +77,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Bucket '{}' does not exist in MinIO. Please create it before starting the service.",
             bucket_name
         ),
-        Err(e) => tracing::error!("Failed to check bucket '{}' existence: {:?}", bucket_name, e),
+        Err(e) => tracing::error!(
+            "Failed to check bucket '{}' existence: {:?}",
+            bucket_name,
+            e
+        ),
     }
 
     // Create app state
@@ -100,6 +104,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/files/:id", get(routes::get_files::get_file_by_id))
         .route("/files/:id", patch(routes::patch_files::rename_file))
         .route("/files/:id", delete(routes::delete_files::delete_file))
+        //this api is not protected anyone including the frontend can call it untill we add mTLS
+        .route(
+            "/internal/files/:id/embedded",
+            patch(routes::patch_files::set_file_embdedded),
+        )
         .with_state(app_state)
         .layer(TraceLayer::new_for_http());
 

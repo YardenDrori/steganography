@@ -48,3 +48,22 @@ pub async fn rename_file(
     );
     Ok(StatusCode::OK)
 }
+
+pub async fn set_file_embdedded(
+    State(app_state): State<AppState>,
+    Path(file_id): Path<i64>,
+) -> Result<StatusCode, FilesServiceError> {
+    tracing::info!("setting file with id {} to be a steg object", file_id);
+    services::files_service::set_is_steg_object(&app_state.pool, file_id, true)
+        .await
+        .map_err(|e| {
+            tracing::info!(
+                "Failed to set file with id {} to be a steg object. error: {:?}",
+                file_id,
+                e
+            );
+            e
+        })?;
+    tracing::info!("set file with id {} to be a steg object", file_id);
+    Ok(StatusCode::OK)
+}
