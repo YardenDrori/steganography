@@ -1,4 +1,5 @@
 use crate::app_state::AppState;
+use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use s3::creds::Credentials;
@@ -96,7 +97,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/files/initiate", post(routes::post_files::initiate))
         .route(
             "/files/upload-chunk",
-            post(routes::post_files::upload_chunk),
+            post(routes::post_files::upload_chunk)
+                .layer(DefaultBodyLimit::max(20 * 1024 * 1024)), // 20 MB per chunk
         )
         .route("/files/complete", post(routes::post_files::complete_upload))
         .route("/files/me", get(routes::get_files::get_files_for_user))
