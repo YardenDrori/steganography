@@ -61,6 +61,14 @@ pub fn embed(
         .video()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
 
+    let input_format_name = input_context
+        .format()
+        .name()
+        .split(',')
+        .next()
+        .unwrap_or("mp4")
+        .to_string();
+
     let input_codec = decoder
         .codec()
         .ok_or(StegServiceError::FfmpegError(
@@ -90,7 +98,7 @@ pub fn embed(
         carrier_path.file_name().unwrap().to_string_lossy()
     ));
     let mut output_context =
-        ffmpeg_next::format::output(&output_path).map_err(|e| StegServiceError::FfmpegError(e))?;
+        ffmpeg_next::format::output_as(&output_path, &input_format_name).map_err(|e| StegServiceError::FfmpegError(e))?;
     let output_stream_index = {
         let mut stream = output_context
             .add_stream(encoder.codec())
@@ -98,13 +106,16 @@ pub fn embed(
         stream.set_parameters(input_params);
         stream.index()
     };
+    output_context
+        .write_header()
+        .map_err(|e| StegServiceError::FfmpegError(e))?;
+    // Read output_time_base AFTER write_header — the muxer finalises the
+    // stream's time_base during write_header, so reading it beforehand gives
+    // a stale/zero value that makes rescale_ts produce AV_NOPTS_VALUE.
     let output_time_base = output_context
         .stream(output_stream_index)
         .unwrap()
         .time_base();
-    output_context
-        .write_header()
-        .map_err(|e| StegServiceError::FfmpegError(e))?;
 
     // --- DECODE / PROCESS / ENCODE LOOP ---
     for (stream, packet) in input_context.packets() {
