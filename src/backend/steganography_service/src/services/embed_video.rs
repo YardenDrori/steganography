@@ -79,6 +79,7 @@ pub fn embed(
     encoder
         .set_parameters(input_params.clone())
         .map_err(|e| StegServiceError::FfmpegError(e))?;
+    encoder.set_time_base(input_time_base);
     let mut encoder = encoder
         .open()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
