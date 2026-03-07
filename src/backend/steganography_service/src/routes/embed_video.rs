@@ -23,7 +23,7 @@ pub async fn embed_video(
         .ok_or(StegServiceError::EurekaConfigError)?
         .to_string();
 
-    let ((carrier_path, is_valid), (payload_path, _)) = tokio::try_join!(
+    let ((carrier_path, is_valid, carrier_filename), (payload_path, _, payload_filename)) = tokio::try_join!(
         files_client::download_file_to_temp(
             &app_state.client,
             &files_service_url,
@@ -62,6 +62,8 @@ pub async fn embed_video(
         payload_path,
         carrier_path,
         output_path,
+        payload_filename,
+        carrier_filename,
         &app_state.client,
         &files_service_url,
         &access_token,

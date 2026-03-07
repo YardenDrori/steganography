@@ -13,7 +13,7 @@ pub async fn download_file_to_temp(
     files_service_url: &str,
     file_id: i64,
     bearer_token: &str,
-) -> Result<(PathBuf, bool), StegServiceError> {
+) -> Result<(PathBuf, bool, String), StegServiceError> {
     // Fetch file metadata to check is_carrier
     let meta_response = client
         .get(format!("{}/files/{}", files_service_url, file_id))
@@ -28,11 +28,12 @@ pub async fn download_file_to_temp(
             meta_response.status()
         )));
     }
-    let is_carrier = meta_response
+    let meta = meta_response
         .json::<FileResponse>()
         .await
-        .map_err(|_| StegServiceError::ParsingError)?
-        .is_carrier;
+        .map_err(|_| StegServiceError::ParsingError)?;
+    let is_carrier = meta.is_carrier;
+    let filename = meta.filename;
 
     // Download the actual file bytes
     let mut response = client
@@ -74,13 +75,15 @@ pub async fn download_file_to_temp(
 
     let (_file, file_buf) = temp_file.keep().map_err(|_| StegServiceError::FileError)?;
 
-    Ok((file_buf, is_carrier))
+    Ok((file_buf, is_carrier, filename))
 }
 
 pub async fn upload_file_to_files_service(
     payload_path: PathBuf,
     carrier_path: PathBuf,
     steg_object_path: PathBuf,
+    payload_filename: String,
+    carrier_filename: String,
     client: &reqwest::Client,
     files_service_url: &str,
     bearer_token: &str,
@@ -176,23 +179,13 @@ pub async fn upload_file_to_files_service(
         }
     }
 
-    let carrier_filename = carrier_path
-        .file_name()
-        .ok_or(StegServiceError::FileError)?;
-    let payload_filename = payload_path
-        .file_name()
-        .ok_or(StegServiceError::FileError)?;
     response = client
         .post(format!("{}/files/complete", files_service_url))
         .bearer_auth(bearer_token)
         .json(&CompleteRequest {
             upload_id: init_response.upload_id.clone(),
             object_key: init_response.object_key,
-            filename: format!(
-                "{} -> {}",
-                payload_filename.to_string_lossy(),
-                carrier_filename.to_string_lossy()
-            ),
+            filename: format!("{} -> {}", payload_filename, carrier_filename),
             parts: upload_parts,
         })
         .send()
