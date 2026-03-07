@@ -97,7 +97,10 @@ pub async fn upload_file_to_files_service(
             .await
             .map_err(|_| StegServiceError::FileError)?,
     );
-    let mut buffer = [0u8; 4096];
+    // S3/MinIO requires each non-final part to be >= 5 MiB.
+    // Using a 5 MiB buffer means a small output file becomes a single last-part
+    // upload (no minimum size), and a large file gets properly-sized parts.
+    let mut buffer = vec![0u8; 5 * 1024 * 1024];
     let mut bytes_read;
 
     let mut upload_parts: Vec<PartInfo> = vec![];
