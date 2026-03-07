@@ -25,6 +25,9 @@ function DashboardPage() {
       </p>
       <p>Username: {user?.user_name}</p>
       <p>Email: {user?.email}</p>
+      <button type="button" onClick={() => navigate("/my-files")}>
+        My Files
+      </button>
       <button type="button" onClick={() => navigate("/settings")}>
         Settings
       </button>
