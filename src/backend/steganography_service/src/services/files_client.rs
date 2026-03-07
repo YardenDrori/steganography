@@ -126,10 +126,22 @@ pub async fn upload_file_to_files_service(
 
     let mut part_number = 1;
     loop {
-        bytes_read = reader
-            .read(&mut buffer)
-            .await
-            .map_err(|_| StegServiceError::FileError)?;
+        // Fill the buffer completely before uploading. A bare `read()` is not
+        // guaranteed to fill the buffer (POSIX contract), so we loop until
+        // either the buffer is full or we hit EOF. This ensures every non-final
+        // part is exactly 5 MiB — MinIO/S3 rejects parts below that threshold
+        // unless they are the last part of the upload.
+        bytes_read = 0;
+        while bytes_read < buffer.len() {
+            let n = reader
+                .read(&mut buffer[bytes_read..])
+                .await
+                .map_err(|_| StegServiceError::FileError)?;
+            if n == 0 {
+                break;
+            }
+            bytes_read += n;
+        }
 
         if bytes_read == 0 {
             break;

@@ -302,17 +302,7 @@ fn embed_in_channel(
             break;
         }
         for col in 0..(plane_width / 4) {
-            //buffer chenanigans
-            if payload_buffer.bits_read != 0 && payload_buffer.bit_index >= payload_buffer.bits_read
-            {
-                payload_buffer.bits_read = payload_buffer
-                    .reader
-                    .read(&mut payload_buffer.buffer)
-                    .map_err(|_| StegServiceError::FileError)?
-                    * 8;
-                payload_buffer.bit_index = 0;
-            } else if payload_buffer.bits_read == 0 {
-                payload_exhausted = true;
+            if payload_exhausted {
                 break;
             }
 
@@ -332,6 +322,18 @@ fn embed_in_channel(
             for i in 0..16 {
                 if configs.coefficients_to_embed[i] == false {
                     continue;
+                }
+                if payload_buffer.bit_index >= payload_buffer.bits_read {
+                    payload_buffer.bits_read = payload_buffer
+                        .reader
+                        .read(&mut payload_buffer.buffer)
+                        .map_err(|_| StegServiceError::FileError)?
+                        * 8;
+                    payload_buffer.bit_index = 0;
+                    if payload_buffer.bits_read == 0 {
+                        payload_exhausted = true;
+                        break;
+                    }
                 }
                 // hell yeah i LOVE bit twiddling 😭😭😭
                 let target_bit = (payload_buffer.buffer[payload_buffer.bit_index / 8]
