@@ -76,6 +76,15 @@ pub fn embed(
         ))?
         .id();
 
+    // --- OUTPUT (before encoder, so we can read the format's flags) ---
+    let output_path = PathBuf::from(format!(
+        "embedded_{}",
+        carrier_path.file_name().unwrap().to_string_lossy()
+    ));
+    let mut output_context =
+        ffmpeg_next::format::output_as(&output_path, &input_format_name)
+            .map_err(|e| StegServiceError::FfmpegError(e))?;
+
     // --- ENCODER ---
     let codec = ffmpeg_next::codec::encoder::find(input_codec).ok_or(
         StegServiceError::FfmpegError(ffmpeg_next::Error::EncoderNotFound),
@@ -88,22 +97,43 @@ pub fn embed(
         .set_parameters(input_params.clone())
         .map_err(|e| StegServiceError::FfmpegError(e))?;
     encoder.set_time_base(input_time_base);
+    // MP4/MOV containers store H.264 SPS/PPS in the avcC box in the file
+    // header rather than inline in every IDR packet. AVFMT_GLOBALHEADER tells
+    // us the muxer requires this, and AV_CODEC_FLAG_GLOBAL_HEADER tells the
+    // encoder to produce SPS/PPS as extradata instead of Annex-B start codes.
+    // Without this the container header and the bitstream carry mismatched
+    // SPS/PPS, which causes decoders to produce black or no video.
+    unsafe {
+        let oformat = (*output_context.as_ptr()).oformat;
+        if !oformat.is_null()
+            && (*oformat).flags & ffmpeg_sys_next::AVFMT_GLOBALHEADER as i32 != 0
+        {
+            (*encoder.as_mut_ptr()).flags |=
+                ffmpeg_sys_next::AV_CODEC_FLAG_GLOBAL_HEADER as i32;
+        }
+    }
     let mut encoder = encoder
         .open()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
 
-    // --- OUTPUT ---
-    let output_path = PathBuf::from(format!(
-        "embedded_{}",
-        carrier_path.file_name().unwrap().to_string_lossy()
-    ));
-    let mut output_context =
-        ffmpeg_next::format::output_as(&output_path, &input_format_name).map_err(|e| StegServiceError::FfmpegError(e))?;
     let output_stream_index = {
         let mut stream = output_context
             .add_stream(encoder.codec())
             .map_err(|e| StegServiceError::FfmpegError(e))?;
-        stream.set_parameters(input_params);
+        // Copy parameters from the opened encoder, not from the input stream.
+        // The encoder's extradata now contains the freshly generated SPS/PPS
+        // that must match what the muxer writes into the avcC box.
+        unsafe {
+            let ret = ffmpeg_sys_next::avcodec_parameters_from_context(
+                (*stream.as_mut_ptr()).codecpar,
+                encoder.as_ptr(),
+            );
+            if ret < 0 {
+                return Err(StegServiceError::FfmpegError(ffmpeg_next::Error::from(
+                    ret,
+                )));
+            }
+        }
         stream.index()
     };
     output_context
