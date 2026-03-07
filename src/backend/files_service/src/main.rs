@@ -70,14 +70,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("failed to initialize bucket. error")
         .with_path_style();
 
-    // Create bucket if it doesn't exist
-    // match bucket.().await {
-    //     Ok(_) => tracing::info!("Bucket '{}' created", bucket_name),
-    //     Err(s3::error::S3Error::HttpFailWithBody(409, _)) => {
-    //         tracing::info!("Bucket '{}' already exists", bucket_name)
-    //     }
-    //     Err(e) => panic!("Failed to create bucket '{}': {:?}", bucket_name, e),
-    // }
+    // Check that the bucket exists
+    match bucket.exists().await {
+        Ok(true) => tracing::info!("Bucket '{}' exists and is accessible", bucket_name),
+        Ok(false) => tracing::error!(
+            "Bucket '{}' does not exist in MinIO. Please create it before starting the service.",
+            bucket_name
+        ),
+        Err(e) => tracing::error!("Failed to check bucket '{}' existence: {:?}", bucket_name, e),
+    }
 
     // Create app state
     let app_state = AppState {
