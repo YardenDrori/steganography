@@ -194,5 +194,22 @@ pub async fn upload_file_to_files_service(
         .await
         .map_err(|_| StegServiceError::ParsingError)?;
 
+    response = client
+        .patch(format!(
+            "{}/internal/files/{}/embedded",
+            files_service_url, file_response.id
+        ))
+        .send()
+        .await
+        .map_err(|e| StegServiceError::ExternalServiceError(e.to_string()))?;
+
+    if response.status() != StatusCode::OK {
+        return Err(StegServiceError::ExternalServiceError(format!(
+            "Received status code {} from files service when trying to set file {} to be a steg object",
+            response.status(),
+            file_response.id
+        )));
+    }
+
     Ok(file_response)
 }
