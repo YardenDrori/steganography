@@ -14,8 +14,29 @@ pub async fn download_file_to_temp(
     file_id: i64,
     bearer_token: &str,
 ) -> Result<(PathBuf, bool), StegServiceError> {
+    // Fetch file metadata to check is_carrier
+    let meta_response = client
+        .get(format!("{}/files/{}", files_service_url, file_id))
+        .bearer_auth(bearer_token)
+        .send()
+        .await
+        .map_err(|e| StegServiceError::ExternalServiceError(e.to_string()))?;
+
+    if meta_response.status() != StatusCode::OK {
+        return Err(StegServiceError::ExternalServiceError(format!(
+            "Received status code {}",
+            meta_response.status()
+        )));
+    }
+    let is_carrier = meta_response
+        .json::<FileResponse>()
+        .await
+        .map_err(|_| StegServiceError::ParsingError)?
+        .is_carrier;
+
+    // Download the actual file bytes
     let mut response = client
-        .get(format!("{}/{}", files_service_url, file_id))
+        .get(format!("{}/files/{}/download", files_service_url, file_id))
         .bearer_auth(bearer_token)
         .send()
         .await
@@ -53,24 +74,6 @@ pub async fn download_file_to_temp(
 
     let (_file, file_buf) = temp_file.keep().map_err(|_| StegServiceError::FileError)?;
 
-    response = client
-        .get(format!("{}/{}", files_service_url, file_id))
-        .bearer_auth(bearer_token)
-        .send()
-        .await
-        .map_err(|e| StegServiceError::ExternalServiceError(e.to_string()))?;
-    if response.status() != StatusCode::OK {
-        return Err(StegServiceError::ExternalServiceError(format!(
-            "Received status code {}",
-            response.status()
-        )));
-    }
-    let is_carrier = response
-        .json::<FileResponse>()
-        .await
-        .map_err(|_| StegServiceError::ParsingError)?
-        .is_carrier;
-
     Ok((file_buf, is_carrier))
 }
 
@@ -100,7 +103,7 @@ pub async fn upload_file_to_files_service(
     let mut upload_parts: Vec<PartInfo> = vec![];
 
     let mut response: Response = client
-        .post(format!("{}/initiate", files_service_url))
+        .post(format!("{}/files/initiate", files_service_url))
         .bearer_auth(bearer_token)
         .send()
         .await
@@ -131,7 +134,7 @@ pub async fn upload_file_to_files_service(
 
         response = client
             .post(format!(
-                "{}/upload-chunk?part_number={}&upload_id={}&object_key={}",
+                "{}/files/upload-chunk?part_number={}&upload_id={}&object_key={}",
                 files_service_url, part_number, init_response.upload_id, init_response.object_key,
             ))
             .bearer_auth(bearer_token)
@@ -165,7 +168,7 @@ pub async fn upload_file_to_files_service(
         .file_name()
         .ok_or(StegServiceError::FileError)?;
     response = client
-        .post(format!("{}/complete", files_service_url))
+        .post(format!("{}/files/complete", files_service_url))
         .bearer_auth(bearer_token)
         .json(&CompleteRequest {
             upload_id: init_response.upload_id.clone(),
