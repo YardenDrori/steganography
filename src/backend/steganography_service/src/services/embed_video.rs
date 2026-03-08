@@ -1,6 +1,6 @@
 use ffmpeg_next::format::{Pixel, input};
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
 use crate::services::dct::{dct_ii, idct_ii};
@@ -69,6 +69,19 @@ pub fn embed(
             ffmpeg_next::Error::InvalidData,
         ))?
         .id();
+
+    //return type is i64 so im guessing this is how many frames
+    let frame_count = input_stream.frames();
+    let coefficient_count = {
+        let sum = 0;
+        for i in 0..16 {
+            if configs.coefficients_to_embed[i]{
+                sum+=1;
+            }
+        }
+        sum
+    };
+    let capacity = frame_count * configs.
 
     // --- OUTPUT (before encoder, so we can read the format's flags) ---
     let output_path = PathBuf::from(format!(
