@@ -4,15 +4,9 @@ use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
 use crate::services::dct::{dct_ii, idct_ii};
+use crate::services::process_frame::{self, BufferGeneric};
 use crate::services::qim::qim_embed;
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
-
-struct Buffer {
-    reader: BufReader<File>,
-    buffer: [u8; 1028],
-    bit_index: usize,
-    bits_read: usize,
-}
 
 pub fn embed(
     payload_path: PathBuf,
@@ -30,14 +24,14 @@ pub fn embed(
     //     sum
     // };
     let file_pointer = File::open(payload_path).map_err(|_| StegServiceError::FileError)?;
-    let mut buffer = Buffer {
-        reader: BufReader::new(file_pointer),
+    let mut buffer = BufferGeneric {
+        reader: Some(BufReader::new(file_pointer)),
+        writer: None,
         buffer: [0; 1028],
         bit_index: 1,
         // we initialize this as 1 as we use this to know if we finished embedding by checking if
         // this value is ever 0 signifying we read through the entire payload
         bits_read: 1,
-        // bits_per_block,
     };
 
     ffmpeg_next::init().map_err(|e| StegServiceError::FfmpegError(e))?;
@@ -81,9 +75,8 @@ pub fn embed(
         "embedded_{}",
         carrier_path.file_name().unwrap().to_string_lossy()
     ));
-    let mut output_context =
-        ffmpeg_next::format::output_as(&output_path, &input_format_name)
-            .map_err(|e| StegServiceError::FfmpegError(e))?;
+    let mut output_context = ffmpeg_next::format::output_as(&output_path, &input_format_name)
+        .map_err(|e| StegServiceError::FfmpegError(e))?;
 
     // --- ENCODER ---
     let codec = ffmpeg_next::codec::encoder::find(input_codec).ok_or(
@@ -105,11 +98,9 @@ pub fn embed(
     // SPS/PPS, which causes decoders to produce black or no video.
     unsafe {
         let oformat = (*output_context.as_ptr()).oformat;
-        if !oformat.is_null()
-            && (*oformat).flags & ffmpeg_sys_next::AVFMT_GLOBALHEADER as i32 != 0
+        if !oformat.is_null() && (*oformat).flags & ffmpeg_sys_next::AVFMT_GLOBALHEADER as i32 != 0
         {
-            (*encoder.as_mut_ptr()).flags |=
-                ffmpeg_sys_next::AV_CODEC_FLAG_GLOBAL_HEADER as i32;
+            (*encoder.as_mut_ptr()).flags |= ffmpeg_sys_next::AV_CODEC_FLAG_GLOBAL_HEADER as i32;
         }
     }
     let mut encoder = encoder
@@ -129,9 +120,7 @@ pub fn embed(
                 encoder.as_ptr(),
             );
             if ret < 0 {
-                return Err(StegServiceError::FfmpegError(ffmpeg_next::Error::from(
-                    ret,
-                )));
+                return Err(StegServiceError::FfmpegError(ffmpeg_next::Error::from(ret)));
             }
         }
         stream.index()
@@ -210,13 +199,13 @@ fn drain_decoder(
     input_time_base: ffmpeg_next::Rational,
     output_time_base: ffmpeg_next::Rational,
     configs: &EmbedConfigs,
-    buffer: &mut Buffer,
+    buffer: &mut BufferGeneric,
 ) -> Result<(), StegServiceError> {
     loop {
         let mut frame = ffmpeg_next::frame::Video::empty();
         match decoder.receive_frame(&mut frame) {
             Ok(_) => {
-                process_frame(&mut frame, &configs, buffer)?;
+                process_frame::process_frame(&mut frame, configs, buffer, embed_in_channel)?;
                 encoder
                     .send_frame(&frame)
                     .map_err(|e| StegServiceError::FfmpegError(e))?;
@@ -260,65 +249,10 @@ fn drain_encoder(
     }
 }
 
-fn process_frame(
-    frame: &mut ffmpeg_next::frame::Video,
-    configs: &EmbedConfigs,
-    buffer: &mut Buffer,
-) -> Result<(), StegServiceError> {
-    const Y_PLANE: usize = 0;
-    const CB_PLANE: usize = 1;
-    const CR_PLANE: usize = 2;
-
-    //allows to add more codecs, eng RGB also allows prioritizing best channel to embed in by
-    //changing order of if statements for sensible defaults
-    if let Some(yuv) = &configs.channels_to_embed.yuv {
-        // (y_width_div, y_height_div, cb_width_div, cb_height_div, cr_width_div, cr_height_div)
-        let (y_width_div, y_height_div, cb_width_div, cb_height_div, cr_width_div, cr_height_div): (u32, u32, u32, u32, u32, u32) = match frame.format() {
-            Pixel::YUV420P => (1, 1, 2, 2, 2, 2),
-            Pixel::YUV422P => (1, 1, 2, 1, 1, 1),
-            Pixel::YUV444P => (1, 1, 1, 1, 1, 1),
-            _ => return Err(StegServiceError::UnsupportedCodec),
-        };
-        if yuv.y {
-            embed_in_channel(
-                frame,
-                configs,
-                buffer,
-                Y_PLANE,
-                frame.width() / y_width_div,
-                frame.height() / y_height_div,
-            )?;
-        }
-        if yuv.cb {
-            embed_in_channel(
-                frame,
-                configs,
-                buffer,
-                CB_PLANE,
-                frame.width() / cb_width_div,
-                frame.height() / cb_height_div,
-            )?;
-        }
-        if yuv.cr {
-            embed_in_channel(
-                frame,
-                configs,
-                buffer,
-                CR_PLANE,
-                frame.width() / cr_width_div,
-                frame.height() / cr_height_div,
-            )?;
-        }
-    } else {
-        return Err(StegServiceError::UnsupportedCodec);
-    }
-    Ok(())
-}
-
 fn embed_in_channel(
     frame: &mut ffmpeg_next::frame::Video,
     configs: &EmbedConfigs,
-    payload_buffer: &mut Buffer,
+    payload_buffer: &mut BufferGeneric,
     plane_id: usize,
     plane_width: u32,
     plane_height: u32,
@@ -356,6 +290,8 @@ fn embed_in_channel(
                 if payload_buffer.bit_index >= payload_buffer.bits_read {
                     payload_buffer.bits_read = payload_buffer
                         .reader
+                        .as_mut()
+                        .unwrap()
                         .read(&mut payload_buffer.buffer)
                         .map_err(|_| StegServiceError::FileError)?
                         * 8;
