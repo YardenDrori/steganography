@@ -1,23 +1,23 @@
 use std::f64::consts::PI;
 
+//to understand this weird ass forumula what i recommend is going to desmos and pasting these
+//values as 1 function and 4 positions
+//y=\cos\left(kx\right)
+//\left(\frac{\left(2i+o\right)}{8}\pi,\cos\left(k\left(\frac{\left(\left(2i+o\right)\pi\right)}{8}\right)\right)\right)
+//\left(\frac{\left(2\left(i+1\right)+o\right)}{8}\pi,\cos\left(k\left(\frac{\left(\left(2\left(i+1\right)+o\right)\pi\right)}{8}\right)\right)\right)
+//\left(\frac{2\left(i+2\right)+o}{8}\pi,\cos\left(k\left(\frac{\left(\left(2\left(i+2\right)+o\right)\pi\right)}{8}\right)\right)\right)
+//\left(\frac{\left(2\left(i+3\right)+o\right)}{8}\pi,\cos\left(k\left(\frac{\left(\left(2\left(i+3\right)+o\right)\pi\right)}{8}\right)\right)\right)
+//where i is a value between 0 and 3 with jump size of 1
+//where k is a value between 0 and 3 with jump size of 1
+//where o is either 0 or 1 to see the difference between dct and dctII (what we're doing)
 pub fn dct_ii(pixels: &[u8; 16]) -> [f64; 16] {
     let mut coefficients = [0.0f64; 16];
-    //to understand this weird ass forumula what i recommend is going to desmos and pasting these
-    //values as 1 function and 4 positions
-    //y=\cos\left(kx\right)
-    //\left(\frac{\left(2i+o\right)}{8}\pi,\cos\left(k\left(\frac{\left(\left(2i+o\right)\pi\right)}{8}\right)\right)\right)
-    //\left(\frac{\left(2\left(i+1\right)+o\right)}{8}\pi,\cos\left(k\left(\frac{\left(\left(2\left(i+1\right)+o\right)\pi\right)}{8}\right)\right)\right)
-    //\left(\frac{2\left(i+2\right)+o}{8}\pi,\cos\left(k\left(\frac{\left(\left(2\left(i+2\right)+o\right)\pi\right)}{8}\right)\right)\right)
-    //\left(\frac{\left(2\left(i+3\right)+o\right)}{8}\pi,\cos\left(k\left(\frac{\left(\left(2\left(i+3\right)+o\right)\pi\right)}{8}\right)\right)\right)
-    //where i is a value between 0 and 3 with jump size of 1
-    //where k is a value between 0 and 3 with jump size of 1
-    //where o is either 0 or 1 to see the difference between dct and dctII (what we're doing)
     for k_x in 0..4 {
         for k_y in 0..4 {
             let mut sum = 0.0f64;
             for i_x in 0..4 {
                 for i_y in 0..4 {
-                    let curr_pixel = pixels[i_x * 4 + i_y] as f64; // was pixels[i_x][i_y]
+                    let curr_pixel = pixels[i_x * 4 + i_y] as f64 - 128.0; // was pixels[i_x][i_y]
                     let angle_x = k_x as f64 * (2.0 * i_x as f64 + 1.0) * PI / 8.0;
                     let angle_y = k_y as f64 * (2.0 * i_y as f64 + 1.0) * PI / 8.0;
                     sum += curr_pixel * angle_x.cos() * angle_y.cos();
@@ -54,7 +54,7 @@ pub fn idct_ii(coefficients: &[f64; 16]) -> [u8; 16] {
                     sum += curr_coefficient * scale_x * angle_x.cos() * scale_y * angle_y.cos();
                 }
             }
-            pixels[i_x * 4 + i_y] = sum.round().clamp(0.0, 255.0) as u8; // was pixels[i_x][i_y]
+            pixels[i_x * 4 + i_y] = (sum + 128.0).round().clamp(0.0, 255.0) as u8; // was pixels[i_x][i_y]
         }
     }
     pixels
