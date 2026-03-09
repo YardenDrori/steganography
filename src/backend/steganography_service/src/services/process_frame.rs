@@ -11,6 +11,7 @@ pub struct BufferGeneric {
     pub buffer: [u8; 1028],
     pub bit_index: usize,
     pub bits_read: usize,
+    pub payload_exhausted: bool,
 }
 
 const Y_PLANE: usize = 0;

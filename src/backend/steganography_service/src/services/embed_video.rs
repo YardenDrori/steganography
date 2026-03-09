@@ -24,15 +24,22 @@ pub fn embed(
     //     sum
     // };
     let file_pointer = File::open(payload_path).map_err(|_| StegServiceError::FileError)?;
+    let file_size = file_pointer
+        .metadata()
+        .map_err(|_| StegServiceError::FileError)?
+        .len()
+        .to_le_bytes();
     let mut buffer = BufferGeneric {
         reader: Some(BufReader::new(file_pointer)),
         writer: None,
         buffer: [0; 1028],
-        bit_index: 1,
-        // we initialize this as 1 as we use this to know if we finished embedding by checking if
-        // this value is ever 0 signifying we read through the entire payload
-        bits_read: 1,
+        bit_index: 0,
+        // we initialize this as 64 becasue we use this the first 64 bits to embed the header which
+        // tells the extractor how many bits are there in this file
+        bits_read: 64,
+        payload_exhausted: false,
     };
+    buffer.buffer[0..8].copy_from_slice(&file_size);
 
     ffmpeg_next::init().map_err(|e| StegServiceError::FfmpegError(e))?;
 
@@ -69,19 +76,6 @@ pub fn embed(
             ffmpeg_next::Error::InvalidData,
         ))?
         .id();
-
-    //return type is i64 so im guessing this is how many frames
-    let frame_count = input_stream.frames();
-    let coefficient_count = {
-        let sum = 0;
-        for i in 0..16 {
-            if configs.coefficients_to_embed[i]{
-                sum+=1;
-            }
-        }
-        sum
-    };
-    let capacity = frame_count * configs.
 
     // --- OUTPUT (before encoder, so we can read the format's flags) ---
     let output_path = PathBuf::from(format!(
@@ -184,6 +178,10 @@ pub fn embed(
         &mut buffer,
     )?;
 
+    if !buffer.payload_exhausted {
+        return Err(StegServiceError::InsufficientCapacity);
+    }
+
     // flush encoder
     encoder
         .send_eof()
@@ -272,14 +270,13 @@ fn embed_in_channel(
 ) -> Result<(), StegServiceError> {
     let stride = frame.stride(plane_id);
     let frame_data = frame.data_mut(plane_id);
-    let mut payload_exhausted = false;
 
     for row in 0..(plane_height / 4) {
-        if payload_exhausted {
+        if payload_buffer.payload_exhausted {
             break;
         }
         for col in 0..(plane_width / 4) {
-            if payload_exhausted {
+            if payload_buffer.payload_exhausted {
                 break;
             }
 
@@ -310,7 +307,7 @@ fn embed_in_channel(
                         * 8;
                     payload_buffer.bit_index = 0;
                     if payload_buffer.bits_read == 0 {
-                        payload_exhausted = true;
+                        payload_buffer.payload_exhausted = true;
                         break;
                     }
                 }
