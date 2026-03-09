@@ -5,14 +5,14 @@ use std::io::{BufReader, BufWriter};
 
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
 
-pub struct BufferGeneric {
-    pub reader: Option<BufReader<File>>,
-    pub writer: Option<BufWriter<File>>,
-    pub buffer: [u8; 1028],
-    pub bit_index: usize,
-    pub bits_read: usize,
-    pub payload_exhausted: bool,
-}
+// pub struct BufferGeneric {
+//     pub reader: Option<BufReader<File>>,
+//     pub writer: Option<BufWriter<File>>,
+//     pub buffer: [u8; 1028],
+//     pub bit_index: usize,
+//     pub bits_read: usize,
+//     pub payload_exhausted: bool,
+// }
 
 const Y_PLANE: usize = 0;
 const CB_PLANE: usize = 1;
@@ -41,17 +41,17 @@ pub fn find_dimensions_for_codec(
     Err(StegServiceError::UnsupportedCodec)
 }
 
-pub fn process_frame<F>(
+pub fn process_frame<F, T>(
     frame: &mut ffmpeg_next::frame::Video,
     configs: &EmbedConfigs,
-    buffer: &mut BufferGeneric,
+    buffer: &mut T,
     channel_method: F,
 ) -> Result<(), StegServiceError>
 where
     F: Fn(
         &mut ffmpeg_next::frame::Video,
         &EmbedConfigs,
-        &mut BufferGeneric,
+        &mut T,
         usize,
         u32,
         u32,
