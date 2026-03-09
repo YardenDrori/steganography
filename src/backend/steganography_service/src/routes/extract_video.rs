@@ -32,7 +32,11 @@ pub async fn extract_video(
     .await?;
 
     if !is_steg_object {
-        tracing::error!("File {} is not a steg object, user: {}", payload.steg_object_id, user);
+        tracing::error!(
+            "File {} is not a steg object, user: {}",
+            payload.steg_object_id,
+            user
+        );
         return Err(StegServiceError::InvalidPayload);
     }
     tracing::info!(
