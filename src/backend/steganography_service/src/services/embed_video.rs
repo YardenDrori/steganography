@@ -1,12 +1,20 @@
-use ffmpeg_next::format::{Pixel, input};
+use ffmpeg_next::format::input;
 use std::fs::File;
-use std::io::{BufReader, Read, Seek, SeekFrom, Write};
+use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
 use crate::services::dct::{dct_ii, idct_ii};
-use crate::services::process_frame::{self, BufferGeneric};
+use crate::services::process_frame::{self};
 use crate::services::qim::qim_embed;
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
+
+pub struct Buffer {
+    pub reader: BufReader<File>,
+    pub buffer: [u8; 1028],
+    pub bit_index: usize,
+    pub bits_read: usize,
+    pub payload_exhausted: bool,
+}
 
 pub fn embed(
     payload_path: PathBuf,
@@ -29,9 +37,8 @@ pub fn embed(
         .map_err(|_| StegServiceError::FileError)?
         .len()
         .to_le_bytes();
-    let mut buffer = BufferGeneric {
-        reader: Some(BufReader::new(file_pointer)),
-        writer: None,
+    let mut buffer = Buffer {
+        reader: BufReader::new(file_pointer),
         buffer: [0; 1028],
         bit_index: 0,
         // we initialize this as 64 becasue we use this the first 64 bits to embed the header which
@@ -210,7 +217,7 @@ fn drain_decoder(
     input_time_base: ffmpeg_next::Rational,
     output_time_base: ffmpeg_next::Rational,
     configs: &EmbedConfigs,
-    buffer: &mut BufferGeneric,
+    buffer: &mut Buffer,
 ) -> Result<(), StegServiceError> {
     loop {
         let mut frame = ffmpeg_next::frame::Video::empty();
@@ -263,7 +270,7 @@ fn drain_encoder(
 fn embed_in_channel(
     frame: &mut ffmpeg_next::frame::Video,
     configs: &EmbedConfigs,
-    payload_buffer: &mut BufferGeneric,
+    payload_buffer: &mut Buffer,
     plane_id: usize,
     plane_width: u32,
     plane_height: u32,
@@ -300,8 +307,6 @@ fn embed_in_channel(
                 if payload_buffer.bit_index >= payload_buffer.bits_read {
                     payload_buffer.bits_read = payload_buffer
                         .reader
-                        .as_mut()
-                        .unwrap()
                         .read(&mut payload_buffer.buffer)
                         .map_err(|_| StegServiceError::FileError)?
                         * 8;
@@ -312,10 +317,9 @@ fn embed_in_channel(
                     }
                 }
                 // hell yeah i LOVE bit twiddling 😭😭😭
-                let target_bit = (payload_buffer.buffer[payload_buffer.bit_index / 8]
-                    >> (7 - payload_buffer.bit_index % 8))
-                    & 0x1
-                    == 1;
+                let target_byte = payload_buffer.buffer[payload_buffer.bit_index / 8];
+                let target_bit = (target_byte >> 7 - payload_buffer.bit_index % 8) & 0x1 == 0x1;
+
                 payload_buffer.bit_index += 1;
 
                 frame_dct_representation =
