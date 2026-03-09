@@ -1,0 +1,76 @@
+use crate::{
+    app_state::AppState,
+    dtos::ExtractFileRequest,
+    errors::steg_service_error::StegServiceError,
+    services::{embed_video::embed, files_client},
+};
+use axum::{Json, extract::State, http::StatusCode};
+use files_dtos::FileResponse;
+use shared_global::auth::user_extractors::AuthenticatedUserWithToken;
+
+pub async fn extract_video(
+    State(app_state): State<AppState>,
+    AuthenticatedUserWithToken(user, access_token): AuthenticatedUserWithToken,
+    Json(payload): Json<ExtractFileRequest>,
+) -> Result<(StatusCode, Json<FileResponse>), StegServiceError> {
+    tracing::info!("User with id: {} attempting to embed video", user);
+    let files_service_url = app_state
+        .eureka_config
+        .read()
+        .unwrap()
+        .services
+        .get("files_service")
+        .ok_or(StegServiceError::EurekaConfigError)?
+        .to_string();
+
+    let (steg_object_path, _, is_valid, filename) = files_client::download_file_to_temp(
+        &app_state.client,
+        &files_service_url,
+        payload.steg_object_id,
+        &access_token,
+    )
+    .await?;
+
+    if !is_valid {
+        tracing::error!("Invalid payload for user: {}", user);
+        return Err(StegServiceError::InvalidPayload);
+    }
+    tracing::info!(
+        "Found steg_object file for user: {}. Attmpting to embed video",
+        user
+    );
+
+    //since steg work is CPU bound thus blocking we make a dedicated thread for it to not starve
+    //other async processes in this step
+    let steg_object_path_cline = steg_object_path.clone();
+    let output_path = tokio::task::spawn_blocking(move || {
+        embed(payload_path_clone, carrier_path_clone, payload.configs)
+    })
+    .await
+    .map_err(|_| StegServiceError::Other("embed task panicked".to_string()))??;
+
+    tracing::info!("Successfully embedded video. Attemoting to upload to files service");
+
+    let steg_file_remote_pointer = files_client::upload_file_to_files_service(
+        payload_path,
+        carrier_path,
+        output_path,
+        payload_filename,
+        carrier_filename,
+        &app_state.client,
+        &files_service_url,
+        &access_token,
+    )
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to upload file to files service");
+        e
+    })?;
+
+    tracing::info!(
+        "Succesfully uploaded file to files service. Steganography pipeline complete for user: {}",
+        user
+    );
+
+    Ok((StatusCode::CREATED, Json(steg_file_remote_pointer)))
+}
