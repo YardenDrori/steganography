@@ -35,7 +35,9 @@ pub async fn proxy_request(service_url: &str, req: Request) -> Result<Response, 
     let backend_response = client
         .request(method, &url)
         .headers(headers)
-        .body(reqwest::Body::wrap_stream(req.into_body().into_data_stream()))
+        .body(reqwest::Body::wrap_stream(
+            req.into_body().into_data_stream(),
+        ))
         .send()
         .await
         .map_err(|e| {
@@ -116,7 +118,7 @@ pub async fn files_handler(
 }
 
 /// Handler for /api/embed/*
-pub async fn embed_handler(
+pub async fn steg_handler(
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> Result<Response, StatusCode> {

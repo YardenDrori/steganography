@@ -1,11 +1,11 @@
 mod app_state;
 use std::sync::{Arc, RwLock};
 mod proxy;
+use axum::http::HeaderValue;
 use axum::routing::any;
 use axum::Router;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
-use axum::http::HeaderValue;
 
 use crate::app_state::AppState;
 
@@ -43,10 +43,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to register with eureka");
 
     // cors stuff
-    let frontend_url = std::env::var("FRONTEND_URL")
-        .unwrap_or_else(|_| "http://localhost:5173".to_string());
+    let frontend_url =
+        std::env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
     let cors = CorsLayer::new()
-        .allow_origin(frontend_url.parse::<HeaderValue>().expect("Invalid FRONTEND_URL"))
+        .allow_origin(
+            frontend_url
+                .parse::<HeaderValue>()
+                .expect("Invalid FRONTEND_URL"),
+        )
         .allow_methods([
             axum::http::Method::GET,
             axum::http::Method::POST,
@@ -66,7 +70,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/auth/*path", any(proxy::auth_handler))
         .route("/api/users/*path", any(proxy::user_handler))
         .route("/api/files/*path", any(proxy::files_handler))
-        .route("/api/embed/*path", any(proxy::embed_handler))
+        .route("/api/embed/*path", any(proxy::steg_handler))
+        .route("/api/extract/*path", any(proxy::steg_handler))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state.into());
