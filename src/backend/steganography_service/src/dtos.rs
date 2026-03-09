@@ -35,6 +35,7 @@ pub struct EmbedFileRequest {
     pub configs: EmbedConfigs,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExtractFileRequest {
     pub steg_object_id: i64,
     pub configs: EmbedConfigs,
