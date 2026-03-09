@@ -1,23 +1,27 @@
 use ffmpeg_next::format::input;
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
 
 use crate::services::dct::dct_ii;
-use crate::services::process_frame::{self, BufferGeneric};
+use crate::services::process_frame::{self};
 use crate::services::qim::qim_extract;
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
+
+pub struct Buffer {
+    pub writer: BufWriter<File>,
+    pub buffer: [u8; 1028],
+    pub bit_index: usize,
+}
 
 pub fn embed(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, StegServiceError> {
     let output_payload = tempfile::NamedTempFile::new().map_err(|_| StegServiceError::FileError)?;
     let file_pointer =
         File::create(output_payload.path()).map_err(|_| StegServiceError::FileError)?;
-    let mut buffer = BufferGeneric {
-        reader: None,
-        writer: Some(BufWriter::new(file_pointer)),
+    let mut buffer = Buffer {
+        writer: BufWriter::new(file_pointer),
         buffer: [0; 1028],
         bit_index: 0,
-        bits_read: 0,
     };
 
     ffmpeg_next::init().map_err(|e| StegServiceError::FfmpegError(e))?;
@@ -49,13 +53,52 @@ pub fn embed(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, Ste
         }
     }
 
-    todo!()
+    // flush decoder
+    decoder
+        .send_eof()
+        .map_err(|e| StegServiceError::FfmpegError(e))?;
+    drain_decoer(&mut decoder, &configs, &mut buffer)?;
+
+    // flush any remaining partial buffer (last chunk may not be exactly 1028 bytes)
+    if buffer.bit_index > 0 {
+        let bytes_to_write = (buffer.bit_index + 7) / 8;
+        buffer
+            .writer
+            .write_all(&buffer.buffer[..bytes_to_write])
+            .map_err(|_| StegServiceError::FileError)?;
+    }
+    buffer
+        .writer
+        .flush()
+        .map_err(|_| StegServiceError::FileError)?;
+    drop(buffer.writer);
+
+    // the embedder wrote an 8-byte LE u64 header first; read it to get the payload size,
+    // then copy exactly that many bytes to a clean output file
+    let mut raw = File::open(output_payload.path()).map_err(|_| StegServiceError::FileError)?;
+    let mut header = [0u8; 8];
+    raw.read_exact(&mut header)
+        .map_err(|_| StegServiceError::FileError)?;
+    let payload_size = u64::from_le_bytes(header);
+
+    let final_output = tempfile::NamedTempFile::new().map_err(|_| StegServiceError::FileError)?;
+    {
+        let mut final_file =
+            File::create(final_output.path()).map_err(|_| StegServiceError::FileError)?;
+        std::io::copy(&mut raw.take(payload_size), &mut final_file)
+            .map_err(|_| StegServiceError::FileError)?;
+    }
+
+    let (_, output_path) = final_output
+        .keep()
+        .map_err(|_| StegServiceError::FileError)?;
+    Ok(output_path)
 }
 
 fn drain_decoer(
     decoder: &mut ffmpeg_next::codec::decoder::Video,
     configs: &EmbedConfigs,
-    buffer: &mut BufferGeneric,
+    buffer: &mut Buffer,
 ) -> Result<(), StegServiceError> {
     loop {
         let mut frame = ffmpeg_next::frame::Video::empty();
@@ -73,23 +116,16 @@ fn drain_decoer(
 fn extract_from_channel(
     frame: &mut ffmpeg_next::frame::Video,
     configs: &EmbedConfigs,
-    buffer: &mut BufferGeneric,
+    buffer: &mut Buffer,
     plane_id: usize,
     plane_width: u32,
     plane_height: u32,
 ) -> Result<(), StegServiceError> {
     let stride = frame.stride(plane_id);
     let frame_data = frame.data_mut(plane_id);
-    let mut payload_full = false;
 
     for row in 0..(plane_height / 4) {
-        if payload_full {
-            break;
-        }
         for col in 0..(plane_width / 4) {
-            if payload_full {
-                break;
-            }
             let frame_data_index = (row * 4) as usize * stride + (col * 4) as usize;
 
             //we extract the block and because we need a matrix slice of the array we gotta convert it
@@ -106,10 +142,21 @@ fn extract_from_channel(
                 if configs.coefficients_to_embed[i] == false {
                     continue;
                 }
+                // hell yeah i LOVE bit twiddling (part 2) 😭😭😭
                 let payload_bit = qim_extract(frame_dct_representation, configs.delta, i);
+                buffer.buffer[buffer.bit_index / 8] <<= 1;
+                buffer.buffer[buffer.bit_index / 8] |= if payload_bit { 0x1 } else { 0x0 };
+                buffer.bit_index += 1;
+                if buffer.bit_index >= buffer.buffer.len() * 8 {
+                    buffer
+                        .writer
+                        .write_all(&buffer.buffer)
+                        .map_err(|_| StegServiceError::FileError)?;
+                    buffer.bit_index = 0;
+                    buffer.buffer = [0; 1028];
+                }
             }
         }
     }
-
-    todo!()
+    Ok(())
 }
