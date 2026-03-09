@@ -2,7 +2,7 @@ use crate::{
     app_state::AppState,
     dtos::ExtractFileRequest,
     errors::steg_service_error::StegServiceError,
-    services::{embed_video::embed, files_client},
+    services::{extract_file::extract, files_client},
 };
 use axum::{Json, extract::State, http::StatusCode};
 use files_dtos::FileResponse;
@@ -13,7 +13,7 @@ pub async fn extract_video(
     AuthenticatedUserWithToken(user, access_token): AuthenticatedUserWithToken,
     Json(payload): Json<ExtractFileRequest>,
 ) -> Result<(StatusCode, Json<FileResponse>), StegServiceError> {
-    tracing::info!("User with id: {} attempting to embed video", user);
+    tracing::info!("User with id: {} attempting to extract video", user);
     let files_service_url = app_state
         .eureka_config
         .read()
@@ -23,7 +23,7 @@ pub async fn extract_video(
         .ok_or(StegServiceError::EurekaConfigError)?
         .to_string();
 
-    let (steg_object_path, _, is_valid, filename) = files_client::download_file_to_temp(
+    let (steg_object_path, _, is_steg_object, filename) = files_client::download_file_to_temp(
         &app_state.client,
         &files_service_url,
         payload.steg_object_id,
@@ -31,46 +31,41 @@ pub async fn extract_video(
     )
     .await?;
 
-    if !is_valid {
-        tracing::error!("Invalid payload for user: {}", user);
+    if !is_steg_object {
+        tracing::error!("File {} is not a steg object, user: {}", payload.steg_object_id, user);
         return Err(StegServiceError::InvalidPayload);
     }
     tracing::info!(
-        "Found steg_object file for user: {}. Attmpting to embed video",
+        "Found steg object for user: {}. Attempting to extract payload",
         user
     );
 
-    //since steg work is CPU bound thus blocking we make a dedicated thread for it to not starve
-    //other async processes in this step
-    let steg_object_path_cline = steg_object_path.clone();
-    let output_path = tokio::task::spawn_blocking(move || {
-        embed(payload_path_clone, carrier_path_clone, payload.configs)
-    })
-    .await
-    .map_err(|_| StegServiceError::Other("embed task panicked".to_string()))??;
+    let steg_object_path_clone = steg_object_path.clone();
+    let output_path =
+        tokio::task::spawn_blocking(move || extract(steg_object_path_clone, payload.configs))
+            .await
+            .map_err(|_| StegServiceError::Other("extract task panicked".to_string()))??;
 
-    tracing::info!("Successfully embedded video. Attemoting to upload to files service");
+    tracing::info!("Successfully extracted payload. Attempting to upload to files service");
 
-    let steg_file_remote_pointer = files_client::upload_file_to_files_service(
-        payload_path,
-        carrier_path,
+    let extracted_file = files_client::upload_extracted_file(
+        steg_object_path,
         output_path,
-        payload_filename,
-        carrier_filename,
+        format!("extracted from {}", filename),
         &app_state.client,
         &files_service_url,
         &access_token,
     )
     .await
     .map_err(|e| {
-        tracing::error!("Failed to upload file to files service");
+        tracing::error!("Failed to upload extracted file to files service");
         e
     })?;
 
     tracing::info!(
-        "Succesfully uploaded file to files service. Steganography pipeline complete for user: {}",
+        "Successfully uploaded extracted file. Extraction pipeline complete for user: {}",
         user
     );
 
-    Ok((StatusCode::CREATED, Json(steg_file_remote_pointer)))
+    Ok((StatusCode::CREATED, Json(extracted_file)))
 }
