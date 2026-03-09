@@ -17,8 +17,14 @@ pub enum FilesServiceError {
 impl IntoResponse for FilesServiceError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
-            Self::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
-            Self::StorageError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
+            Self::DatabaseError(e) => {
+                tracing::warn!("Error: {:?}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            }
+            Self::StorageError(e) => {
+                tracing::warn!("Error: {:?}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            }
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized"),
             Self::NotFound => (StatusCode::NOT_FOUND, "Resource not found"),
         };
