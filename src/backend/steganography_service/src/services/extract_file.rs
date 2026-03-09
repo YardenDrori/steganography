@@ -14,7 +14,7 @@ pub struct Buffer {
     pub bit_index: usize,
 }
 
-pub fn embed(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, StegServiceError> {
+pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, StegServiceError> {
     let output_payload = tempfile::NamedTempFile::new().map_err(|_| StegServiceError::FileError)?;
     let file_pointer =
         File::create(output_payload.path()).map_err(|_| StegServiceError::FileError)?;
