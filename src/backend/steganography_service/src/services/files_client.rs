@@ -13,7 +13,7 @@ pub async fn download_file_to_temp(
     files_service_url: &str,
     file_id: i64,
     bearer_token: &str,
-) -> Result<(PathBuf, bool, String), StegServiceError> {
+) -> Result<(PathBuf, bool, bool, String), StegServiceError> {
     // Fetch file metadata to check is_carrier
     let meta_response = client
         .get(format!("{}/files/{}", files_service_url, file_id))
@@ -33,6 +33,7 @@ pub async fn download_file_to_temp(
         .await
         .map_err(|_| StegServiceError::ParsingError)?;
     let is_carrier = meta.is_carrier;
+    let is_steg_object = meta.is_steg_object;
     let filename = meta.filename;
 
     // Download the actual file bytes
@@ -75,7 +76,7 @@ pub async fn download_file_to_temp(
 
     let (_file, file_buf) = temp_file.keep().map_err(|_| StegServiceError::FileError)?;
 
-    Ok((file_buf, is_carrier, filename))
+    Ok((file_buf, is_carrier, is_steg_object, filename))
 }
 
 pub async fn upload_file_to_files_service(
