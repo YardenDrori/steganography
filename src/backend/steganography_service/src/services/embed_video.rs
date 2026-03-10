@@ -7,10 +7,10 @@ use std::path::PathBuf;
 
 use crate::services::dct::{dct_ii, idct_ii};
 use crate::services::process_frame::{self};
-use crate::services::qim::qim_embed;
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
 
-// the method i hate the most as i feel it is quite messy and unorganized
+const HEADER_SIZE_BITS: usize = 64;
+
 pub struct PayloadBuffer {
     pub reader: BufReader<File>,
     pub buffer: [u8; 1028],
@@ -23,7 +23,6 @@ struct EmbedState {
     pub coeffs_for_bit_index: u8,
 }
 
-const HEADER_SIZE_BITS: usize = 64;
 pub fn embed(
     payload_path: PathBuf,
     carrier_path: PathBuf,
@@ -178,6 +177,7 @@ pub fn embed(
                 output_time_base,
                 &configs,
                 &mut buffer,
+                &mut service_state,
             )?;
         }
     }
@@ -195,6 +195,7 @@ pub fn embed(
         output_time_base,
         &configs,
         &mut buffer,
+        &mut service_state,
     )?;
 
     //if the payload isnt exhausted we didnt write the entire payload but did finish the loop
@@ -233,12 +234,13 @@ fn drain_decoder(
     output_time_base: ffmpeg_next::Rational,
     configs: &EmbedConfigs,
     buffer: &mut PayloadBuffer,
+    state: &mut EmbedState,
 ) -> Result<(), StegServiceError> {
     loop {
         let mut frame = ffmpeg_next::frame::Video::empty();
         match decoder.receive_frame(&mut frame) {
             Ok(_) => {
-                process_frame::process_frame(&mut frame, configs, buffer, embed_in_channel)?;
+                process_frame::process_frame(configs, state, buffer, &mut frame, embed_in_channel)?;
                 encoder
                     .send_frame(&frame)
                     .map_err(|e| StegServiceError::FfmpegError(e))?;
@@ -291,111 +293,16 @@ fn drain_encoder(
 }
 
 fn embed_in_channel(
+    _configs: &EmbedConfigs,
+    _state: &mut EmbedState,
+    _payload_buffer: &mut PayloadBuffer,
     frame: &mut ffmpeg_next::frame::Video,
-    configs: &EmbedConfigs,
-    payload_buffer: &mut Buffer,
-    plane_id: usize,
-    plane_width: u32,
-    plane_height: u32,
+    _plane_height: u32,
+    _plane_width: u32,
+    _plane_id: usize,
 ) -> Result<(), StegServiceError> {
     if !frame.is_key() {
         return Ok(());
     }
-    let stride = frame.stride(plane_id);
-    let frame_data = frame.data_mut(plane_id);
-
-    for row in 0..(plane_height / 4 / BLOCKS_PER_MACROBLOCK as u32) {
-        if payload_buffer.payload_exhausted {
-            break;
-        }
-        for col in 0..(plane_width / 4 / BLOCKS_PER_MACROBLOCK as u32) {
-            if payload_buffer.payload_exhausted {
-                break;
-            }
-            let frame_data_index =
-                (row as usize * stride * 4 + col as usize * 4) * BLOCKS_PER_MACROBLOCK as usize;
-
-            //we extract the block and because we need a matrix slice of the array we gotta convert it
-            //to a matrix (we still store it as an array that represents a matrix as i dont wanna
-            //refactor dct and qim it makes no difference)
-            let mut block = [0u8; 16];
-            for i in 0..4 {
-                for j in 0..4 {
-                    block[j + i * 4] = frame_data[j + frame_data_index + i * stride];
-                }
-            }
-
-            let mut frame_dct_representation = dct_ii(&block);
-
-            //like seriously the nest depth here comes to a max of 6 deep jesus
-            for i in 0..16 {
-                if configs.coefficients_to_embed[i] == false {
-                    continue;
-                }
-
-                //progress payload - i know u said dont explain what explain why but honestly this
-                //code is so messy im struggling to follow otherwise
-                if payload_buffer.coeffs_for_bit_index >= configs.coefficients_per_bit {
-                    //hell yeah i love handling like 3 indeces at once
-                    payload_buffer.bit_index += 1;
-                    payload_buffer.coeffs_for_bit_index = 0;
-
-                    if payload_buffer.bit_index >= payload_buffer.bits_read {
-                        payload_buffer.bits_read = payload_buffer
-                            .reader
-                            .read(&mut payload_buffer.buffer)
-                            .map_err(|_| StegServiceError::FileError)?
-                            * 8;
-                        payload_buffer.bit_index = 0;
-                        if payload_buffer.bits_read == 0 {
-                            payload_buffer.payload_exhausted = true;
-                            break;
-                        }
-                    }
-                } else {
-                    payload_buffer.coeffs_for_bit_index += 1;
-                }
-
-                // hell yeah i LOVE bit twiddling 😭😭😭
-                // yeah i know we can cache this as we calc this multiple times per bit im too
-                // spitefull of the code to do so
-                let target_byte = payload_buffer.buffer[payload_buffer.bit_index / 8];
-                let target_bit = (target_byte >> 7 - payload_buffer.bit_index % 8) & 0x1 == 0x1;
-
-                let dc_before = frame_dct_representation[crate::services::qim::ZIGZAG[i]];
-
-                stdm::stdm_embed(
-                    &mut frame_dct_representation,
-                    &configs.seed,
-                    target_bit,
-                    configs.delta,
-                )?;
-
-                let dc_after = frame_dct_representation[crate::services::qim::ZIGZAG[i]];
-
-                //logging
-                if payload_buffer.blocks_logged < 10 {
-                    tracing::debug!(
-                        "[EMBED] plane={} block=({},{}) coeff={} bit={} dc_before={:.1} dc_after={:.1}",
-                        plane_id,
-                        row,
-                        col,
-                        i,
-                        target_bit as u8,
-                        dc_before,
-                        dc_after
-                    );
-                    payload_buffer.blocks_logged += 1;
-                }
-            }
-
-            let embedded_block = idct_ii(&frame_dct_representation);
-            for i in 0..4 {
-                for j in 0..4 {
-                    frame_data[j + frame_data_index + i * stride] = embedded_block[j + i * 4];
-                }
-            }
-        }
-    }
-    Ok(())
+    todo!()
 }

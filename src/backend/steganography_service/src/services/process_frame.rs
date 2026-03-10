@@ -40,20 +40,22 @@ pub fn find_dimensions_for_codec(
     Err(StegServiceError::UnsupportedCodec)
 }
 
-pub fn process_frame<F, T>(
-    frame: &mut ffmpeg_next::frame::Video,
+pub fn process_frame<F, T, W>(
     configs: &EmbedConfigs,
+    state: &mut W,
     buffer: &mut T,
+    frame: &mut ffmpeg_next::frame::Video,
     channel_method: F,
 ) -> Result<(), StegServiceError>
 where
     F: Fn(
-        &mut ffmpeg_next::frame::Video,
         &EmbedConfigs,
+        &mut W,
         &mut T,
+        &mut ffmpeg_next::frame::Video,
+        u32,
+        u32,
         usize,
-        u32,
-        u32,
     ) -> Result<(), StegServiceError>,
 {
     //allows to add more codecs, eg RGB also allows prioritizing best channel to embed in by
@@ -63,13 +65,13 @@ where
             find_dimensions_for_codec(frame, configs)?;
 
         if yuv.y {
-            channel_method(frame, configs, buffer, Y_PLANE, y_wdith, y_height)?;
+            channel_method(configs, state, buffer, frame, y_wdith, y_height, Y_PLANE)?;
         }
         if yuv.cb {
-            channel_method(frame, configs, buffer, CB_PLANE, u_width, u_height)?;
+            channel_method(configs, state, buffer, frame, u_width, u_height, CB_PLANE)?;
         }
         if yuv.cr {
-            channel_method(frame, configs, buffer, CR_PLANE, v_width, v_height)?;
+            channel_method(configs, state, buffer, frame, v_width, v_height, CR_PLANE)?;
         }
     } else {
         return Err(StegServiceError::UnsupportedCodec);
