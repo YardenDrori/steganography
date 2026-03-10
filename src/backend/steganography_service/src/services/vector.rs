@@ -58,10 +58,28 @@ pub fn calculate_dot_product(coeffs: &[f64], unit_vector: &[f64]) -> Result<f64,
                 .to_string(),
         ));
     }
-
     let mut sum = 0.0;
     for i in 0..coeffs.len() {
         sum += coeffs[i] * unit_vector[i];
     }
     Ok(sum)
+}
+
+pub fn do_back_projection_on_coeffs(
+    coeffs: &mut [f64],
+    unit_vector: &[f64],
+    original_dot_operation_value: f64,
+    modified_dot_operation_value: f64,
+) -> Result<(), StegServiceError> {
+    if coeffs.len() != unit_vector.len() {
+        return Err(StegServiceError::Other(
+            "called \"do_back_projection_on_coeffs\" with coeffs and unit arrays of differing lengths"
+                .to_string(),
+        ));
+    }
+    let dot_diff = modified_dot_operation_value - original_dot_operation_value;
+    for i in 0..coeffs.len() {
+        coeffs[i] += dot_diff * unit_vector[i];
+    }
+    Ok(())
 }
