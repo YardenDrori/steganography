@@ -1,4 +1,5 @@
 use crate::errors::steg_service_error::StegServiceError;
+use crate::services::qim::qim_extract;
 use crate::services::{qim, vector};
 
 pub fn stdm_embed(
@@ -21,4 +22,13 @@ pub fn stdm_embed(
     )?;
 
     Ok(())
+}
+
+pub fn stdm_extract(coeffs: &[f64], seed: String, delta: u8) -> Result<bool, StegServiceError> {
+    let unit_vector = vector::generate_unit_vector(seed, coeffs.len())?;
+
+    let dot_product = vector::calculate_dot_product(&coeffs, &unit_vector)?;
+
+    let bit = qim_extract(dot_product, delta);
+    Ok(bit)
 }
