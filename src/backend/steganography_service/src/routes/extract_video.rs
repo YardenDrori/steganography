@@ -52,11 +52,12 @@ pub async fn extract_video(
 
     tracing::info!("Successfully extracted payload. Attempting to upload to files service");
 
-    let payload_filename = filename
+    let mut payload_filename = filename
         .split(" -> ")
         .next()
         .unwrap_or(&filename)
         .to_string();
+    payload_filename = format!("{}(1)", payload_filename);
 
     let extracted_file = files_client::upload_extracted_file(
         steg_object_path,
