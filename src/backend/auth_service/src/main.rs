@@ -13,11 +13,11 @@ use std::sync::{Arc, RwLock};
 use tokio::time::{sleep, Duration};
 
 use crate::app_state::AppState;
-use tower_http::trace::TraceLayer;
 use axum::{
     routing::{delete, get, patch, post},
     Router,
 };
+use tower_http::trace::TraceLayer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -133,14 +133,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    for i in 1..10 {
-        if !config.read().unwrap().services.contains_key("user_service") {
-            tracing::warn!("couldn't find user_service in eureka configs waiting 30S and retrying. (attempt {}/10)", i);
-            sleep(Duration::new(30, 0)).await;
-        } else {
-            break;
-        }
-    }
+    // for i in 1..10 {
+    //     if !config.read().unwrap().services.contains_key("user_service") {
+    //         tracing::warn!("couldn't find user_service in eureka configs waiting 30S and retrying. (attempt {}/10)", i);
+    //         sleep(Duration::new(30, 0)).await;
+    //     } else {
+    //         break;
+    //     }
+    // }
     if !config.read().unwrap().services.contains_key("user_service") {
         panic!("no user_service found from eureka service maximum attempt limit reached");
     }
