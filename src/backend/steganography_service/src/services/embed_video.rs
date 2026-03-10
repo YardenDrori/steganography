@@ -1,6 +1,7 @@
 use crate::services::process_frame::BLOCKS_PER_MACROBLOCK;
 use crate::services::stdm;
 use ffmpeg_next::format::input;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
@@ -20,7 +21,7 @@ pub struct PayloadBuffer {
 
 struct EmbedState {
     pub payload_exhausted: bool,
-    pub coeffs_for_bit_index: u8,
+    pub coefficients_to_embed: HashMap<f64, Vec<u8>>,
 }
 
 pub fn embed(
@@ -50,7 +51,6 @@ pub fn embed(
     //state setup
     let mut service_state = EmbedState {
         payload_exhausted: false,
-        coeffs_for_bit_index: 0,
     };
 
     // ======== FFMPEG I/O SETUP (the big chonker) ========
@@ -293,16 +293,36 @@ fn drain_encoder(
 }
 
 fn embed_in_channel(
-    _configs: &EmbedConfigs,
+    configs: &EmbedConfigs,
     _state: &mut EmbedState,
     _payload_buffer: &mut PayloadBuffer,
     frame: &mut ffmpeg_next::frame::Video,
-    _plane_height: u32,
-    _plane_width: u32,
-    _plane_id: usize,
+    plane_height: u32,
+    plane_width: u32,
+    plane_id: usize,
 ) -> Result<(), StegServiceError> {
     if !frame.is_key() {
         return Ok(());
     }
+
+    let stride = frame.stride(plane_id) as u32;
+
+    for block_row in 0..plane_height / 4 / BLOCKS_PER_MACROBLOCK {
+        for block_col in 0..plane_width / 4 / BLOCKS_PER_MACROBLOCK {
+            //we do this fancy math to translate the block coordinate to memory coordinates in the
+            //frame.data() array while taking into consideration stride additionally we can change
+            //the paramater BLOCKS_PER_MACROBLOCK to 1,2,4 to change step size from 4x4 blocks, 8x8
+            //blocks to 16x16 aka a macro block for best naive robustness
+            let block_offset = 4 * block_row * stride * BLOCKS_PER_MACROBLOCK
+                + 4 * block_col * BLOCKS_PER_MACROBLOCK;
+
+            for i in 0..16 {
+                if !configs.coefficients_to_embed[i] {
+                    continue;
+                }
+            }
+        }
+    }
+
     todo!()
 }
