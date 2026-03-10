@@ -1,3 +1,4 @@
+use crate::services::process_frame::BLOCKS_PER_MACROBLOCK;
 use ffmpeg_next::format::input;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -14,6 +15,7 @@ pub struct Buffer {
     pub bit_index: usize,
     pub bits_read: usize,
     pub payload_exhausted: bool,
+    pub blocks_logged: usize,
 }
 
 pub fn embed(
@@ -45,6 +47,7 @@ pub fn embed(
         // tells the extractor how many bits are there in this file
         bits_read: 64,
         payload_exhausted: false,
+        blocks_logged: 0,
     };
     buffer.buffer[0..8].copy_from_slice(&file_size);
 
@@ -275,19 +278,23 @@ fn embed_in_channel(
     plane_width: u32,
     plane_height: u32,
 ) -> Result<(), StegServiceError> {
+    if !frame.is_key() {
+        return Ok(());
+    }
     let stride = frame.stride(plane_id);
     let frame_data = frame.data_mut(plane_id);
 
-    for row in 0..(plane_height / 4) {
+    for row in 0..(plane_height / 4 / BLOCKS_PER_MACROBLOCK as u32) {
         if payload_buffer.payload_exhausted {
             break;
         }
-        for col in 0..(plane_width / 4) {
+        for col in 0..(plane_width / 4 / BLOCKS_PER_MACROBLOCK as u32) {
             if payload_buffer.payload_exhausted {
                 break;
             }
 
-            let frame_data_index = (row * 4) as usize * stride + (col * 4) as usize;
+            let frame_data_index =
+                (row as usize * stride * 4 + col as usize * 4) * BLOCKS_PER_MACROBLOCK as usize;
 
             //we extract the block and because we need a matrix slice of the array we gotta convert it
             //to a matrix (we still store it as an array that represents a matrix as i dont wanna
@@ -320,10 +327,28 @@ fn embed_in_channel(
                 let target_byte = payload_buffer.buffer[payload_buffer.bit_index / 8];
                 let target_bit = (target_byte >> 7 - payload_buffer.bit_index % 8) & 0x1 == 0x1;
 
+                let dc_before = frame_dct_representation[crate::services::qim::ZIGZAG[i]];
+
                 payload_buffer.bit_index += 1;
 
                 frame_dct_representation =
                     qim_embed(frame_dct_representation, target_bit, configs.delta, i);
+
+                let dc_after = frame_dct_representation[crate::services::qim::ZIGZAG[i]];
+
+                if payload_buffer.blocks_logged < 10 {
+                    tracing::debug!(
+                        "[EMBED] plane={} block=({},{}) coeff={} bit={} dc_before={:.1} dc_after={:.1}",
+                        plane_id,
+                        row,
+                        col,
+                        i,
+                        target_bit as u8,
+                        dc_before,
+                        dc_after
+                    );
+                    payload_buffer.blocks_logged += 1;
+                }
             }
 
             let embedded_block = idct_ii(&frame_dct_representation);

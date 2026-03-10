@@ -1,3 +1,4 @@
+use crate::services::process_frame::BLOCKS_PER_MACROBLOCK;
 use ffmpeg_next::format::input;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
@@ -12,6 +13,7 @@ pub struct Buffer {
     pub writer: BufWriter<File>,
     pub buffer: [u8; 1028],
     pub bit_index: usize,
+    pub blocks_logged: usize,
 }
 
 pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, StegServiceError> {
@@ -22,6 +24,7 @@ pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, S
         writer: BufWriter::new(file_pointer),
         buffer: [0; 1028],
         bit_index: 0,
+        blocks_logged: 0,
     };
 
     ffmpeg_next::init().map_err(|e| StegServiceError::FfmpegError(e))?;
@@ -121,12 +124,16 @@ fn extract_from_channel(
     plane_width: u32,
     plane_height: u32,
 ) -> Result<(), StegServiceError> {
+    if !frame.is_key() {
+        return Ok(());
+    }
     let stride = frame.stride(plane_id);
     let frame_data = frame.data_mut(plane_id);
 
-    for row in 0..(plane_height / 4) {
-        for col in 0..(plane_width / 4) {
-            let frame_data_index = (row * 4) as usize * stride + (col * 4) as usize;
+    for row in 0..(plane_height / 4 / BLOCKS_PER_MACROBLOCK as u32) {
+        for col in 0..(plane_width / 4 / BLOCKS_PER_MACROBLOCK as u32) {
+            let frame_data_index =
+                ((row as usize * stride * 4) + (col * 4) as usize) * BLOCKS_PER_MACROBLOCK as usize;
 
             //we extract the block and because we need a matrix slice of the array we gotta convert it
             //to a matrix (we still store it as an array that represents a matrix as i dont wanna
@@ -138,12 +145,34 @@ fn extract_from_channel(
                 }
             }
             let frame_dct_representation = dct_ii(&block);
+
             for i in 0..16 {
                 if configs.coefficients_to_embed[i] == false {
                     continue;
                 }
                 // hell yeah i LOVE bit twiddling (part 2) 😭😭😭
                 let payload_bit = qim_extract(frame_dct_representation, configs.delta, i);
+
+                if buffer.blocks_logged < 10 {
+                    let coeff_val = frame_dct_representation[crate::services::qim::ZIGZAG[i]];
+                    let delta_f = configs.delta as f64;
+                    let dist_true = (coeff_val - (coeff_val / delta_f).round() * delta_f).abs();
+                    let dist_false =
+                        (coeff_val - ((coeff_val / delta_f - 0.5).round() + 0.5) * delta_f).abs();
+                    tracing::debug!(
+                        "[EXTRACT] plane={} block=({},{}) coeff={} dc={:.1} dist_true={:.1} dist_false={:.1} -> bit={}",
+                        plane_id,
+                        row,
+                        col,
+                        i,
+                        coeff_val,
+                        dist_true,
+                        dist_false,
+                        payload_bit as u8
+                    );
+                    buffer.blocks_logged += 1;
+                }
+
                 buffer.buffer[buffer.bit_index / 8] <<= 1;
                 buffer.buffer[buffer.bit_index / 8] |= if payload_bit { 0x1 } else { 0x0 };
                 buffer.bit_index += 1;
