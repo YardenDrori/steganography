@@ -25,7 +25,7 @@ pub struct Channels {
 pub struct EmbedConfigs {
     pub channels_to_embed: Channels,
     pub coefficients_to_embed: [bool; 16],
-    pub coefficients_per_bit: u8,
+    pub coefficients_per_bit: usize,
     pub delta: u8,
     pub seed: String,
 }

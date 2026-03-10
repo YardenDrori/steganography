@@ -20,8 +20,9 @@ pub struct PayloadBuffer {
 }
 
 struct CoeffPos {
-    pub block_offset: u32,
-    pub zigzag_index: usize,
+    pub block_row: u32,
+    pub blow_col: u32,
+    pub zigzag_index: u8,
 }
 
 struct EmbedState {
@@ -56,7 +57,7 @@ pub fn embed(
     //state setup
     let mut service_state = EmbedState {
         payload_exhausted: false,
-        coefficients_to_embed: Vec::with_capacity(configs.coefficients_per_bit as usize),
+        coefficients_to_embed: HashMap::new(),
     };
 
     // ======== FFMPEG I/O SETUP (the big chonker) ========
@@ -310,8 +311,8 @@ fn embed_in_channel(
     if !frame.is_key() {
         return Ok(());
     }
-    let stride = frame.stride(plane_id);
-    let frame_data = frame.data_mut(plane_id);
+
+    let stride = frame.stride(plane_id) as u32;
 
     for block_row in 0..plane_height / 4 / BLOCKS_PER_MACROBLOCK {
         for block_col in 0..plane_width / 4 / BLOCKS_PER_MACROBLOCK {
@@ -319,34 +320,17 @@ fn embed_in_channel(
             //frame.data() array while taking into consideration stride additionally we can change
             //the paramater BLOCKS_PER_MACROBLOCK to 1,2,4 to change step size from 4x4 blocks, 8x8
             //blocks to 16x16 aka a macro block for best naive robustness
-            let block_offset = 4 * block_row * stride as u32 * BLOCKS_PER_MACROBLOCK
+            let block_offset = 4 * block_row * stride * BLOCKS_PER_MACROBLOCK
                 + 4 * block_col * BLOCKS_PER_MACROBLOCK;
-
-            let mut block_as_pixel = [0u8; 16];
-            for i in 0..4 {
-                for j in 0..4 {
-                    block_as_pixel[i * 4 + j] = frame_data[block_offset as usize + i * stride + j];
-                }
-            }
-            let block_as_dct = dct_ii(&block_as_pixel);
 
             for i in 0..16 {
                 if !configs.coefficients_to_embed[i] {
                     continue;
                 }
-                state.coefficients_to_embed.push((
-                    CoeffPos {
-                        block_offset: block_offset,
-                        zigzag_index: i,
-                    },
-                    block_as_dct[i],
-                ));
-                if state.coefficients_to_embed.len() >= configs.coefficients_per_bit {
-                    //call method here
-                    state.coefficients_to_embed.clear();
-                }
+                state.coefficients_to_embed.len
             }
         }
     }
-    Ok(())
+
+    todo!()
 }
