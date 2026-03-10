@@ -50,3 +50,18 @@ pub fn generate_unit_vector(seed: String, vec_size: usize) -> Result<Vec<f64>, S
 
     Ok(return_vec)
 }
+
+pub fn calculate_dot_product(coeffs: &[f64], unit_vector: &[f64]) -> Result<f64, StegServiceError> {
+    if coeffs.len() != unit_vector.len() {
+        return Err(StegServiceError::Other(
+            "called \"calculate_dot_product\" with coeffs and unit arrays of differing lengths"
+                .to_string(),
+        ));
+    }
+
+    let mut sum = 0.0;
+    for i in 0..coeffs.len() {
+        sum += coeffs[i] * unit_vector[i];
+    }
+    Ok(sum)
+}
