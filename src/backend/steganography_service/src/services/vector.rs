@@ -51,35 +51,41 @@ pub fn generate_unit_vector(seed: String, vec_size: usize) -> Result<Vec<f64>, S
     Ok(return_vec)
 }
 
-pub fn calculate_dot_product(coeffs: &[f64], unit_vector: &[f64]) -> Result<f64, StegServiceError> {
-    if coeffs.len() != unit_vector.len() {
+pub fn calculate_dot_product(
+    get_coeff: impl Fn(usize) -> f64,
+    coeff_count: usize,
+    unit_vector: &[f64],
+) -> Result<f64, StegServiceError> {
+    if coeff_count != unit_vector.len() {
         return Err(StegServiceError::Other(
             "called \"calculate_dot_product\" with coeffs and unit arrays of differing lengths"
                 .to_string(),
         ));
     }
     let mut sum = 0.0;
-    for i in 0..coeffs.len() {
-        sum += coeffs[i] * unit_vector[i];
+    for i in 0..coeff_count {
+        sum += get_coeff(i) * unit_vector[i];
     }
     Ok(sum)
 }
 
 pub fn do_back_projection_on_coeffs(
-    coeffs: &mut [f64],
+    get_coeff: impl Fn(usize) -> f64,
+    set_coeff: impl Fn(usize, f64),
+    coeff_count: usize,
     unit_vector: &[f64],
     original_dot_operation_value: f64,
     modified_dot_operation_value: f64,
 ) -> Result<(), StegServiceError> {
-    if coeffs.len() != unit_vector.len() {
+    if coeff_count != unit_vector.len() {
         return Err(StegServiceError::Other(
             "called \"do_back_projection_on_coeffs\" with coeffs and unit arrays of differing lengths"
                 .to_string(),
         ));
     }
     let dot_diff = modified_dot_operation_value - original_dot_operation_value;
-    for i in 0..coeffs.len() {
-        coeffs[i] += dot_diff * unit_vector[i];
+    for i in 0..coeff_count {
+        set_coeff(i, get_coeff(i) + dot_diff * unit_vector[i]);
     }
     Ok(())
 }
