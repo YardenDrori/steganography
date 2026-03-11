@@ -3,7 +3,7 @@ use crate::services::stdm;
 use ffmpeg_next::format::input;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufRead, BufReader, Read};
 use std::path::PathBuf;
 
 use crate::services::dct::{dct_ii, idct_ii};
@@ -19,14 +19,53 @@ pub struct PayloadBuffer {
     pub bits_read: usize,
 }
 
+struct EmbedState {
+    pub payload_exhausted: bool,
+    pub coeff_accumulator: CoeffAccumulator,
+}
+
 struct CoeffPos {
     pub block_offset: u32,
     pub zigzag_index: usize,
 }
 
-struct EmbedState {
-    pub payload_exhausted: bool,
-    pub coefficients_to_embed: Vec<(CoeffPos, f64)>,
+pub struct CoeffAccumulator {
+    values: Vec<f64>,
+    positions: Vec<CoeffPos>,
+    pub coeffs_per_block: HashMap<u32, Vec<f64>>,
+}
+
+impl CoeffAccumulator {
+    pub fn push(&mut self, pos: CoeffPos, value: f64) {
+        if let Some(coeffs) = self.coeffs_per_block.get_mut(&pos.block_offset) {
+            coeffs.push(value);
+        } else {
+            let mut coeffs = Vec::new();
+            coeffs.push(value);
+            self.coeffs_per_block.insert(pos.block_offset, coeffs);
+        }
+
+        self.positions.push(pos);
+        self.values.push(value);
+    }
+
+    pub fn clear_for_curr_bit(&mut self) {
+        self.positions.clear();
+        self.values.clear();
+    }
+
+    pub fn clear_all(&mut self) {
+        self.clear_for_curr_bit();
+        self.coeffs_per_block.clear();
+    }
+
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn values_mut(&mut self) -> &mut [f64] {
+        &mut self.values
+    }
 }
 
 pub fn embed(
@@ -56,7 +95,10 @@ pub fn embed(
     //state setup
     let mut service_state = EmbedState {
         payload_exhausted: false,
-        coefficients_to_embed: Vec::with_capacity(configs.coefficients_per_bit as usize),
+        coeff_accumulator: CoeffAccumulator {
+            values: Vec::with_capacity(configs.coefficients_per_bit),
+            positions: Vec::with_capacity(configs.coefficients_per_bit),
+        },
     };
 
     // ======== FFMPEG I/O SETUP (the big chonker) ========
@@ -301,7 +343,7 @@ fn drain_encoder(
 fn embed_in_channel(
     configs: &EmbedConfigs,
     state: &mut EmbedState,
-    _payload_buffer: &mut PayloadBuffer,
+    payload_buffer: &mut PayloadBuffer,
     frame: &mut ffmpeg_next::frame::Video,
     plane_height: u32,
     plane_width: u32,
@@ -310,6 +352,10 @@ fn embed_in_channel(
     if !frame.is_key() {
         return Ok(());
     }
+
+    //clear any leftovers from previous uncompleted channel embed attempts
+    state.coeff_accumulator.clear();
+
     let stride = frame.stride(plane_id);
     let frame_data = frame.data_mut(plane_id);
 
@@ -334,19 +380,95 @@ fn embed_in_channel(
                 if !configs.coefficients_to_embed[i] {
                     continue;
                 }
-                state.coefficients_to_embed.push((
+
+                state.coeff_accumulator.push(
                     CoeffPos {
                         block_offset: block_offset,
                         zigzag_index: i,
                     },
                     block_as_dct[i],
-                ));
-                if state.coefficients_to_embed.len() >= configs.coefficients_per_bit {
-                    //call method here
-                    state.coefficients_to_embed.clear();
+                );
+
+                if state.coeff_accumulator.len() >= configs.coefficients_per_bit {
+                    embed_bit_in_coefficients(state, payload_buffer, configs)?;
+
+                    // apply_modified_dct_coeffs_on_frame()
+
+                    state.coeff_accumulator.clear();
                 }
             }
         }
     }
     Ok(())
+}
+
+pub fn embed_bit_in_coefficients(
+    embed_state: &mut EmbedState,
+    payload_buffer: &mut PayloadBuffer,
+    configs: &EmbedConfigs,
+) -> Result<(), StegServiceError> {
+    if embed_state.payload_exhausted {
+        return Ok(());
+    }
+
+    let target_bit: bool;
+    if payload_buffer.bit_index >= payload_buffer.bits_read {
+        populate_payload_buffer(embed_state, payload_buffer)?;
+    }
+
+    let target_byte = payload_buffer.buffer[payload_buffer.bit_index / 8];
+    target_bit = (target_byte >> (7 - (payload_buffer.bit_index % 8))) & 0x1 == 0x1; //MSB
+    payload_buffer.bit_index += 1;
+
+    stdm::stdm_embed(
+        embed_state.coeff_accumulator.values.as_mut_slice(),
+        configs.seed.clone(),
+        target_bit,
+        configs.delta,
+    )?;
+
+    Ok(())
+}
+
+pub fn populate_payload_buffer(
+    embed_state: &mut EmbedState,
+    buffer: &mut PayloadBuffer,
+) -> Result<(), StegServiceError> {
+    if buffer.bits_read == 0 {
+        embed_state.payload_exhausted = true;
+        return Ok(());
+    }
+
+    buffer.bits_read = 0;
+    buffer.bit_index = 0;
+
+    let buffer_size_bytes = buffer.buffer.len();
+
+    while buffer.bits_read < buffer_size_bytes * 8 {
+        let bytes_read = buffer
+            .reader
+            .read(&mut buffer.buffer[(buffer.bits_read / 8)..buffer_size_bytes])
+            .map_err(|_| StegServiceError::FileError)?;
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        buffer.bits_read += bytes_read * 8;
+    }
+
+    if buffer.bits_read == 0 {
+        embed_state.payload_exhausted = true;
+    }
+
+    Ok(())
+}
+
+pub fn apply_modified_dct_coeffs_on_frame(
+    coeffs: &[f64; 16],
+    frame: &mut ffmpeg_next::frame::Video,
+) -> Result<(), StegServiceError> {
+    let block_as_pixels = idct_ii(coeffs);
+
+    todo!()
 }
