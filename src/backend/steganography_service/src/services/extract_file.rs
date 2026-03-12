@@ -3,7 +3,7 @@ use crate::services::process_frame::BLOCKS_PER_MACROBLOCK;
 use crate::services::stdm;
 use ffmpeg_next::format::input;
 use std::fs::File;
-use std::io::{BufWriter, Read, Write};
+use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
 use crate::services::dct::dct_ii;
@@ -83,7 +83,7 @@ pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, S
                 .send_packet(&packet)
                 .map_err(|e| StegServiceError::FfmpegError(e))?;
 
-            drain_decoer(&mut decoder, &configs, &mut buffer, &mut service_state)?;
+            drain_decoder(&mut decoder, &configs, &mut buffer, &mut service_state)?;
         }
     }
 
@@ -92,14 +92,14 @@ pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, S
     decoder
         .send_eof()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
-    drain_decoer(&mut decoder, &configs, &mut buffer, &mut service_state)?;
+    drain_decoder(&mut decoder, &configs, &mut buffer, &mut service_state)?;
 
-    // flush any remaining partial buffer (last chunk may not be exactly 1028 bytes)
-    if buffer.bit_index > 0 {
-        let bytes_to_write = (buffer.bit_index + 7) / 8;
+    // flush any remaining partial buffer
+    if service_state.total_extracted_bytes < service_state.payload_size {
+        let bytes_to_write = service_state.payload_size - service_state.total_extracted_bytes;
         buffer
             .writer
-            .write_all(&buffer.buffer[..bytes_to_write])
+            .write_all(&buffer.buffer[0..bytes_to_write as usize])
             .map_err(|_| StegServiceError::FileError)?;
     }
     buffer
@@ -108,31 +108,14 @@ pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, S
         .map_err(|_| StegServiceError::FileError)?;
     drop(buffer.writer);
 
-    // the embedder wrote an 8-byte LE u64 header first; read it to get the payload size,
-    // then copy exactly that many bytes to a clean output file
-    let mut raw = File::open(output_payload.path()).map_err(|_| StegServiceError::FileError)?;
-    let mut header = [0u8; 8];
-    raw.read_exact(&mut header)
-        .map_err(|_| StegServiceError::FileError)?;
-    let payload_size = u64::from_le_bytes(header);
-
-    //generate the final file the user will get
-    let final_output = tempfile::NamedTempFile::new().map_err(|_| StegServiceError::FileError)?;
-    {
-        let mut final_file =
-            File::create(final_output.path()).map_err(|_| StegServiceError::FileError)?;
-        std::io::copy(&mut raw.take(payload_size), &mut final_file)
-            .map_err(|_| StegServiceError::FileError)?;
-    }
-
     //make file not temp and get its path for the return param of this method
-    let (_, output_path) = final_output
+    let (_, output_path) = output_payload
         .keep()
         .map_err(|_| StegServiceError::FileError)?;
     Ok(output_path)
 }
 
-fn drain_decoer(
+fn drain_decoder(
     decoder: &mut ffmpeg_next::codec::decoder::Video,
     configs: &EmbedConfigs,
     buffer: &mut PayloadBuffer,
@@ -171,11 +154,23 @@ fn extract_from_channel(
         return Ok(());
     }
 
+    //clear any coefficients from previos pass as if they didnt make a bit they werent embedded and
+    //thus contain junk
+    state.coeff_accumulator.clear();
+
     let stride = frame.stride(plane_id);
     let frame_data = frame.data_mut(plane_id);
 
     for block_row in 0..(plane_height / 4 / BLOCKS_PER_MACROBLOCK as u32) {
+        if !state.extraction_ongoing {
+            break;
+        }
+
         for block_col in 0..(plane_width / 4 / BLOCKS_PER_MACROBLOCK as u32) {
+            if !state.extraction_ongoing {
+                break;
+            }
+
             //we do this fancy math to translate the block coordinate to memory coordinates in the
             //frame.data() array while taking into consideration stride additionally we can change
             //the paramater BLOCKS_PER_MACROBLOCK to 1,2,4 to change step size from 4x4 blocks, 8x8
