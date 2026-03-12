@@ -52,7 +52,7 @@ pub fn generate_unit_vector(seed: String, vec_size: usize) -> Result<Vec<f64>, S
 }
 
 pub fn calculate_dot_product(
-    get_coeff: impl Fn(usize) -> f64,
+    get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
     coeff_count: usize,
     unit_vector: &[f64],
 ) -> Result<f64, StegServiceError> {
@@ -64,14 +64,14 @@ pub fn calculate_dot_product(
     }
     let mut sum = 0.0;
     for i in 0..coeff_count {
-        sum += get_coeff(i) * unit_vector[i];
+        sum += get_coeff(i)? * unit_vector[i];
     }
     Ok(sum)
 }
 
 pub fn do_back_projection_on_coeffs(
-    get_coeff: impl Fn(usize) -> f64,
-    set_coeff: impl Fn(usize, f64),
+    get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
+    set_coeff: impl Fn(usize, f64) -> Result<(), StegServiceError>,
     coeff_count: usize,
     unit_vector: &[f64],
     original_dot_operation_value: f64,
@@ -85,7 +85,7 @@ pub fn do_back_projection_on_coeffs(
     }
     let dot_diff = modified_dot_operation_value - original_dot_operation_value;
     for i in 0..coeff_count {
-        set_coeff(i, get_coeff(i) + dot_diff * unit_vector[i]);
+        set_coeff(i, get_coeff(i)? + dot_diff * unit_vector[i])?;
     }
     Ok(())
 }

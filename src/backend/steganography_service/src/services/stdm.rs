@@ -3,8 +3,8 @@ use crate::services::qim::qim_extract;
 use crate::services::{qim, vector};
 
 pub fn stdm_embed(
-    get_coeff: impl Fn(usize) -> f64,
-    set_coeff: impl Fn(usize, f64),
+    get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
+    set_coeff: impl Fn(usize, f64) -> Result<(), StegServiceError>,
     coeff_count: usize,
     seed: String,
     bit_to_embed: bool,
@@ -30,7 +30,7 @@ pub fn stdm_embed(
 }
 
 pub fn stdm_extract(
-    get_coeff: impl Fn(usize) -> f64,
+    get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
     coeff_count: usize,
     seed: String,
     delta: u8,
