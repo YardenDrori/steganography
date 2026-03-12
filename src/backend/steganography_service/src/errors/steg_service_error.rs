@@ -21,6 +21,7 @@ pub enum StegServiceError {
 
 impl IntoResponse for StegServiceError {
     fn into_response(self) -> Response {
+        tracing::error!("StegServiceError: {:?}", self);
         let (status, message) = match self {
             Self::InsufficientCapacity => (
                 StatusCode::BAD_REQUEST,
