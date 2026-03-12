@@ -490,7 +490,7 @@ fn apply_modified_dct_coeffs_on_frame(
 }
 
 /// NOTE: assumes header bits are fully consumed before first call
-pub fn populate_payload_buffer(
+fn populate_payload_buffer(
     embed_state: &mut EmbedState,
     buffer: &mut PayloadBuffer,
 ) -> Result<(), StegServiceError> {
