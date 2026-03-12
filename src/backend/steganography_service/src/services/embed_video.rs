@@ -10,7 +10,7 @@ use crate::services::dct::{dct_ii, idct_ii};
 use crate::services::process_frame::{self};
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
 
-const HEADER_SIZE_BITS: usize = 64;
+pub const HEADER_SIZE_BITS: usize = 64;
 
 struct PayloadBuffer {
     pub reader: BufReader<File>,
