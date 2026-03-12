@@ -245,6 +245,22 @@ fn write_bit_to_payload_buffer(
         return Ok(());
     }
 
+    // check payload completion after every complete byte — without this, extraction_ongoing is
+    // never set for payloads smaller than the buffer (8224 bits), causing the entire video to be
+    // drained into the buffer and the output to be flooded with garbage
+    if state.payload_size > 0 && buffer.bit_index % 8 == 0 {
+        let total_bytes_so_far = state.total_extracted_bytes + (buffer.bit_index as u64 / 8);
+        if total_bytes_so_far >= state.payload_size {
+            buffer
+                .writer
+                .write_all(&buffer.buffer[0..(buffer.bit_index / 8)])
+                .map_err(|_| StegServiceError::FileError)?;
+            state.total_extracted_bytes = total_bytes_so_far;
+            state.extraction_ongoing = false;
+            return Ok(());
+        }
+    }
+
     // flush buffer to file when full
     if buffer.bit_index >= buffer.buffer.len() * 8 {
         buffer
