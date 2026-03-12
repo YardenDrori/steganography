@@ -133,9 +133,13 @@ pub fn embed(
         .video()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
 
-    let input_codec = decoder.codec().ok_or(StegServiceError::FfmpegError(
+    let codec_id = decoder.codec().ok_or(StegServiceError::FfmpegError(
         ffmpeg_next::Error::InvalidData,
-    ))?;
+    ))?.id();
+
+    // Find the encoder by codec ID (decoder.codec() returns a decoder — we need the encoder)
+    let encoder_codec = ffmpeg_next::encoder::find(codec_id)
+        .ok_or(StegServiceError::UnsupportedCodec)?;
 
     //prepare info for the steg_object
     let output_path = PathBuf::from(format!(
@@ -149,7 +153,7 @@ pub fn embed(
 
     //Prep the encoder with the same codec of the carrier
     //ffmpeg's black box that takes in frames and outputs packets
-    let mut encoder = ffmpeg_next::codec::Context::new_with_codec(input_codec)
+    let mut encoder = ffmpeg_next::codec::Context::new_with_codec(encoder_codec)
         .encoder()
         .video()
         .map_err(|e| StegServiceError::FfmpegError(e))?;

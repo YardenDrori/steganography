@@ -95,11 +95,11 @@ pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, S
     drain_decoder(&mut decoder, &configs, &mut buffer, &mut service_state)?;
 
     // flush any remaining partial buffer
-    if service_state.total_extracted_bytes < service_state.payload_size {
-        let bytes_to_write = service_state.payload_size - service_state.total_extracted_bytes;
+    let bytes_in_buffer = buffer.bit_index / 8;
+    if bytes_in_buffer > 0 {
         buffer
             .writer
-            .write_all(&buffer.buffer[0..bytes_to_write as usize])
+            .write_all(&buffer.buffer[0..bytes_in_buffer])
             .map_err(|_| StegServiceError::FileError)?;
     }
     buffer
