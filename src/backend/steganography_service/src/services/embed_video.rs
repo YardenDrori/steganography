@@ -3,7 +3,7 @@ use crate::services::stdm;
 use ffmpeg_next::format::input;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
 use crate::services::dct::{dct_ii, idct_ii};
@@ -20,14 +20,45 @@ struct PayloadBuffer {
 }
 
 struct PendingBlock {
-    pub block_offset: u32,
-    pub coeffs: [f64; 16],
+    coeffs: [f64; 16],
+    coeffs_left_to_embed: usize,
 }
 
 struct EmbedState {
+    pub coeffs_to_embed_count_block: usize,
     pub payload_exhausted: bool,
     pub pending_blocks: HashMap<u32, PendingBlock>,
     pub coeff_accumulator_pos: Vec<(u32, u8)>,
+}
+
+fn get_coeff(state: *const EmbedState, id: usize) -> Result<f64, StegServiceError> {
+    let state = unsafe { &*state };
+
+    let (block_offset, coeff_index) = state.coeff_accumulator_pos[id];
+    let coeff = state
+        .pending_blocks
+        .get(&block_offset)
+        .ok_or(StegServiceError::HashMapCallWithInvalidKey)?
+        .coeffs[coeff_index as usize];
+
+    Ok(coeff)
+}
+
+fn set_coeff(state: *mut EmbedState, id: usize, new_value: f64) -> Result<(), StegServiceError> {
+    let state = unsafe { &mut *state };
+
+    let (block_offset, coeff_index) = state.coeff_accumulator_pos[id];
+
+    let block = state
+        .pending_blocks
+        .get_mut(&block_offset)
+        .ok_or(StegServiceError::Other(
+            "called hashmap with invalid key".to_string(),
+        ))?;
+
+    block.coeffs[coeff_index as usize] = new_value;
+
+    Ok(())
 }
 
 pub fn embed(
@@ -56,6 +87,15 @@ pub fn embed(
 
     //state setup
     let mut service_state = EmbedState {
+        coeffs_to_embed_count_block: {
+            let mut sum = 0;
+            for i in 0..16 {
+                if configs.coefficients_to_embed[i] {
+                    sum += 1;
+                }
+            }
+            sum
+        },
         payload_exhausted: false,
         pending_blocks: HashMap::with_capacity(configs.coefficients_per_bit),
         coeff_accumulator_pos: Vec::with_capacity(configs.coefficients_per_bit),
@@ -321,7 +361,15 @@ fn embed_in_channel(
     let frame_data = frame.data_mut(plane_id);
 
     for block_row in 0..plane_height / 4 / BLOCKS_PER_MACROBLOCK {
+        if state.payload_exhausted {
+            break;
+        }
+
         for block_col in 0..plane_width / 4 / BLOCKS_PER_MACROBLOCK {
+            if state.payload_exhausted {
+                break;
+            }
+
             //we do this fancy math to translate the block coordinate to memory coordinates in the
             //frame.data() array while taking into consideration stride additionally we can change
             //the paramater BLOCKS_PER_MACROBLOCK to 1,2,4 to change step size from 4x4 blocks, 8x8
@@ -337,23 +385,46 @@ fn embed_in_channel(
             }
             let block_as_dct = dct_ii(&block_as_pixel);
 
-            let mut pending_block = PendingBlock {
-                block_offset: block_offset,
-                coeffs: [0f64; 16],
-            };
+            state.pending_blocks.insert(
+                block_offset,
+                PendingBlock {
+                    coeffs: [0f64; 16],
+                    coeffs_left_to_embed: state.coeffs_to_embed_count_block,
+                },
+            );
 
             for i in 0..16 {
+                state
+                    .pending_blocks
+                    .get_mut(&block_offset)
+                    .ok_or(StegServiceError::HashMapCallWithInvalidKey)?
+                    .coeffs[i] = block_as_dct[i];
                 if !configs.coefficients_to_embed[i] {
-                    pending_block.coeffs[i] = block_as_dct[i];
                     continue;
                 }
 
                 state.coeff_accumulator_pos.push((block_offset, i as u8));
+                state
+                    .pending_blocks
+                    .get_mut(&block_offset)
+                    .ok_or(StegServiceError::HashMapCallWithInvalidKey)?
+                    .coeffs_left_to_embed -= 1;
 
                 if state.coeff_accumulator_pos.len() >= configs.coefficients_per_bit {
                     embed_bit_in_coefficients(state, payload_buffer, configs)?;
 
-                    // apply_modified_dct_coeffs_on_frame()
+                    state.pending_blocks.retain(|offset, block| {
+                        if block.coeffs_left_to_embed == 0 {
+                            apply_modified_dct_coeffs_on_frame(
+                                &block.coeffs,
+                                frame_data,
+                                *offset,
+                                stride,
+                            );
+                            return false;
+                        }
+                        return true;
+                    });
 
                     state.coeff_accumulator_pos.clear();
                 }
@@ -363,7 +434,7 @@ fn embed_in_channel(
     Ok(())
 }
 
-pub fn embed_bit_in_coefficients(
+fn embed_bit_in_coefficients(
     state: &mut EmbedState,
     payload_buffer: &mut PayloadBuffer,
     configs: &EmbedConfigs,
@@ -381,25 +452,39 @@ pub fn embed_bit_in_coefficients(
     target_bit = (target_byte >> (7 - (payload_buffer.bit_index % 8))) & 0x1 == 0x1; //MSB
     payload_buffer.bit_index += 1;
 
-    // stdm::stdm_embed(
-    //     configs.coefficients_per_bit,
-    //     configs.seed.clone(),
-    //     target_bit,
-    //     configs.delta,
-    // )?;
+    //We do unsafe here as this is the only way to avoid either coppying the entire coefficients to
+    //a local variable and then having to coppy them back or exposing implementation details of the
+    //embed method this way we just send two methods and this is safe as the steg thread is
+    //blocking thus it is quite literally physically impossible for both get and set to be called
+    //simultaneously
+    let state_ptr = state as *mut EmbedState;
+    stdm::stdm_embed(
+        |i| get_coeff(state_ptr, i),
+        |i, v| set_coeff(state_ptr, i, v),
+        configs.coefficients_per_bit,
+        configs.seed.clone(),
+        target_bit,
+        configs.delta,
+    )?;
 
     Ok(())
 }
 
-// pub fn apply_modified_dct_coeffs_on_frame(
-//     coeffs: &[f64; 16],
-//     frame: &mut ffmpeg_next::frame::Video,
-// ) -> Result<(), StegServiceError> {
-//     let block_as_pixels = idct_ii(coeffs);
-//
-//     todo!()
-// }
-//
+fn apply_modified_dct_coeffs_on_frame(
+    block_as_dct: &[f64; 16],
+    data: &mut [u8],
+    block_offset: u32,
+    stride: usize,
+) {
+    let block_as_pixels = idct_ii(block_as_dct);
+
+    for i in 0..4 {
+        for j in 0..4 {
+            data[i * stride + block_offset as usize + j] = block_as_pixels[i * 4 + j];
+        }
+    }
+}
+
 pub fn populate_payload_buffer(
     embed_state: &mut EmbedState,
     buffer: &mut PayloadBuffer,
