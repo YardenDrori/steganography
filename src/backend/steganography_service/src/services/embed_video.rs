@@ -97,7 +97,7 @@ pub fn embed(
             sum
         },
         payload_exhausted: false,
-        pending_blocks: HashMap::with_capacity(configs.coefficients_per_bit),
+        pending_blocks: HashMap::new(), //no hint here cause its annoying to calculate for little value
         coeff_accumulator_pos: Vec::with_capacity(configs.coefficients_per_bit),
     };
 
@@ -388,17 +388,12 @@ fn embed_in_channel(
             state.pending_blocks.insert(
                 block_offset,
                 PendingBlock {
-                    coeffs: [0f64; 16],
+                    coeffs: block_as_dct,
                     coeffs_left_to_embed: state.coeffs_to_embed_count_block,
                 },
             );
 
             for i in 0..16 {
-                state
-                    .pending_blocks
-                    .get_mut(&block_offset)
-                    .ok_or(StegServiceError::HashMapCallWithInvalidKey)?
-                    .coeffs[i] = block_as_dct[i];
                 if !configs.coefficients_to_embed[i] {
                     continue;
                 }
@@ -431,6 +426,12 @@ fn embed_in_channel(
             }
         }
     }
+
+    state.pending_blocks.retain(|offset, block| {
+        apply_modified_dct_coeffs_on_frame(&block.coeffs, frame_data, *offset, stride);
+        return false;
+    });
+
     Ok(())
 }
 
@@ -442,10 +443,12 @@ fn embed_bit_in_coefficients(
     if state.payload_exhausted {
         return Ok(());
     }
-
     let target_bit: bool;
     if payload_buffer.bit_index >= payload_buffer.bits_read {
         populate_payload_buffer(state, payload_buffer)?;
+        if state.payload_exhausted {
+            return Ok(());
+        }
     }
 
     let target_byte = payload_buffer.buffer[payload_buffer.bit_index / 8];
