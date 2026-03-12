@@ -427,6 +427,7 @@ fn embed_in_channel(
         }
     }
 
+    // flush remaining pending blocks back to frame
     state.pending_blocks.retain(|offset, block| {
         apply_modified_dct_coeffs_on_frame(&block.coeffs, frame_data, *offset, stride);
         return false;
@@ -488,6 +489,7 @@ fn apply_modified_dct_coeffs_on_frame(
     }
 }
 
+/// NOTE: assumes header bits are fully consumed before first call
 pub fn populate_payload_buffer(
     embed_state: &mut EmbedState,
     buffer: &mut PayloadBuffer,
