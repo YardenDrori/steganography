@@ -245,7 +245,7 @@ fn write_bit_to_payload_buffer(
         return Ok(());
     }
 
-    // check payload completion after every complete byte — without this, extraction_ongoing is
+    // check payload completion after every complete byte without this, extraction_ongoing is
     // never set for payloads smaller than the buffer (8224 bits), causing the entire video to be
     // drained into the buffer and the output to be flooded with garbage
     if state.payload_size > 0 && buffer.bit_index % 8 == 0 {
@@ -257,6 +257,7 @@ fn write_bit_to_payload_buffer(
                 .map_err(|_| StegServiceError::FileError)?;
             state.total_extracted_bytes = total_bytes_so_far;
             state.extraction_ongoing = false;
+            buffer.bit_index = 0;
             return Ok(());
         }
     }
