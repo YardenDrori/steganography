@@ -141,9 +141,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //         break;
     //     }
     // }
-    if !config.read().unwrap().services.contains_key("user_service") {
-        panic!("no user_service found from eureka service maximum attempt limit reached");
-    }
+    // if !config.read().unwrap().services.contains_key("user_service") {
+    //     panic!("no user_service found from eureka service maximum attempt limit reached");
+    // }
 
     // Start server on port 3001
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001")
