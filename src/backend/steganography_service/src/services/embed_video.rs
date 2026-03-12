@@ -230,6 +230,7 @@ pub fn embed(
         }
     }
 
+    // ======== CLEAN UP ========
     // flush decoder
     decoder
         .send_eof()
@@ -349,6 +350,7 @@ fn embed_in_channel(
     plane_width: u32,
     plane_id: usize,
 ) -> Result<(), StegServiceError> {
+    //only check I frames (for now)
     if !frame.is_key() {
         return Ok(());
     }
