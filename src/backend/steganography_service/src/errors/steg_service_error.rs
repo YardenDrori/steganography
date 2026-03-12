@@ -7,6 +7,7 @@ use shared_global::errors::ErrorBody;
 
 #[derive(Debug)]
 pub enum StegServiceError {
+    HashMapCallWithInvalidKey,
     InvalidPayload,
     ExternalServiceError(String),
     ParsingError,
@@ -26,6 +27,9 @@ impl IntoResponse for StegServiceError {
                 "Payload too big for selected carrier",
             ),
             Self::InvalidPayload => (StatusCode::BAD_REQUEST, "Invalid payload"),
+            Self::HashMapCallWithInvalidKey => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            }
             Self::UnsupportedCodec => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::FfmpegError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::EurekaConfigError => (StatusCode::BAD_GATEWAY, "Internal server error"),
