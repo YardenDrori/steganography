@@ -1,8 +1,3 @@
-#[rustfmt::skip]
-pub const ZIGZAG: [usize ; 16] = [
-0, 1, 4, 8, 5, 2, 3, 6, 9, 12, 13, 10, 7, 11, 14, 15,
-];
-
 // bit=true  → nearest multiple of delta
 // bit=false → nearest odd multiple of delta/2
 pub fn qim_embed(coeff: f64, bit: bool, delta: u8) -> f64 {
