@@ -38,7 +38,7 @@ fn get_coeff(state: *const EmbedState, id: usize) -> Result<f64, StegServiceErro
     let coeff = state
         .pending_blocks
         .get(&block_offset)
-        .ok_or(StegServiceError::HashMapCallWithInvalidKey)?
+        .ok_or(StegServiceError::CollectionCallWithInvalidKey)?
         .coeffs[coeff_index as usize];
 
     Ok(coeff)
@@ -404,7 +404,7 @@ fn embed_in_channel(
                 state
                     .pending_blocks
                     .get_mut(&block_offset)
-                    .ok_or(StegServiceError::HashMapCallWithInvalidKey)?
+                    .ok_or(StegServiceError::CollectionCallWithInvalidKey)?
                     .coeffs_left_to_embed -= 1;
 
                 if state.coeff_accumulator_pos.len() >= configs.coefficients_per_bit {
