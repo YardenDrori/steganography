@@ -346,8 +346,8 @@ fn embed_in_channel(
     state: &mut EmbedState,
     payload_buffer: &mut PayloadBuffer,
     frame: &mut ffmpeg_next::frame::Video,
-    plane_height: u32,
     plane_width: u32,
+    plane_height: u32,
     plane_id: usize,
 ) -> Result<(), StegServiceError> {
     //only check I frames (for now)

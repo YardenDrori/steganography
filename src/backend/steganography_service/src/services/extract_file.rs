@@ -1,5 +1,6 @@
 use crate::services::embed_video::HEADER_SIZE_BITS;
 use crate::services::process_frame::BLOCKS_PER_MACROBLOCK;
+use crate::services::stdm;
 use ffmpeg_next::format::input;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
@@ -7,7 +8,6 @@ use std::path::PathBuf;
 
 use crate::services::dct::dct_ii;
 use crate::services::process_frame::{self};
-use crate::services::qim::qim_extract;
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
 
 struct PayloadBuffer {
@@ -17,10 +17,18 @@ struct PayloadBuffer {
 }
 
 struct ExtractState {
-    payload_size: u64,
-    coeff_accumulator: Vec<f64>,
-    total_extracted_bytes: u64,
-    extraction_ongoing: bool,
+    pub payload_size: u64,
+    pub coeff_accumulator: Vec<f64>,
+    pub total_extracted_bytes: u64,
+    pub extraction_ongoing: bool,
+}
+
+fn get_coeff(id: usize, state: &ExtractState) -> Result<f64, StegServiceError> {
+    let coeff = state
+        .coeff_accumulator
+        .get(id)
+        .ok_or(StegServiceError::CollectionCallWithInvalidKey)?;
+    Ok(*coeff)
 }
 
 pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, StegServiceError> {
@@ -189,8 +197,8 @@ fn extract_from_channel(
                 }
                 state.coeff_accumulator.push(block_as_dct[i]);
                 if state.coeff_accumulator.len() >= configs.coefficients_per_bit {
-                    let extracted_bit = extract_bit_from_coefficients()?;
-                    write_bit_to_payload_buffer(extracted_bit, payload_buffer, state, configs)?;
+                    let extracted_bit = extract_bit_from_coefficients(state, configs)?;
+                    write_bit_to_payload_buffer(extracted_bit, payload_buffer, state)?;
                     state.coeff_accumulator.clear();
                 }
             }
@@ -199,8 +207,18 @@ fn extract_from_channel(
     Ok(())
 }
 
-fn extract_bit_from_coefficients() -> Result<bool, StegServiceError> {
-    todo!()
+fn extract_bit_from_coefficients(
+    state: &mut ExtractState,
+    configs: &EmbedConfigs,
+) -> Result<bool, StegServiceError> {
+    let extracted_bit = stdm::stdm_extract(
+        |i| get_coeff(i, state),
+        configs.coefficients_per_bit,
+        configs.seed.clone(),
+        configs.delta,
+    )?;
+
+    Ok(extracted_bit)
 }
 
 fn write_bit_to_payload_buffer(
