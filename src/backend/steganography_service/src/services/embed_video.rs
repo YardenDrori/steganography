@@ -1,5 +1,6 @@
 use crate::services::process_frame::BLOCKS_PER_MACROBLOCK;
 use crate::services::stdm;
+use ffmpeg_next::Dictionary;
 use ffmpeg_next::format::input;
 use std::collections::HashMap;
 use std::fs::File;
@@ -133,19 +134,26 @@ pub fn embed(
         .video()
         .map_err(|e| StegServiceError::FfmpegError(e))?;
 
-    let codec_id = decoder.codec().ok_or(StegServiceError::FfmpegError(
-        ffmpeg_next::Error::InvalidData,
-    ))?.id();
+    let codec_id = decoder
+        .codec()
+        .ok_or(StegServiceError::FfmpegError(
+            ffmpeg_next::Error::InvalidData,
+        ))?
+        .id();
 
     // Find the encoder by codec ID (decoder.codec() returns a decoder — we need the encoder)
-    let encoder_codec = ffmpeg_next::encoder::find(codec_id)
-        .ok_or(StegServiceError::UnsupportedCodec)?;
+    let encoder_codec =
+        ffmpeg_next::encoder::find(codec_id).ok_or(StegServiceError::UnsupportedCodec)?;
 
     //prepare info for the steg_object
     let output_path = PathBuf::from(format!(
         "embedded_{}",
         carrier_path.file_name().unwrap().to_string_lossy()
     ));
+
+    //  Create a dictionary to hold codec-specific options
+    let mut opts = Dictionary::new();
+    opts.set("crf", "23"); // "23" is the default for x264; lower is higher quality
 
     //prep output context which knows a buncha stuff on how the output file will be configured
     let mut output_context = ffmpeg_next::format::output_as(&output_path, &input_format_name)
@@ -178,7 +186,7 @@ pub fn embed(
     //Finalize the encoder (does a buncha shit behind the scenes like generating SPS and PPS which
     //are fancy instructions on how to read the file)
     let mut encoder = encoder
-        .open()
+        .open_with(opts)
         .map_err(|e| StegServiceError::FfmpegError(e))?;
 
     //add the video stream to the output_context,
