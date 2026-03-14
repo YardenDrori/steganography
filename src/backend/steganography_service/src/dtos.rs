@@ -1,5 +1,6 @@
 use crate::{
-    errors::steg_service_error::StegServiceError, services::spread_spectrum::spread_spectrum_embed,
+    errors::steg_service_error::StegServiceError,
+    services::{spread_spectrum::spread_spectrum_embed, stdm::stdm_embed},
 };
 use serde::{Deserialize, Serialize};
 pub use shared_global::dtos::UserResponse;
@@ -30,7 +31,7 @@ pub struct EmbedConfigs {
     pub coefficients_to_embed: [bool; 16],
     pub coefficients_per_bit: usize,
     pub delta: u8,
-    pub seed: String,
+    pub seed: Option<String>,
     pub method: EmbedMethods,
 }
 
@@ -48,7 +49,7 @@ impl EmbedMethods {
         get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
         set_coeff: impl Fn(usize, f64) -> Result<(), StegServiceError>,
         coeff_count: usize,
-        seed: String,
+        seed: Option<String>,
         bit: bool,
         delta: u8,
     ) -> Result<(), StegServiceError> {
@@ -58,11 +59,25 @@ impl EmbedMethods {
                 Ok(())
             }
             EmbedMethods::STDM => {
-                stdm::embed(todo!());
+                stdm_embed(
+                    get_coeff,
+                    set_coeff,
+                    coeff_count,
+                    seed.ok_or(StegServiceError::InvalidPayload)?,
+                    bit,
+                    delta,
+                )?;
                 Ok(())
             }
             EmbedMethods::SS => {
-                spread_spectrum_embed(get_coeff, set_coeff, coeff_count, seed, bit, delta)?;
+                spread_spectrum_embed(
+                    get_coeff,
+                    set_coeff,
+                    coeff_count,
+                    seed.ok_or(StegServiceError::InvalidPayload)?,
+                    bit,
+                    delta,
+                )?;
                 Ok(())
             }
             EmbedMethods::ISS => {

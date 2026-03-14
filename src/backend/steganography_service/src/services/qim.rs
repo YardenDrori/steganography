@@ -3,15 +3,12 @@ use crate::errors::steg_service_error::StegServiceError;
 pub fn qim_embed(
     get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
     set_coeff: impl Fn(usize, f64) -> Result<(), StegServiceError>,
-    coeff_count: usize,
     bit_to_embed: bool,
     delta: u8,
 ) -> Result<(), StegServiceError> {
-    for i in 0..coeff_count {
-        let curr_coeff = get_coeff(i)?;
-        let embedded_coeff = qim_embed_bit(curr_coeff, bit_to_embed, delta);
-        set_coeff(i, embedded_coeff)?;
-    }
+    let curr_coeff = get_coeff(0)?;
+    let embedded_coeff = qim_embed_bit(curr_coeff, bit_to_embed, delta);
+    set_coeff(0, embedded_coeff)?;
     Ok(())
 }
 
