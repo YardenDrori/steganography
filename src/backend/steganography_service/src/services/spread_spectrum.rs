@@ -1,5 +1,5 @@
 use crate::errors::steg_service_error::StegServiceError;
-use crate::services::vector;
+use crate::services::vector::{self, calculate_dot_product};
 
 pub fn spread_spectrum_embed(
     get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
@@ -28,10 +28,16 @@ pub fn spread_spectrum_embed(
 }
 
 pub fn spread_spectrum_extract(
-    _get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
-    _coeff_count: usize,
-    _seed: String,
-    _delta: u8,
+    get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
+    coeff_count: usize,
+    seed: String,
 ) -> Result<bool, StegServiceError> {
-    todo!()
+    let unit_vector = vector::generate_unit_vector(seed, coeff_count)?;
+
+    let dot_product = calculate_dot_product(get_coeff, coeff_count, &unit_vector)?;
+
+    //NOTE: it is tehcnically possible tho astronimically impossible that the value is exactly 0 if
+    //thats the case were fucked for that bit lol we literally have no way to figure what it was
+    //and we might as well just guess which is exactly what we do here we have ECC for a reason!
+    Ok(dot_product > 0f64)
 }
