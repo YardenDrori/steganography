@@ -1,5 +1,4 @@
 use crate::services::process_frame::BLOCKS_PER_MACROBLOCK;
-use crate::services::stdm;
 use ffmpeg_next::Dictionary;
 use ffmpeg_next::format::input;
 use std::collections::HashMap;
@@ -449,7 +448,20 @@ fn embed_in_channel(
 
     Ok(())
 }
-
+/*
+*
+*
+*
+   stdm::stdm_embed(
+       |i| get_coeff(state_ptr, i),
+       |i, v| set_coeff(state_ptr, i, v),
+       configs.coefficients_per_bit,
+       configs.seed.clone(),
+       target_bit,
+       configs.delta,
+   )?;
+*
+* */
 fn embed_bit_in_coefficients(
     state: &mut EmbedState,
     payload_buffer: &mut PayloadBuffer,
@@ -476,7 +488,8 @@ fn embed_bit_in_coefficients(
     //blocking thus it is quite literally physically impossible for both get and set to be called
     //simultaneously
     let state_ptr = state as *mut EmbedState;
-    stdm::stdm_embed(
+
+    configs.method.embed(
         |i| get_coeff(state_ptr, i),
         |i, v| set_coeff(state_ptr, i, v),
         configs.coefficients_per_bit,

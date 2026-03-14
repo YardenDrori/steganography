@@ -1,3 +1,6 @@
+use crate::{
+    errors::steg_service_error::StegServiceError, services::spread_spectrum::spread_spectrum_embed,
+};
 use serde::{Deserialize, Serialize};
 pub use shared_global::dtos::UserResponse;
 
@@ -37,6 +40,38 @@ pub enum EmbedMethods {
     STDM,
     SS,
     ISS,
+}
+//generic embed method yipee!
+impl EmbedMethods {
+    pub fn embed(
+        &self,
+        get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
+        set_coeff: impl Fn(usize, f64) -> Result<(), StegServiceError>,
+        coeff_count: usize,
+        seed: String,
+        bit: bool,
+        delta: u8,
+    ) -> Result<(), StegServiceError> {
+        match self {
+            EmbedMethods::QIM => {
+                qim::embed(todo!());
+                Ok(())
+            }
+            EmbedMethods::STDM => {
+                stdm::embed(todo!());
+                Ok(())
+            }
+            EmbedMethods::SS => {
+                spread_spectrum_embed(get_coeff, set_coeff, coeff_count, seed, bit, delta)?;
+                Ok(())
+            }
+            EmbedMethods::ISS => {
+                iss::embed(todo!());
+                Ok(())
+            }
+        }
+    }
+    // pub fn extract()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

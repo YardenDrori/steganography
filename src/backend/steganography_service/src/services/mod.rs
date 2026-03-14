@@ -3,5 +3,7 @@ pub mod embed_video;
 pub mod extract_file;
 pub mod files_client;
 pub mod process_frame;
+pub mod qim;
 pub mod spread_spectrum;
+pub mod stdm;
 pub mod vector;
