@@ -206,7 +206,7 @@ fn extract_bit_from_coefficients(
     state: &mut ExtractState,
     configs: &EmbedConfigs,
 ) -> Result<bool, StegServiceError> {
-    let extracted_bit = stdm::stdm_extract(
+    let extracted_bit = configs.method.extract(
         |i| get_coeff(i, state),
         configs.coefficients_per_bit,
         configs.seed.clone(),
