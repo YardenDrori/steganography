@@ -52,7 +52,7 @@ pub fn generate_unit_vector(seed: String, vec_size: usize) -> Result<Vec<f64>, S
 }
 
 pub fn calculate_dot_product(
-    get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
+    get_coeff: &impl Fn(usize) -> Result<f64, StegServiceError>,
     coeff_count: usize,
     unit_vector: &[f64],
 ) -> Result<f64, StegServiceError> {
