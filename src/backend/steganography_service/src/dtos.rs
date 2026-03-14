@@ -133,12 +133,12 @@ impl EmbedMethods {
         delta: u8,
     ) -> Result<bool, StegServiceError> {
         match self {
-            self::QIM => {
+            Self::QIM => {
                 let coeff = get_coeff(0)?;
                 let found_bit = qim_extract_bit(coeff, delta);
                 return Ok(found_bit);
             }
-            self::STDM => {
+            Self::STDM => {
                 let found_bit = stdm_extract(
                     get_coeff,
                     coeff_count,
@@ -149,7 +149,7 @@ impl EmbedMethods {
             }
             //since the only difference between SS and ISS is the embed step both use the same
             //extractor for decoding
-            self::SS => {
+            Self::SS => {
                 let found_bit = spread_spectrum_extract(
                     get_coeff,
                     coeff_count,
@@ -157,7 +157,7 @@ impl EmbedMethods {
                 )?;
                 return Ok(found_bit);
             }
-            self::ISS => {
+            Self::ISS => {
                 let found_bit = spread_spectrum_extract(
                     get_coeff,
                     coeff_count,
