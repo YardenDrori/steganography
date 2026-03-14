@@ -2,7 +2,13 @@ import axios from "axios";
 
 const BASE_URL = "http://localhost:3000";
 
-export type FileItem = { id: number; filename: string; created_at: string };
+export type FileItem = {
+  id: number;
+  filename: string;
+  created_at: string;
+  is_carrier?: boolean;
+  is_steg_object?: boolean;
+};
 export type InitiateResponse = { upload_id: string; object_key: string };
 export type PartInfo = { part_number: number; etag: string };
 export type UploadPartResponse = { part: PartInfo };

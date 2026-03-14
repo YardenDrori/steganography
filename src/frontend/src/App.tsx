@@ -5,17 +5,19 @@ import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import SettingsPage from "./pages/SettingsPage";
 import EmbedPage from "./pages/EmbedPage";
+import ExtractPage from "./pages/ExtractPage";
+import FilesPage from "./pages/FilesPage";
 import { useAuth } from "./context/AuthContext";
 import { refresh } from "./api/auth";
 import { getCurrentUser } from "./api/user";
 import { tryCatch } from "./api/tryCatch";
-import FilesPage from "./pages/FilesPage";
+import { Layout } from "./components/Layout";
 
-function ProtectedRoute(props: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
-  if (!user) return <Navigate to={"/login"} />;
-  return props.children;
+  if (!user) return <Navigate to="/login" />;
+  return <Layout>{children}</Layout>;
 }
 
 function App() {
@@ -33,9 +35,7 @@ function App() {
       setAccessToken(accessToken);
 
       const [userData, userErr] = await tryCatch(getCurrentUser(accessToken));
-      if (!userErr) {
-        setUser(userData?.data);
-      }
+      if (!userErr) setUser(userData?.data);
 
       setIsLoading(false);
     }
@@ -47,38 +47,13 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <SettingsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/my-files"
-          element={
-            <ProtectedRoute>
-              <FilesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/my-files/embed"
-          element={
-            <ProtectedRoute>
-              <EmbedPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+        <Route path="/my-files" element={<ProtectedRoute><FilesPage /></ProtectedRoute>} />
+        <Route path="/embed" element={<ProtectedRoute><EmbedPage /></ProtectedRoute>} />
+        <Route path="/extract" element={<ProtectedRoute><ExtractPage /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        {/* keep old route working */}
+        <Route path="/my-files/embed" element={<Navigate to="/embed" replace />} />
       </Routes>
     </BrowserRouter>
   );
