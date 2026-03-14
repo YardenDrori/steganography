@@ -28,6 +28,15 @@ pub struct EmbedConfigs {
     pub coefficients_per_bit: usize,
     pub delta: u8,
     pub seed: String,
+    pub method: EmbedMethods,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum EmbedMethods {
+    QIM,
+    STDM,
+    SS,
+    ISS,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
