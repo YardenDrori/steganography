@@ -72,6 +72,7 @@ pub enum EmbedMethods {
     SS,
     ISS,
 }
+
 //generic embed method yipee!
 impl EmbedMethods {
     pub fn embed(
@@ -125,19 +126,19 @@ impl EmbedMethods {
     }
 
     pub fn extract(
-        self,
+        &self,
         get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
         coeff_count: usize,
         seed: Option<String>,
         delta: u8,
     ) -> Result<bool, StegServiceError> {
         match self {
-            Self::QIM => {
+            self::QIM => {
                 let coeff = get_coeff(0)?;
                 let found_bit = qim_extract_bit(coeff, delta);
                 return Ok(found_bit);
             }
-            Self::STDM => {
+            self::STDM => {
                 let found_bit = stdm_extract(
                     get_coeff,
                     coeff_count,
@@ -148,7 +149,7 @@ impl EmbedMethods {
             }
             //since the only difference between SS and ISS is the embed step both use the same
             //extractor for decoding
-            Self::SS => {
+            self::SS => {
                 let found_bit = spread_spectrum_extract(
                     get_coeff,
                     coeff_count,
@@ -156,7 +157,7 @@ impl EmbedMethods {
                 )?;
                 return Ok(found_bit);
             }
-            Self::ISS => {
+            self::ISS => {
                 let found_bit = spread_spectrum_extract(
                     get_coeff,
                     coeff_count,
