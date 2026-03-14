@@ -32,6 +32,9 @@ fn get_coeff(id: usize, state: &ExtractState) -> Result<f64, StegServiceError> {
 }
 
 pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, StegServiceError> {
+    //validate configs
+    configs.validate_configs()?;
+
     // ======== BUFFER & STATE SETUP ========
     //create the extracted payload file and assign it to the buffer
     let output_payload = tempfile::NamedTempFile::new().map_err(|_| StegServiceError::FileError)?;

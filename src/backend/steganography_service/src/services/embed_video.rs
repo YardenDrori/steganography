@@ -66,6 +66,9 @@ pub fn embed(
     carrier_path: PathBuf,
     configs: EmbedConfigs,
 ) -> Result<PathBuf, StegServiceError> {
+    //validate configs
+    configs.validate_configs()?;
+
     // ======== PAYLOAD & STATE SETUP ========
     let file_pointer = File::open(payload_path).map_err(|_| StegServiceError::FileError)?;
     let file_size = file_pointer
