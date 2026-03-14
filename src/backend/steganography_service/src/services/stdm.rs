@@ -15,7 +15,7 @@ pub fn stdm_embed(
     let original_dot_product =
         vector::calculate_dot_product(&get_coeff, coeff_count, &unit_vector)?;
 
-    let embedded_dot_product = qim::qim_embed(original_dot_product, bit_to_embed, delta);
+    let embedded_dot_product = qim::qim_embed_bit(original_dot_product, bit_to_embed, delta);
 
     vector::do_back_projection_on_coeffs(
         get_coeff,
@@ -39,6 +39,6 @@ pub fn stdm_extract(
 
     let dot_product = vector::calculate_dot_product(get_coeff, coeff_count, &unit_vector)?;
 
-    let bit = qim_extract(dot_product, delta);
+    let bit = qim_extract_bit(dot_product, delta);
     Ok(bit)
 }

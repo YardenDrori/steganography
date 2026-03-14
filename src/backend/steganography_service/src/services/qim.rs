@@ -1,6 +1,23 @@
+use crate::errors::steg_service_error::StegServiceError;
+
+pub fn qim_embed(
+    get_coeff: impl Fn(usize) -> Result<f64, StegServiceError>,
+    set_coeff: impl Fn(usize, f64) -> Result<(), StegServiceError>,
+    coeff_count: usize,
+    bit_to_embed: bool,
+    delta: u8,
+) -> Result<(), StegServiceError> {
+    for i in 0..coeff_count {
+        let curr_coeff = get_coeff(i)?;
+        let embedded_coeff = qim_embed_bit(curr_coeff, bit_to_embed, delta);
+        set_coeff(i, embedded_coeff)?;
+    }
+    Ok(())
+}
+
 // bit=true  → nearest multiple of delta
 // bit=false → nearest odd multiple of delta/2
-pub fn qim_embed(coeff: f64, bit: bool, delta: u8) -> f64 {
+pub fn qim_embed_bit(coeff: f64, bit: bool, delta: u8) -> f64 {
     let delta_float = delta as f64;
 
     if bit {
@@ -11,7 +28,7 @@ pub fn qim_embed(coeff: f64, bit: bool, delta: u8) -> f64 {
 }
 
 // Reads the embedded bit from a DCT coefficient.
-pub fn qim_extract(coeff: f64, delta: u8) -> bool {
+pub fn qim_extract_bit(coeff: f64, delta: u8) -> bool {
     let delta_float = delta as f64;
 
     let dist_true = (coeff - (coeff / delta_float).round() * delta_float).abs();
