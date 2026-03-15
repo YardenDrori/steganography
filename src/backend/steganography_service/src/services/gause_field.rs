@@ -58,7 +58,8 @@ fn poly_div(numerator: u8, denominator: u8) -> u8 {
     if numerator == 0 {
         return 0;
     }
-    let mut index_sum = (LOG_TABLE[numerator as usize] - LOG_TABLE[denominator as usize]) as i16;
+    let mut index_sum =
+        (LOG_TABLE[numerator as usize] as i16) - (LOG_TABLE[denominator as usize] as i16);
     while index_sum < 0 {
         index_sum += 255;
     }
