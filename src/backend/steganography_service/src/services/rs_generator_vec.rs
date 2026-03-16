@@ -9,7 +9,7 @@ use crate::{
 //we then mult then and expect to get (x^2+2x+x+2) or x^2+3x+2 (gf math replaces + with xor) which we represent in the arr as such
 //arr[0] = 2 arr[1] = 3 arr[2] = 1
 //this is the intended result of the generator for len = 2 note the ret len is len+1
-pub fn generatae_generator(len: u8) -> Result<Vec<u8>, StegServiceError> {
+pub fn generatae_generator(len: u8) -> Vec<u8>  {
     let mut generator: Vec<u8> = vec![1, 1];
 
     for i in 1..len {
@@ -20,5 +20,8 @@ pub fn generatae_generator(len: u8) -> Result<Vec<u8>, StegServiceError> {
         generator = poly_mult_vecs(&generator, &root);
     }
 
-    Ok(generator)
+    generator
 }
+
+
+puf fn get_roots_for_generator_with_len(len:u8) -> 
