@@ -7,6 +7,7 @@ use shared_global::errors::ErrorBody;
 
 #[derive(Debug)]
 pub enum StegServiceError {
+    ReedSolomonError(String),
     CollectionCallWithInvalidKey,
     InvalidPayload,
     ExternalServiceError(String),
@@ -23,6 +24,10 @@ impl IntoResponse for StegServiceError {
     fn into_response(self) -> Response {
         tracing::error!("StegServiceError: {:?}", self);
         let (status, message) = match self {
+            Self::ReedSolomonError(s) => {
+                tracing::warn!("error: {:?}", s);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            }
             Self::InsufficientCapacity => (
                 StatusCode::BAD_REQUEST,
                 "Payload too big for selected carrier",
