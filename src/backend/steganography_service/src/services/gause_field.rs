@@ -91,7 +91,7 @@ pub fn poly_mult_vecs(num1: &[u8], num2: &[u8]) -> Vec<u8> {
 //div_res_vec*denominator: (denominator: [-2, 1, 0, 0])
 //res=[0,0,-4,2]
 //numerator[-8,-6,1,2] - res[0,0,-4,2] = [-8,-6,5,0] now we loop
-fn poly_div_vecs(numerator: &[u8], denominator: &[u8]) -> Vec<u8> {
+pub fn poly_div_remainder_vecs(numerator: &[u8], denominator: &[u8]) -> Vec<u8> {
     let mut numer_clone = numerator.to_vec();
 
     for i in 0..numer_clone.len() {
