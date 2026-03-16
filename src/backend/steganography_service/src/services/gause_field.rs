@@ -4,7 +4,7 @@ use rand::rand_core::UnwrapErr;
 
 use crate::errors::steg_service_error::StegServiceError;
 
-static EXP_TABLE: LazyLock<Vec<u8>> = LazyLock::new(|| {
+pub static EXP_TABLE: LazyLock<Vec<u8>> = LazyLock::new(|| {
     let mut exp_table: Vec<u8> = Vec::with_capacity(256);
     let mut value: u8 = 1;
 
@@ -16,7 +16,7 @@ static EXP_TABLE: LazyLock<Vec<u8>> = LazyLock::new(|| {
     return exp_table;
 });
 
-static LOG_TABLE: LazyLock<Vec<u8>> = LazyLock::new(|| {
+pub static LOG_TABLE: LazyLock<Vec<u8>> = LazyLock::new(|| {
     let mut log_table = vec![0u8; 256];
 
     for i in 0..256 {
@@ -27,7 +27,7 @@ static LOG_TABLE: LazyLock<Vec<u8>> = LazyLock::new(|| {
 });
 
 const POLYNOMAL_PRIME_NUMBER: u16 = 0x11d;
-fn polynomal_multiplication_by_two(mut num: u8) -> u8 {
+pub fn polynomal_multiplication_by_two(mut num: u8) -> u8 {
     //after shifting left we dont know if the number had an overflow after shifting so we check beforehand if it
     //will overflow
     if num & 0b10000000 == 0b10000000 {
@@ -39,7 +39,7 @@ fn polynomal_multiplication_by_two(mut num: u8) -> u8 {
     return num;
 }
 
-fn poly_mult(num1: u8, num2: u8) -> u8 {
+pub fn poly_mult(num1: u8, num2: u8) -> u8 {
     if num1 == 0 || num2 == 0 {
         return 0;
     }
@@ -64,4 +64,19 @@ fn poly_div(numerator: u8, denominator: u8) -> u8 {
         index_sum += 255;
     }
     EXP_TABLE[index_sum as usize]
+}
+
+//idk if this is a good name
+fn poly_div_vectors(numerator: &[u8], denominator: &[u8]) -> Vec<u8> {
+    let mut remainder_vec: Vec<u8> = Vec::with_capacity(numerator.len());
+    for i in 0..numerator.len() {
+        if denominator[i] == 0 {
+            tracing::error!("attempted to divide by 0 in poly_div_vectors");
+            panic!();
+        }
+
+        let div_result = poly_div(numerator[i], denominator[i]);
+    }
+
+    todo!()
 }
