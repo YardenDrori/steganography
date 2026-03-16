@@ -39,6 +39,7 @@ pub struct EmbedConfigs {
     pub delta: u8,
     pub seed: Option<String>,
     pub method: EmbedMethods,
+    pub reed_solomon_padding_byte_count: u8,
 }
 
 impl EmbedConfigs {
