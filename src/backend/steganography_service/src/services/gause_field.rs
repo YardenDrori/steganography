@@ -50,7 +50,7 @@ pub fn poly_mult(num1: u8, num2: u8) -> u8 {
     EXP_TABLE[index_sum as usize]
 }
 
-fn poly_div(numerator: u8, denominator: u8) -> u8 {
+pub fn poly_div(numerator: u8, denominator: u8) -> u8 {
     if denominator == 0 {
         tracing::error!("Attempted to divide by zero in poly_div");
         panic!();
@@ -66,17 +66,35 @@ fn poly_div(numerator: u8, denominator: u8) -> u8 {
     EXP_TABLE[index_sum as usize]
 }
 
-//idk if this is a good name
-fn poly_div_vectors(numerator: &[u8], denominator: &[u8]) -> Vec<u8> {
-    let mut remainder_vec: Vec<u8> = Vec::with_capacity(numerator.len());
-    for i in 0..numerator.len() {
-        if denominator[i] == 0 {
-            tracing::error!("attempted to divide by 0 in poly_div_vectors");
-            panic!();
+//i[0] == x^0, i[1] == x^1 i[2] == x^3...
+//(3-4x+2x^2)*(2*4x+0x^2) -> (6+12x)+(-8x+16x^2)+(4x^2+8x^3) highest x power here is the len of
+//m1-1 + len of m2-1
+//result will be 8x^3+20x^2+4x+6 so four buckets
+//res[0] = 6 res[1] = 4 res[2] = 20 res[3] = 8
+pub fn poly_mult_vecs(num1: &[u8], num2: &[u8]) -> Vec<u8> {
+    //we know its this length cause math is mathy
+    let mut result: Vec<u8> = vec![0; num1.len() + num2.len() - 1];
+
+    for i in 0..num1.len() {
+        for j in 0..num2.len() {
+            let mult_res = poly_mult(num1[i], num2[j]);
+            //xor cause in GF plus/minus is replaced with xor. yeah i know its weird as fuck
+            result[i + j] ^= mult_res;
         }
-
-        let div_result = poly_div(numerator[i], denominator[i]);
     }
-
-    todo!()
+    result
 }
+
+// fn poly_div_vecs(numerator: &[u8], denominator: &[u8]) -> Vec<u8> {
+//     let mut remainder_vec: Vec<u8> = Vec::with_capacity(numerator.len());
+//     for i in 0..numerator.len() {
+//         if denominator[i] == 0 {
+//             tracing::error!("attempted to divide by 0 in poly_div_vectors");
+//             panic!();
+//         }
+//
+//         let div_result = poly_div(numerator[i], denominator[i]);
+//     }
+//
+//     todo!()
+// }
