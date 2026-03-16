@@ -4,8 +4,6 @@ use std::{
     path::PathBuf,
 };
 
-use tempfile::tempfile;
-
 use crate::{
     dtos::EmbedConfigs,
     errors::steg_service_error::StegServiceError,
@@ -30,7 +28,7 @@ pub fn reed_solomon_encode(
     let mut reader = BufReader::new(input_file_pointer);
     let mut writer = BufWriter::new(output_file_pointer);
 
-    let mut buffer: Vec<u8> = Vec::new();
+    let mut buffer: Vec<u8>;
 
     if configs.reed_solomon_padding_byte_count > 254 {
         return Err(StegServiceError::InvalidPayload);
@@ -38,7 +36,7 @@ pub fn reed_solomon_encode(
 
     let payload_bytes_per_chunk = 255 - configs.reed_solomon_padding_byte_count;
 
-    let generator = generatae_generator(configs.reed_solomon_padding_byte_count)?;
+    let generator = generatae_generator(configs.reed_solomon_padding_byte_count);
     while payload_bytes_left > 0 {
         if payload_bytes_left > payload_bytes_per_chunk as i128 {
             buffer = vec![0; payload_bytes_per_chunk as usize];
@@ -66,11 +64,65 @@ pub fn reed_solomon_encode(
     Ok(())
 }
 
-pub fn reed_solomon_decode() {
+pub fn reed_solomon_decode(
+    payload_path: PathBuf,
+    configs: &EmbedConfigs,
+) -> Result<(), StegServiceError> {
+    let output_path = format!("{}_encoded", &payload_path.display());
+
+    let input_file_pointer = File::open(&payload_path).map_err(|_| StegServiceError::FileError)?;
+    let output_file_pointer =
+        File::create(&output_path).map_err(|_| StegServiceError::FileError)?;
+
+    let mut payload_bytes_left = input_file_pointer
+        .metadata()
+        .map_err(|_| StegServiceError::FileError)?
+        .len() as i128;
+
+    let mut reader = BufReader::new(input_file_pointer);
+    let mut writer = BufWriter::new(output_file_pointer);
+
+    let mut buffer: Vec<u8>;
+
+    if configs.reed_solomon_padding_byte_count > 254 {
+        return Err(StegServiceError::InvalidPayload);
+    }
+
+    let payload_bytes_per_chunk = 255 - configs.reed_solomon_padding_byte_count;
+
+    let generator_len = configs.reed_solomon_padding_byte_count;
+    while payload_bytes_left > 0 {
+        if payload_bytes_left > payload_bytes_per_chunk as i128 {
+            buffer = vec![0; payload_bytes_per_chunk as usize];
+        } else {
+            buffer = vec![0; payload_bytes_left as usize];
+        }
+
+        reader
+            .read_exact(&mut buffer)
+            .map_err(|_| StegServiceError::FileError)?;
+
+        decode_chunk(&mut buffer, generator_len)?;
+
+        writer
+            .write_all(&buffer)
+            .map_err(|_| StegServiceError::FileError)?;
+
+        payload_bytes_left -= payload_bytes_per_chunk as i128;
+    }
+
+    writer.flush().map_err(|_| StegServiceError::FileError)?;
+
+    std::fs::remove_file(&payload_path).map_err(|_| StegServiceError::FileError)?;
+    std::fs::rename(output_path, payload_path).map_err(|_| StegServiceError::FileError)?;
+    Ok(())
+}
+
+fn decode_chunk(chunk: &mut Vec<u8>, generator_len: u8) -> Result<(), StegServiceError> {
     todo!()
 }
 
-pub fn encode_chunk(chunk: &mut Vec<u8>, generator: &[u8]) -> Result<(), StegServiceError> {
+fn encode_chunk(chunk: &mut Vec<u8>, generator: &[u8]) -> Result<(), StegServiceError> {
     let chunk_len = chunk.len();
 
     //not 256 cause we cant use 0 as LOG_TABLE[0] is undefined
