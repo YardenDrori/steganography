@@ -85,16 +85,35 @@ pub fn poly_mult_vecs(num1: &[u8], num2: &[u8]) -> Vec<u8> {
     result
 }
 
-// fn poly_div_vecs(numerator: &[u8], denominator: &[u8]) -> Vec<u8> {
-//     let mut remainder_vec: Vec<u8> = Vec::with_capacity(numerator.len());
-//     for i in 0..numerator.len() {
-//         if denominator[i] == 0 {
-//             tracing::error!("attempted to divide by 0 in poly_div_vectors");
-//             panic!();
-//         }
-//
-//         let div_result = poly_div(numerator[i], denominator[i]);
-//     }
-//
-//     todo!()
-// }
+//NOTE This example is in REGULAR math! NOT GF(2^8)
+//2x^3+x^2-6x-8  /  x-2
+//2x^3 / x = 2x^2 -> div_res_vec = [0,0,2,0]
+//div_res_vec*denominator: (denominator: [-2, 1, 0, 0])
+//res=[0,0,-4,2]
+//numerator[-8,-6,1,2] - res[0,0,-4,2] = [-8,-6,5,0] now we loop
+fn poly_div_vecs(numerator: &[u8], denominator: &[u8]) -> Vec<u8> {
+    let mut numer_clone = numerator.to_vec();
+
+    for i in 0..numer_clone.len() {
+        let pos = numer_clone.len() - i - 1;
+        if pos < denominator.len() - 1 {
+            //if we are here than its not divisible so we break
+            break;
+        }
+
+        let div_res = poly_div(numer_clone[pos], denominator[denominator.len() - 1]);
+        let mut div_res_vec = vec![0; numer_clone.len()];
+
+        div_res_vec[pos - (denominator.len() - 1)] = div_res;
+
+        let denom_mult_div_res = poly_mult_vecs(&div_res_vec, denominator);
+
+        for i in 0..numer_clone.len() {
+            numer_clone[i] ^= denom_mult_div_res[i];
+        }
+    }
+
+    let res_vec = numer_clone[0..denominator.len() - 1].to_vec();
+
+    res_vec
+}
