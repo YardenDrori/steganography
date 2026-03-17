@@ -2,7 +2,7 @@ use crate::{
     app_state::AppState,
     dtos::EmbedFileRequest,
     errors::steg_service_error::StegServiceError,
-    services::{embed_video::embed, files_client},
+    services::{embed_video::embed, files_client, reed_solomon::reed_solomon_encode},
 };
 use axum::{Json, extract::State, http::StatusCode};
 use files_dtos::FileResponse;
@@ -42,9 +42,19 @@ pub async fn embed_video(
         return Err(StegServiceError::InvalidPayload);
     }
     tracing::info!(
-        "Found both carrier and payload files for user: {}. Attmpting to embed video",
+        "Found both carrier and payload files for user: {}. Attmpting to encode video with reed solomon",
         user
     );
+
+    // let payload_path_clone = payload_path.clone();
+    // let configs_clone = payload.configs.clone();
+    // tokio::task::spawn_blocking(move || {
+    //     reed_solomon_encode(payload_path_clone, configs_clone);
+    // })
+    // .await
+    // .map_err(|_| {
+    //     StegServiceError::ReedSolomonError("Reed solomon encode task panicked".to_string())
+    // })?;
 
     //since steg work is CPU bound thus blocking we make a dedicated thread for it to not starve
     //other async processes in this step
