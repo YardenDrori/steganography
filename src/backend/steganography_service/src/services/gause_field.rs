@@ -1,8 +1,4 @@
-use std::{collections::HashMap, sync::LazyLock};
-
-use rand::rand_core::UnwrapErr;
-
-use crate::errors::steg_service_error::StegServiceError;
+use std::sync::LazyLock;
 
 pub static EXP_TABLE: LazyLock<Vec<u8>> = LazyLock::new(|| {
     let mut exp_table: Vec<u8> = Vec::with_capacity(256);
