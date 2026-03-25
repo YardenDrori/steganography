@@ -36,6 +36,7 @@ pub struct EmbedConfigs {
     pub channels_to_embed: Channels,
     pub coefficients_to_embed: [bool; 16],
     pub coefficients_per_bit: usize,
+    pub blocks_per_macroblock: u32,
     pub delta: u8,
     pub seed: Option<String>,
     pub method: EmbedMethods,
@@ -45,6 +46,10 @@ pub struct EmbedConfigs {
 impl EmbedConfigs {
     pub fn validate_configs(&self) -> Result<(), StegServiceError> {
         if self.coefficients_per_bit < 1 {
+            return Err(StegServiceError::InvalidPayload);
+        }
+
+        if self.blocks_per_macroblock < 1 {
             return Err(StegServiceError::InvalidPayload);
         }
 

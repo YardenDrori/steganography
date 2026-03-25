@@ -27,6 +27,7 @@ export default function ExtractPage() {
   const [rgbChannels, setRgbChannels] = useState({ r: true, g: false, b: false });
   const [coefficients, setCoefficients] = useState<boolean[]>(DEFAULT_COEFFICIENTS);
   const [coefficientsPerBit, setCoefficientsPerBit] = useState(1);
+  const [blocksPerMacroblock, setBlocksPerMacroblock] = useState(4);
   const [delta, setDelta] = useState(10);
   const [seed, setSeed] = useState("");
 
@@ -59,6 +60,7 @@ export default function ExtractPage() {
       channels_to_embed: channels,
       coefficients_to_embed: coefficients,
       coefficients_per_bit: coefficientsPerBit,
+      blocks_per_macroblock: blocksPerMacroblock,
       delta,
       method,
       ...(SEED_METHODS.includes(method) ? { seed } : {}),
@@ -251,6 +253,21 @@ export default function ExtractPage() {
               onChange={(e) => setCoefficientsPerBit(Math.max(1, Number(e.target.value)))}
               className="w-32 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
             />
+          </div>
+
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">
+              Block size
+            </label>
+            <select
+              value={blocksPerMacroblock}
+              onChange={(e) => setBlocksPerMacroblock(Number(e.target.value))}
+              className="w-48 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+            >
+              <option value={1}>4×4 (max capacity)</option>
+              <option value={2}>8×8</option>
+              <option value={4}>16×16 (max robustness)</option>
+            </select>
           </div>
 
           <div>

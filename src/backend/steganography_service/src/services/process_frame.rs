@@ -11,8 +11,6 @@ use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
 //     pub payload_exhausted: bool,
 // }
 
-pub const BLOCKS_PER_MACROBLOCK: u32 = 4;
-
 const Y_PLANE: usize = 0;
 const CB_PLANE: usize = 1;
 const CR_PLANE: usize = 2;

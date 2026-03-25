@@ -11,6 +11,7 @@ export type EmbedConfigs = {
   channels_to_embed: Channels;
   coefficients_to_embed: boolean[];
   coefficients_per_bit: number;
+  blocks_per_macroblock: number;
   delta: number;
   seed?: string;
   method: EmbedMethod;

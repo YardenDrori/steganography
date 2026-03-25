@@ -1,4 +1,3 @@
-use crate::services::process_frame::BLOCKS_PER_MACROBLOCK;
 use ffmpeg_next::Dictionary;
 use ffmpeg_next::format::input;
 use std::collections::HashMap;
@@ -376,22 +375,23 @@ fn embed_in_channel(
     let stride = frame.stride(plane_id);
     let frame_data = frame.data_mut(plane_id);
 
-    for block_row in 0..plane_height / 4 / BLOCKS_PER_MACROBLOCK {
+    let bpm = configs.blocks_per_macroblock;
+    for block_row in 0..plane_height / 4 / bpm {
         if state.payload_exhausted {
             break;
         }
 
-        for block_col in 0..plane_width / 4 / BLOCKS_PER_MACROBLOCK {
+        for block_col in 0..plane_width / 4 / bpm {
             if state.payload_exhausted {
                 break;
             }
 
             //we do this fancy math to translate the block coordinate to memory coordinates in the
             //frame.data() array while taking into consideration stride additionally we can change
-            //the paramater BLOCKS_PER_MACROBLOCK to 1,2,4 to change step size from 4x4 blocks, 8x8
+            //blocks_per_macroblock to 1,2,4 to change step size from 4x4 blocks, 8x8
             //blocks to 16x16 aka a macro block for best naive robustness
-            let block_offset = 4 * block_row * stride as u32 * BLOCKS_PER_MACROBLOCK
-                + 4 * block_col * BLOCKS_PER_MACROBLOCK;
+            let block_offset = 4 * block_row * stride as u32 * bpm
+                + 4 * block_col * bpm;
 
             let mut block_as_pixel = [0u8; 16];
             for i in 0..4 {
