@@ -363,11 +363,6 @@ fn embed_in_channel(
     plane_height: u32,
     plane_id: usize,
 ) -> Result<(), StegServiceError> {
-    //only check I frames (for now)
-    if !frame.is_key() {
-        return Ok(());
-    }
-
     //clear any leftovers from previous uncompleted channel embed attempts
     state.coeff_accumulator_pos.clear();
     state.pending_blocks.clear();
