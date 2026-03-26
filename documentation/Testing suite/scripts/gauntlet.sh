@@ -144,7 +144,7 @@ run_wizard() {
     echo ""
     REF_DELTA=$(ask  "  Reference delta"  "150")
     REF_CPB=$(ask    "  Reference CPB"    "16")
-    REF_BPM=$(ask    "  Reference BPM"    "4")
+    REF_BPM=$(ask    "  Reference BPM"    "1")
     REF_METHOD=$(ask "  Reference method" "SS")
     REF_COEFF_PRESET=$(ask "  Reference coeff preset" "highfreq")
     REF_SEED=$(ask   "  Seed (PN sequence for SS/ISS/STDM)" "sigma")
@@ -471,8 +471,10 @@ run_group_b() {
     log "=== GROUP B: CPB sweep ==="
     local ref_cidx
     ref_cidx=$(get_coeff_indices "$REF_COEFF_PRESET")
-    for cpb in "${CPBS[@]}"; do
-        run_test "B" "$REF_METHOD" "$REF_DELTA" "$cpb" "$REF_BPM" "$REF_COEFF_PRESET" "$ref_cidx" || true
+    for method in "${METHODS[@]}"; do
+        for cpb in "${CPBS[@]}"; do
+            run_test "B" "$method" "$REF_DELTA" "$cpb" "$REF_BPM" "$REF_COEFF_PRESET" "$ref_cidx" || true
+        done
     done
 }
 
@@ -480,18 +482,22 @@ run_group_c() {
     log "=== GROUP C: BPM sweep ==="
     local ref_cidx
     ref_cidx=$(get_coeff_indices "$REF_COEFF_PRESET")
-    for bpm in "${BPMS[@]}"; do
-        run_test "C" "$REF_METHOD" "$REF_DELTA" "$REF_CPB" "$bpm" "$REF_COEFF_PRESET" "$ref_cidx" || true
+    for method in "${METHODS[@]}"; do
+        for bpm in "${BPMS[@]}"; do
+            run_test "C" "$method" "$REF_DELTA" "$REF_CPB" "$bpm" "$REF_COEFF_PRESET" "$ref_cidx" || true
+        done
     done
 }
 
 run_group_d() {
     log "=== GROUP D: Coefficient band sweep ==="
-    for preset in "${COEFF_PRESET_NAMES[@]}"; do
-        local cidx
-        cidx=$(get_coeff_indices "$preset")
-        [[ -z "$cidx" ]] && { log "  Unknown preset: $preset — skipping"; continue; }
-        run_test "D" "$REF_METHOD" "$REF_DELTA" "$REF_CPB" "$REF_BPM" "$preset" "$cidx" || true
+    for method in "${METHODS[@]}"; do
+        for preset in "${COEFF_PRESET_NAMES[@]}"; do
+            local cidx
+            cidx=$(get_coeff_indices "$preset")
+            [[ -z "$cidx" ]] && { log "  Unknown preset: $preset — skipping"; continue; }
+            run_test "D" "$method" "$REF_DELTA" "$REF_CPB" "$REF_BPM" "$preset" "$cidx" || true
+        done
     done
 }
 
