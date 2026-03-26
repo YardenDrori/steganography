@@ -276,6 +276,7 @@ upload_file() {
 }
 
 download_file() { curl -sf -o "$2" -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/files/$1/download"; }
+delete_server_file() { curl -s -X DELETE -H "Authorization: Bearer $TOKEN" "$BASE_URL/api/files/$1" >/dev/null; }
 
 mark_steg_object() {
     curl -sf -X PATCH "$FILES_INTERNAL_URL/internal/files/$1/embedded" 2>/dev/null \
@@ -331,6 +332,7 @@ run_test() {
         return
     fi
 
+    do_login
     log "$tag"
 
     local coeffs_json
@@ -374,12 +376,14 @@ run_test() {
     if [[ "$ext_id" != "FAIL" ]]; then
         download_file "$ext_id" "$ext_path"
         diff=$(diff_bytes "$ext_path" "$PAYLOAD_PATH")
+        delete_server_file "$ext_id"
     fi
     [[ "$diff" -eq 0 ]] && verdict="PASS" || verdict="FAIL"
 
     echo "$group,$method,$delta,$cpb,$bpm,$clabel,$gen,$psnr,$ssim,$diff,$PAYLOAD_SIZE,$verdict" >> "$RESULTS_CSV"
     log "  → PSNR=$psnr SSIM=$ssim diff=$diff/$PAYLOAD_SIZE $verdict"
 
+    delete_server_file "$steg_id"
     rm -f "$steg_path" "$ext_path"
 }
 
@@ -413,9 +417,13 @@ run_multigen() {
     q=$(measure_quality "$BASELINE_PATH" "$gen1_path")
     psnr=$(echo "$q" | cut -d' ' -f1); ssim=$(echo "$q" | cut -d' ' -f2)
     ext_id=$(do_extract "$steg_id" "$method" "$delta" "$REF_CPB" "$REF_BPM" "$REF_SEED" "$coeffs_json")
-    ext_path=$(mktemp); diff=$PAYLOAD_SIZE
-    [[ "$ext_id" != "FAIL" ]] && { download_file "$ext_id" "$ext_path"; diff=$(diff_bytes "$ext_path" "$PAYLOAD_PATH"); }
+    ext_path=$(mktemp /tmp/ext_XXXXXXXXXX); diff=$PAYLOAD_SIZE
+    if [[ "$ext_id" != "FAIL" ]]; then
+        download_file "$ext_id" "$ext_path"; diff=$(diff_bytes "$ext_path" "$PAYLOAD_PATH")
+        delete_server_file "$ext_id"
+    fi
     [[ "$diff" -eq 0 ]] && verdict="PASS" || verdict="FAIL"
+    delete_server_file "$steg_id"
     echo "E,$method,$delta,$REF_CPB,$REF_BPM,$REF_COEFF_PRESET,1,$psnr,$ssim,$diff,$PAYLOAD_SIZE,$verdict" >> "$RESULTS_CSV"
     log "  Gen1: PSNR=$psnr diff=$diff/$PAYLOAD_SIZE $verdict"
     rm -f "$ext_path"
@@ -432,9 +440,13 @@ run_multigen() {
         q=$(measure_quality "$BASELINE_PATH" "$gen_path")
         psnr=$(echo "$q" | cut -d' ' -f1); ssim=$(echo "$q" | cut -d' ' -f2)
         ext_id=$(do_extract "$new_steg_id" "$method" "$delta" "$REF_CPB" "$REF_BPM" "$REF_SEED" "$coeffs_json")
-        ext_path=$(mktemp); diff=$PAYLOAD_SIZE
-        [[ "$ext_id" != "FAIL" ]] && { download_file "$ext_id" "$ext_path"; diff=$(diff_bytes "$ext_path" "$PAYLOAD_PATH"); }
+        ext_path=$(mktemp /tmp/ext_XXXXXXXXXX); diff=$PAYLOAD_SIZE
+        if [[ "$ext_id" != "FAIL" ]]; then
+            download_file "$ext_id" "$ext_path"; diff=$(diff_bytes "$ext_path" "$PAYLOAD_PATH")
+            delete_server_file "$ext_id"
+        fi
         [[ "$diff" -eq 0 ]] && verdict="PASS" || verdict="FAIL"
+        delete_server_file "$new_steg_id"
         echo "E,$method,$delta,$REF_CPB,$REF_BPM,$REF_COEFF_PRESET,$g,$psnr,$ssim,$diff,$PAYLOAD_SIZE,$verdict" >> "$RESULTS_CSV"
         log "  Gen$g: PSNR=$psnr diff=$diff/$PAYLOAD_SIZE $verdict"
         rm -f "$ext_path"
