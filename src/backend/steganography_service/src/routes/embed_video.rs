@@ -2,7 +2,7 @@ use crate::{
     app_state::AppState,
     dtos::EmbedFileRequest,
     errors::steg_service_error::StegServiceError,
-    services::{embed_video::embed, files_client},
+    services::{embed_video::embed, files_client, reed_solomon::reed_solomon_encode},
 };
 use axum::{Json, extract::State, http::StatusCode};
 use files_dtos::FileResponse;
