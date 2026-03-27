@@ -30,7 +30,7 @@
 // the message we received on our end and plugging j generator roots in it where j is how many
 // parity bytes we added so for instance if the message on our end is m=1+2x+3x^2+4x^3 meaning first
 // byte is 1 second is 2 third is 3 and so on and we had 2 parity bytes we plug 2^0 and 2^1 in the
-// mplace of x which will produce 2 syndromes for us if all syndromes's value is 0 we're done this
+// mplace of x which will produce 2 syndromes for us if all syndromes's value are 0 we're done this
 // is why we wanted division to with the generator in earlier steps to equate 0 cause the error
 // formula is something like this e(x) = message*x + error*x so now if we plug in one of the values
 // from the generator roots e.g 2^0 e(1) = message*1 + error*1 thanks to how we built the message
@@ -38,23 +38,29 @@
 // is very usefull for us we can expand error to be Y*X^pos where Y is how off the byte is from
 // what it was supposed to be and pos is in which recieved byte the error is the reason we do X to
 // the power of pos instead of writing pos directly is because of how we represnt bytes on the
-// encoding. this doesnt tell us anything at all but these are the components of the error
+// encoding step. this doesnt tell us anything at all but these are the components of the error
 // if we had more than 1 error the formula would be Y1*X^pos1 Y2*X^pos2 so we can make a polynom of
 // all the errors called e(X) = Y1*X^pos1 + Y2*X^pos2 + ... Yn*X^posn
 // where n is how many errors we had during transmission this is why every 2 parity bytes can fix 1
 // error because every error is made of amount and position and each parity byte will allow us to
 // recover 1 of those for reasons that will be explained later
 // in the encoding step we represented each byte's index with a power of x so we stick to that
-// pattern here if the error is in byte 4 than the err is Y4*X^4
+// pattern here if the error is in byte 4 than the err is Y(4)*X^4
 // the genric formula is
 // e(x) = Y0*X^pos0 + Y1*X^pos1 + ... Yn*X^posn
-// now substituting X for the root to eliminate the message leaving us with just the error looks
+// now substituting X for the root to eliminate the message leaving us with just the error
 // a generic formula for the syndrome is
-// S[j] = Y*(2^j)^i where i is the error position Y is its magnitude and j is the root power
+// S[j] = Y*(2^j)^pos where pos is the error position and Y is its magnitude and j is the root power
 // (this is the case because of how we encoded the message we encoded it in such a way that
 // [1,2,3,4,5] represents 1+x+x^2+x^3+x^4 so we effectively encoded a function thus we can
-// play around with X) note we dont know any of these this is what we are tying to find we get S[i]
-// as one value we can call Z but we do know that Z(j) = (2^j)^i*Y which is what we care about
+// play around with X but we dont plug the root directly as we know its always 2 to the power of
+// something so we just plug in that something) note we dont know any of these this is what we
+// are tying to find we get S[j]
+//
+// -- MIGHT DELETE --
+// as one value we can call Z
+// but we do know that Z(j) = (2^j)^i*Y which is what we care about
+// -- MIGHT DELETE --
 //
 //
 // for this reason if S[1] = Y*(2^1)^pos
@@ -70,9 +76,9 @@
 // different numbers that represent the same thing now replace the f(x) with e(x) for the error
 // function and we plug in the generator roots cause they clean up the formula by keeping only the
 // error part of it as explained earlier so lets say we had 1 error in byte X^3 with a magnitude 7
-// we plug in out two roots and get our two syndromes S1 and S2 and we would get Z1 and Z2 which as
-// stated earlier each Z represents Y*(2^j)^pos so we can deduce that Z2/Z1 = Y*(2^2)^pos / Y*(2^1)^pos
-// which is equal to 2^pos now we can a number we know represents 2^pos so we just check it with
+// we plug in out two roots and get our two syndromes S1 and S2
+// stated earlier each S represents Y*(2^j)^pos so we can deduce that S2/S1 = Y*(2^2)^pos / Y*(2^1)^pos
+// which is equal to 2^pos now we have a number we know represents 2^pos so we just check it with
 // the LOG_TABLE to see what power of 2 gives the number we got and what we find is the pos!
 // now we just plug pos in the syndromes formula to find Y and we found the error
 // note if we have more than 1 error this gets waaay more complicated cause now we have 4 equations
@@ -97,10 +103,10 @@
 //
 // now if we take a look back at our syndromes
 // S[j] = Y1*(2^j)^pos1 + Y2(2^j)^pos2 (for 2 errors)
-// and we make A=2^pos1 and B=2^pos2 for simplicity we derive
-// S[j] = Y1*A^j + Y2*B^j
+// and we make A=2^pos1 and B=2^pos2 for simplicity like before we derive
+// S[j] = Y1*A^j + Y2*B^j (lol BJ😏)
 //
-// if we plug 1,2, and 3 into S we see
+// if we plug 1,2,3 into S we see
 // S[1] = Y1*A^1 + Y2*B^1
 // S[2] = Y1*A^2 + Y2*B^2
 // S[3] = Y1*A^3 + Y2*B^3
@@ -115,7 +121,10 @@
 // have an easier way to achieve that mathematically other than this ritual with the devil
 //
 // we further abstract even A and B to σ1 and σ2
-// we abstract them further with σ1 = (A+B) and σ2 = (A*B)
+// we abstract them as σ1 = (A+B) and σ2 = (A*B)
+// and if u recall our earlier formula
+// σ(x) = 1 - X*(A+B) + A*B*X^2
+// replacing A and B with our sigma values gives us
 // σ(x) = 1 - σ1*X+σ2*X^2
 // so σ1 and σ2 represent numbers we dont know from multiplying they are just unkown
 // this gives us the updated recurrence of
@@ -125,16 +134,17 @@
 //
 // now you do Berlekamp-Massey which is a fancy algorithm in which you guess the recurrence
 // the first guess is S[j] = 0 aka there are no errors
-// if this guess is false meaning there are errors we use the formula from before
+// if this guess is false well update our guess as will be seen in a bit
+// now as we derived just abbove we have this formula (but for 1 error earlier we assumed 2 it can
+// expand and shrink dynamically and infintely as needed)
 // S[j] = σ1 * S[j-1]
 // this formula assumes there is 1 error and only 1 error
-// now we plug in 1 and 2 to find the first and second syndromes as this formula assumes
-// 1 error and we need 2 syndromes to fix 1 error we take those two syndromes
-// which assume 1 error so they make the formula
-// S[i] = S[i-1] * σ
+// now we plug in 1 and 2 in the message received on our end to find the first and second
+// syndromes as this formula assumes 1 error and we need 2 syndromes to fix 1 error
+// we take those two syndromes which *should* make the formula shown abbove
 // we use this formula and the 2 syndromes to find the value of sigma
 // now after we find its value we check if sigma can predict the next syndrome with the same
-// formula we just did if it can we're done with this step if it isnt we increase the err count
+// formula we just used to find it if it can we're done with this step if it isnt we increase the err count
 // our formula assumes so now it would be
 // S(i) = S[i-1]*σ1 - S[i-2] * σ2 (notice the pattern for every error we just dec but an ever
 // decreasing S[i] value and multiply by a new unkown (sigma)
