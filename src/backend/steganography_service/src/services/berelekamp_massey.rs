@@ -52,9 +52,20 @@ pub fn berlecamp_massey(syndromes: &Vec<u8>) -> Result<(), StegServiceError> {
         }
 
         //  Λ_old - adjusted_scaled_B = Λ_new
-        let len = if adjusted_prev_lambda.len() > lambda.len() {adjusted_prev_lambda.len()} else {lambda.len()};
+        let len = if adjusted_prev_lambda.len() > lambda.len() {
+            adjusted_prev_lambda.len()
+        } else {
+            lambda.len()
+        };
         for j in 0..len {
-            let curr_lambda_val = lambda.get(j:)
+            let curr_lambda_val = match lambda.get(j) {
+                Some(v) => v.clone(),
+                None => 0,
+            };
+            let prev_lambda_val = match adjusted_prev_lambda.get(j) {
+                Some(v) => v.clone(),
+                None => 0,
+            };
         }
 
         i += 1;
