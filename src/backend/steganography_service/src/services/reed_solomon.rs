@@ -93,12 +93,12 @@
 // now we dont actually have σ(x) as if we did we would be done so to find it we use Berlekamp-Massey
 //
 // Berlekamp Massey works by establishing a rule that if we take sigma and expand it
-// σ(x) = 1-2^pos2*X - 2^pos1*X + 2^pos1*X*2^pos2*X =
-// σ(x) = 1 - 2^pos1*x
-// σ(x) = 1 - 2^pos1*X - 2^pos2*X + 2^pos1*2^pos2*X^2 =
+// Λ(x) = 1-2^pos2*X - 2^pos1*X + 2^pos1*X*2^pos2*X =
+// Λ(x) = 1 - 2^pos1*x
+// Λ(x) = 1 - 2^pos1*X - 2^pos2*X + 2^pos1*2^pos2*X^2 =
 // now we can define 2^pos1 as A and 2^pos2 as B to simplify which gives us
-// σ(x) = 1 - A*X - B*X + A*B*X^2 =
-// σ(x) = 1 - X*(A+B) + A*B*X^2
+// Λ(x) = 1 - A*X - B*X + A*B*X^2 =
+// Λ(x) = 1 - X*(A+B) + A*B*X^2
 //
 //
 // now if we take a look back at our syndromes
@@ -116,21 +116,30 @@
 // we can again see a pattern emerge we S[i] = S[i-1]*(A+B) - S[i-2]*A*B
 // yeah i hate this formula so much
 //
-// now idk what deal with the devil was made to get this fomula to work but here is an explanation
+// now idk what deal with the devil was made to get this fomula to work but here is an attempt at
+// an explanation:
 // we can clearly see in the three examples that what changes is the power of A and B but we dont
 // have an easier way to achieve that mathematically other than this ritual with the devil
 //
 // we further abstract even A and B to σ1 and σ2
 // we abstract them as σ1 = (A+B) and σ2 = (A*B)
 // and if u recall our earlier formula
-// σ(x) = 1 - X*(A+B) + A*B*X^2
+// Λ(x) = 1 - X*(A+B) + A*B*X^2
 // replacing A and B with our sigma values gives us
-// σ(x) = 1 - σ1*X+σ2*X^2
+// Λ(x) = 1 - σ1*X+σ2*X^2
 // so σ1 and σ2 represent numbers we dont know from multiplying they are just unkown
 // this gives us the updated recurrence of
 // S[i] = S[i-1] * σ1 - S[i-2] * σ2
+// this is called a linear recurrence a famous one for instance is the fibonacci sequence
+// S[i] = S[i-1]*1 + S[i-2]*1 so for the fibonacci sequence
+// Λ(x) = [-1,1] (technically [1,-1,1] but well get into it later)
 // NOTE: this is an example for 2 errors the formula varries on how many errors there are
 // for each error we have more syndromes and more sigmas
+// NOTE: the signs are alternating starting from positive so for two erros as seen here its + - +
+// (1 - σ1*X + σ2*X^2)
+// if we were to add a third error it would be
+// +1 - σ1*X + σ2*X^2 - σ3*X^3
+// and so on...
 //
 // now you do Berlekamp-Massey which is a fancy algorithm in which you guess the recurrence
 // the first guess is S[j] = 0 aka there are no errors
@@ -146,13 +155,191 @@
 // now after we find its value we check if sigma can predict the next syndrome with the same
 // formula we just used to find it if it can we're done with this step if it isnt we increase the err count
 // our formula assumes so now it would be
-// S(i) = S[i-1]*σ1 - S[i-2] * σ2 (notice the pattern for every error we just dec but an ever
+// S[i] = S[i-1]*σ1 - S[i-2] * σ2 (notice the pattern for every error we just dec but an ever
 // decreasing S[i] value and multiply by a new unkown (sigma)
 //
 // after we do that we dont throw away our old work of finding sigma as we can still use it
 // to help us make another guess for the new σ1 and σ2 more efficiently than starting from scratch
-// we do this by taking the discrepency between what we expected to get S[i] (in this case S[3])
-// and what we got from doing the formula with the prev σ we call this discrepency delta 𝛿
+// doing this involves this formula
+// Λ_new = Λ_old - δ/b * B * x^shift
+// Λ_old is self explanetory the curr Λ value we wanna update
+// delta is the difference from the correct syndrome and the guessed syndrome so actual - guessed =
+// delta
+// B is the last working Λ before we increased the estimated error count
+// b is the delta that B gave at its failure point
+// shift is how many steps ago was B(the now old lambda) our current lambda or how many steps ago
+// did we abandon it
+// additionally on the first run B and lambda are initialized as [1] and b is initialized as 1
+// we increase the estimated error count when the curr_guess is over 2*how many errors we think
+// there are
+// Breaking down WHY this formula works is a bit of a pain but its as follows
+//
+// NOTE: from now on we'll treat the index 0 of
+// lambda as not a sigma value but as a field thats just there so the math works so sigma1 = 2 here
+// sigma2 = 3 here etc same for B as otherwise they would be null and the formula wont work on
+// first run with null nor can we interpert them as 0 as it would also not work so we set them 1
+//
+// and our syndromes are [0, 1, 1, 2, 3, 5, 8] (this is the fibonacci sequence)
+// so we define the following variables
+// B - previous lambda when we increased L (unintorudced yet)
+// b - the delta of the B at the time it was our main lambda at its last failure point
+// L - how many errors we think there are
+// shift - how many loop iterations (loop unintroduced yet) has it been since B was updated
+// with the following defaults when starting
+// Λ = [1] -- again we ignore index 0 its for math stuff
+// δ = 1
+// B = [1] --same as lambda here
+// b = 1
+// L = 0 --we assume no errors
+// i - curr iteration of the loop = 0
+// shift = 1 -- we just started and just "updated" (created) B and when we update B we set shift to 1
+//
+// so we do the first iteration of the loop
+// n = 0
+// S[0] - Λ[1]*S[-1] = 0 - 0*0 = 0? -> 0 - 0 = 0? -> TRUE!
+// (Λ[1] is out of bounds so its interperted as 0 by us same for S[-1] so its like 0*0)
+// therefore all we do is increase shift by 1
+//
+// n = 1
+// S[1] - Λ[1]*S[0] = 0? -> 1 - 0*0 = 0? -> 1-0 = 0? -> 1 = 0? -> FALSE!
+// for situations where the prediction failed we do the following in this order
+// we first save the delta
+// δ = 1
+// we then save the current lambda into a temp variable we'll call TEMP
+// TEMP = Λ = [1]
+// we will then update the current lambda
+// Λ_new = Λ_old - δ/b * B * X^shift --reason why this formula works will be explained in the end
+// Λ_new = [1] - 1/1 * [1] * X^2 = [1] - 1*[0,0,1] = [1] - [0,0,1] = [1,0,0] - [0,0,1] = [1,0,-1]
+// we then check if L should update
+// L*2 < n+1 ? -> 0*2 < 2 ? -> 0 < 2 ? -> TRUE!
+// therefore we update L like this
+// L_new = n+1 - L_old = 2 - 0
+// L = 2
+// seeing as L was updated we also update B and b
+// B = TEMP = [1]
+// b = δ = 1
+// we then continue with the loop
+//
+// n = 2
+// S[2] - 0*S[1] + (-1)*S[0] = 0?
+// 1 - 0 + (-1)*0 = 0? -> 1-0+0 = 0? -> 1 = 0? -> FALSE!
+// so we do the same things
+// δ = 1
+// TEMP = Λ = [1, 0 ,-1]
+// Λ_new = Λ_old - δ/b * B * X^shift
+// Λ_new = [1,0,-1] - 1/1 * [1] * X^1 = [1,0,-1]-1*[0,1]=[1,0,-1]-[0,1]=[1,-1,-1]
+// we then check if L should update
+// L*2 < n+1 ? -> 2*2 < 3 ? -> 4 < 3 ? -> FALSE!
+// therefore we dont touch L, B, b and we increase shift by 1
+// shift = 2
+//
+// n = 3
+// S[3] - (-1)*S[2] + (-1)*S[1] = 0?
+// 2 - (-1)*1 + (-1)*1 = 0? -> 2 - 1 + -1 = 0? -> 2-1-1 = 0? -> 0 = 0? -> TRUE!
+// so we just increase shift and move on
+// shift = 3
+//
+// n = 4
+// S[4] - (-1)*S[3] + (-1)*S[2] = 0?
+// 3 - (-1)*2 + (-1)*1 = 0? -> 3 - 2 + -1 = 0? -> 3-2-1 = 0? -> 0 = 0? -> TRUE!
+//
+// we do like 5 more checks to make sure this is not a coincidence but we are basically done here
+// our final lambda is [1, -1, -1]
+//
+// now to the reason this thing works
+// lets start with why the formula
+// Λ_new = Λ_old - δ/b * B * X^shift
+// does anything usefull for us
+// the formula can be broken down into 3 seperate processes we'll start with this one
+// B * X^shift
+// takes B which used to be our lambda and prepends shift zeros to it
+// so if B is [1,2] and shift is 3 the output will be [0,0,0,1,2]
+// we do this to "go back in time" to when B was saved (when it was our lambda)
+// the reason this achieves that is because the formula is
+// S[n] - S[n-1] + S[n-2] - S[n-4] ... +-S[0]
+// it always grows with the current iteration of the loop and since B was "snapshotted" shift
+// versions ago prepending the zeros does the same effect as running b in n-shift loops ago
+// to sum up S[3] - [S2]*0 + S[1]*0 - S[0]*x == S[1]-S[0]*x which is what this achieves
+// and the reason we want this is because at this stage B never failed us 1 step before n-shift
+// so its completely accurate until this point we will see why that is usefull in a bit (i know
+// this is a lot to follow but thats just the BS that is Berlekamp-Massey ive been studying it for
+// over a week now T_T)
+// so we have B and we know that using B at its failure point gives a delta of non zero (which is
+// why we bothered saving it in the first place, it failed)
+// we also saved that delta at its failure point as b
+// tl;dr B*x^shift gives us the polynomal that produced b but for our iteration of the loop
+//
+// now the second part of the formula
+// δ/b
+// we already have the adjusted version of B (from the last step)
+// we know that running the syndrome predition yielded b
+// now first lets think if the syndromes are S = [1,3,9] (S[i] = S[i-1]*3)
+// and we thought it was S[i]-S[i-1]*2 = 0? -> false -> 3-2 = 1 != 0
+// aka our lambda was [1,2] and our delta was 1 we can first conclude that multiplying our lambda
+// by to produces a delta of 2
+// S[i]*2 - S[i-1]*4 = 3*2 - 1*4 = 2?
+// (usually index 0 is always 1 so we dont bother writing it but here it isnt index 0 affects the
+// "target number aka the syndrome we are trying to predict")
+// so we can agree that multiplying the lambda or B by anything multiplies its delta as well
+// now if we take adjusted B which outputs a delta of 'b' and multiply it by δ/b
+// we can now say that B predicts δ/b * b or to simplify B predicts δ
+//
+// now the third and final part of the formula
+// we have now two non trivial polynomals that predict the same delta
+// and our goal was to get the delta to 0 so just like multiplying lambda multiplies the delta at
+// step two the same applies for addition and subtraction
+// so we just subtract our current lambda with the adjusted B we multiplied
+// and we're done we now fixed the current error
+//
+// the reason we use B and not any other polynomal is because B is proven to work for the earlier
+// steps using any other polynomal WOULD properly fix the current error but it will NOT preserve
+// all the correct predictions we did a few steps ago
+// NOTE: obv we did this with regular math we will use GF(2^8) math in the code
+//
+// The reason we grow L the way we do is that L is the amount of errors we think there are
+// and n+1 is the amount of syndromes that exist in our formula
+// to fix L errors we need 2*L syndromes, as established waaay abbove
+// this is the reason for the condition if the amount of syndromes (n+1) is over L*2 we can know
+// that would mean that we have too many syndromes for the amount of errors we think there are but
+// if were here anyway and didnt finish the loop that means we still have errors so we can assume
+// we have MORE errors then originally thought
+// example:
+// L = 2 -- we think there are 2 errors
+// n = 3 -- we have 4 syndromes (3+1)
+// in the next iteration of the loop n = 4
+// but if we fail this means that even 5 syndromes cant fix all the errors so we have over 2 errors
+// which is why we update L
+// we update L to be L_new = n+1 - L_old because this gives us the minimum L that these syndromes
+// can solve for
+// if we have 5 syndromes (n = 4) and still fail there are at least 3 errors
+// 4+1 - 2 = 3
+// L_new = 3
+//
+//
+// when n is the current iteration of the loop
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
