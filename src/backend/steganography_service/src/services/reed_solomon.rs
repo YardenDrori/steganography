@@ -86,11 +86,11 @@
 // solve them and get the correct solution this is very inefficient and complex so we write an
 // equation for sigma that makes it reasonable
 //
-// we define sigma as σ(X) = (1-2^pos1*X)(1-2^pos2*X) this means that plugging
-// X = 2^-pos makes sigma = 0
-// we did not derive this from anything this is just what we decided sigma is
+// we define lambda as Λ(X) = (1-2^pos1*X)(1-2^pos2*X) this means that plugging
+// X = 2^-pos makes lambda = 0
+// we did not derive this from anything this is just what we decided lambda is
 //
-// now we dont actually have σ(x) as if we did we would be done so to find it we use Berlekamp-Massey
+// now we dont actually have Λ(x) as if we did we would be done so to find it we use Berlekamp-Massey
 //
 // Berlekamp Massey works by establishing a rule that if we take sigma and expand it
 // Λ(x) = 1-2^pos2*X - 2^pos1*X + 2^pos1*X*2^pos2*X =
@@ -155,7 +155,7 @@
 // now after we find its value we check if sigma can predict the next syndrome with the same
 // formula we just used to find it if it can we're done with this step if it isnt we increase the err count
 // our formula assumes so now it would be
-// S[i] = S[i-1]*σ1 - S[i-2] * σ2 (notice the pattern for every error we just dec but an ever
+// S(i) = S[i-1]*σ1 - S[i-2] * σ2 (notice the pattern for every error we just dec but an ever
 // decreasing S[i] value and multiply by a new unkown (sigma)
 //
 // after we do that we dont throw away our old work of finding sigma as we can still use it
@@ -191,132 +191,49 @@
 // B = [1] --same as lambda here
 // b = 1
 // L = 0 --we assume no errors
-// i - curr iteration of the loop = 0
+// i - curr iteration of the loop = 1
 // shift = 1 -- we just started and just "updated" (created) B and when we update B we set shift to 1
 //
-// so we do the first iteration of the loop
-// n = 0
-// S[0] - Λ[1]*S[-1] = 0 - 0*0 = 0? -> 0 - 0 = 0? -> TRUE!
-// (Λ[1] is out of bounds so its interperted as 0 by us same for S[-1] so its like 0*0)
-// therefore all we do is increase shift by 1
+// so we compare S[0] - Λ[1] = 0? -> 0 - 0 = 0? -> TRUE!
+// lambda delta B and b remain unchanged
+// i = i + 1 = 2 first iteration done
+// L - remaisn unchanged as we werent wrong so far the guess holds true
+// shift increases as its been another iteration with no update to B so its now 2
+// we now check if the rule continues being true
+// S[1] - Λ[1] = 0? -> 1-0 = 0? -> FALSE!
+// as we were false we NOW check the condition if n > L*2 and as L=0 its true
+// thus L=L+1 = 1 -- we now assume 1 error exists
+// we save the deviation from expected value (1-0 = 1) in delta
+// now as we were wrong we update the lambda polynomal
+// Λ_new = Λ_old - δ/b * B * X^shift --reasoning for why this formula works will be at the end.
+// Λ_new = [1] - 1/1 * [1] * X^2 = [1] - [0,0,-1] = [1,0,1] NOTE: it was supposed to be [1,0,-1]
+// additionally as L increased we updated B and b
+// B = [1] b = 1 and shift goes back down to 1 as B was just updated
+// L = 1 -> 1*2 < n(2)? -> FALSE L stays at 1
+// iteration 3 now (i=3)
+// NOTE: idk when we check which syndrome like is it S[2] or do we stay at S[1] as we didnt predict
+// correctly
 //
-// n = 1
-// S[1] - Λ[1]*S[0] = 0? -> 1 - 0*0 = 0? -> 1-0 = 0? -> 1 = 0? -> FALSE!
-// for situations where the prediction failed we do the following in this order
-// we first save the delta
-// δ = 1
-// we then save the current lambda into a temp variable we'll call TEMP
-// TEMP = Λ = [1]
-// we will then update the current lambda
-// Λ_new = Λ_old - δ/b * B * X^shift --reason why this formula works will be explained in the end
-// Λ_new = [1] - 1/1 * [1] * X^2 = [1] - 1*[0,0,1] = [1] - [0,0,1] = [1,0,0] - [0,0,1] = [1,0,-1]
-// we then check if L should update
-// L*2 < n+1 ? -> 0*2 < 2 ? -> 0 < 2 ? -> TRUE!
-// therefore we update L like this
-// L_new = n+1 - L_old = 2 - 0
-// L = 2
-// seeing as L was updated we also update B and b
-// B = TEMP = [1]
-// b = δ = 1
-// we then continue with the loop
+// S[2] + S[1]*0 - 1*S[0] = 0? -> 1 + 0 - 1 = 0 == 0 -> TRUE!
+// as this is true we keep B b lambda and delta untouched
+// increase shift by 1
+// dont check the L condition as we are right
+// and move on
+// S[3] + 0*S[2] - 1*S[1] = 0? -> 2 + 0 - 1 = 1 != 0 -> FALSE!
+// as this is false we now again first update the lambda
+// Λ_new = [1,0,1] - 1/1 * [1] * X^2 = [1,0,1] - [0,0,1] yeah this is a loop im lost here
 //
-// n = 2
-// S[2] - 0*S[1] + (-1)*S[0] = 0?
-// 1 - 0 + (-1)*0 = 0? -> 1-0+0 = 0? -> 1 = 0? -> FALSE!
-// so we do the same things
-// δ = 1
-// TEMP = Λ = [1, 0 ,-1]
-// Λ_new = Λ_old - δ/b * B * X^shift
-// Λ_new = [1,0,-1] - 1/1 * [1] * X^1 = [1,0,-1]-1*[0,1]=[1,0,-1]-[0,1]=[1,-1,-1]
-// we then check if L should update
-// L*2 < n+1 ? -> 2*2 < 3 ? -> 4 < 3 ? -> FALSE!
-// therefore we dont touch L, B, b and we increase shift by 1
-// shift = 2
-//
-// n = 3
-// S[3] - (-1)*S[2] + (-1)*S[1] = 0?
-// 2 - (-1)*1 + (-1)*1 = 0? -> 2 - 1 + -1 = 0? -> 2-1-1 = 0? -> 0 = 0? -> TRUE!
-// so we just increase shift and move on
-// shift = 3
-//
-// n = 4
-// S[4] - (-1)*S[3] + (-1)*S[2] = 0?
-// 3 - (-1)*2 + (-1)*1 = 0? -> 3 - 2 + -1 = 0? -> 3-2-1 = 0? -> 0 = 0? -> TRUE!
-//
-// we do like 5 more checks to make sure this is not a coincidence but we are basically done here
-// our final lambda is [1, -1, -1]
-//
-// now to the reason this thing works
-// lets start with why the formula
-// Λ_new = Λ_old - δ/b * B * X^shift
-// does anything usefull for us
-// the formula can be broken down into 3 seperate processes we'll start with this one
-// B * X^shift
-// takes B which used to be our lambda and prepends shift zeros to it
-// so if B is [1,2] and shift is 3 the output will be [0,0,0,1,2]
-// we do this to "go back in time" to when B was saved (when it was our lambda)
-// the reason this achieves that is because the formula is
-// S[n] - S[n-1] + S[n-2] - S[n-4] ... +-S[0]
-// it always grows with the current iteration of the loop and since B was "snapshotted" shift
-// versions ago prepending the zeros does the same effect as running b in n-shift loops ago
-// to sum up S[3] - [S2]*0 + S[1]*0 - S[0]*x == S[1]-S[0]*x which is what this achieves
-// and the reason we want this is because at this stage B never failed us 1 step before n-shift
-// so its completely accurate until this point we will see why that is usefull in a bit (i know
-// this is a lot to follow but thats just the BS that is Berlekamp-Massey ive been studying it for
-// over a week now T_T)
-// so we have B and we know that using B at its failure point gives a delta of non zero (which is
-// why we bothered saving it in the first place, it failed)
-// we also saved that delta at its failure point as b
-// tl;dr B*x^shift gives us the polynomal that produced b but for our iteration of the loop
-//
-// now the second part of the formula
-// δ/b
-// we already have the adjusted version of B (from the last step)
-// we know that running the syndrome predition yielded b
-// now first lets think if the syndromes are S = [1,3,9] (S[i] = S[i-1]*3)
-// and we thought it was S[i]-S[i-1]*2 = 0? -> false -> 3-2 = 1 != 0
-// aka our lambda was [1,2] and our delta was 1 we can first conclude that multiplying our lambda
-// by to produces a delta of 2
-// S[i]*2 - S[i-1]*4 = 3*2 - 1*4 = 2?
-// (usually index 0 is always 1 so we dont bother writing it but here it isnt index 0 affects the
-// "target number aka the syndrome we are trying to predict")
-// so we can agree that multiplying the lambda or B by anything multiplies its delta as well
-// now if we take adjusted B which outputs a delta of 'b' and multiply it by δ/b
-// we can now say that B predicts δ/b * b or to simplify B predicts δ
-//
-// now the third and final part of the formula
-// we have now two non trivial polynomals that predict the same delta
-// and our goal was to get the delta to 0 so just like multiplying lambda multiplies the delta at
-// step two the same applies for addition and subtraction
-// so we just subtract our current lambda with the adjusted B we multiplied
-// and we're done we now fixed the current error
-//
-// the reason we use B and not any other polynomal is because B is proven to work for the earlier
-// steps using any other polynomal WOULD properly fix the current error but it will NOT preserve
-// all the correct predictions we did a few steps ago
-// NOTE: obv we did this with regular math we will use GF(2^8) math in the code
-//
-// The reason we grow L the way we do is that L is the amount of errors we think there are
-// and n+1 is the amount of syndromes that exist in our formula
-// to fix L errors we need 2*L syndromes, as established waaay abbove
-// this is the reason for the condition if the amount of syndromes (n+1) is over L*2 we can know
-// that would mean that we have too many syndromes for the amount of errors we think there are but
-// if were here anyway and didnt finish the loop that means we still have errors so we can assume
-// we have MORE errors then originally thought
-// example:
-// L = 2 -- we think there are 2 errors
-// n = 3 -- we have 4 syndromes (3+1)
-// in the next iteration of the loop n = 4
-// but if we fail this means that even 5 syndromes cant fix all the errors so we have over 2 errors
-// which is why we update L
-// we update L to be L_new = n+1 - L_old because this gives us the minimum L that these syndromes
-// can solve for
-// if we have 5 syndromes (n = 4) and still fail there are at least 3 errors
-// 4+1 - 2 = 3
-// L_new = 3
+// After the Berlekamp-Massey charade we have a polynomal that plugging 2^any_error_pos = 0
+// and with that polynomal we represented 2^pos = 0 i.e if we plug 2 to the power of a position
+// with an error the lambda value will be 0 (this is just how we defined lambda earlier and now
+// that we have it we can move on) so to find the pos values its not that flashy we just brute
+// force all 256 possible powers of 2 and save the ones that output 0 we use the EXP_TABLE oc to
+// save compute tho
 //
 //
-// when n is the current iteration of the loop
+//
+//
+//
 //
 //
 //
@@ -357,7 +274,8 @@ use crate::{
     dtos::EmbedConfigs,
     errors::steg_service_error::StegServiceError,
     services::{
-        gause_field::{EXP_TABLE, poly_div_remainder_vecs, poly_mult},
+        berelekamp_massey::berlecamp_massey,
+        galois_field::{EXP_TABLE, poly_div_remainder_vecs, poly_mult, poly_mult_vecs},
         rs_generator_vec::{generatae_generator, get_roots_for_generator_with_len},
     },
 };
@@ -493,6 +411,25 @@ fn decode_chunk(chunk: &mut Vec<u8>, generator_len: u8) -> Result<bool, StegServ
     }
     if !found_error {
         return Ok(true);
+    }
+
+    let lambda = berlecamp_massey(&syndromes)?;
+
+    //lambda always has err_count+1 elements
+    if lambda.len() == 1 {
+        tracing::warn!("lambda contains no meaningful values");
+        return Ok(true);
+    }
+
+    let mut error_poitions: Vec<u8> = vec![];
+    for i in 0..EXP_TABLE.len() {
+        let root = &EXP_TABLE[i..i + 1];
+        // we do EXP_TABLE[i..i] because the function expects a slice ref and we dont wanna
+        // allocate a new slice as thats dumb
+        let mut sum = 0;
+        for j in 0..lambda.len() {
+            for _ in 0..j {}
+        }
     }
 
     todo!()
