@@ -50,6 +50,7 @@ pub fn berlecamp_massey(syndromes: &Vec<u8>) -> Result<Vec<u8>, StegServiceError
             prev_lambda = lambda.clone();
             prev_delta = delta;
             err_count = i as u8 + 1 - err_count;
+            shift = 0;
 
             if err_count > (syndromes.len() / 2) as u8 {
                 return Err(StegServiceError::ReedSolomonError(
@@ -59,8 +60,8 @@ pub fn berlecamp_massey(syndromes: &Vec<u8>) -> Result<Vec<u8>, StegServiceError
         }
 
         // δ/b * adjusted_B = adjusted_scaled_B
+        let multiplier = poly_div(delta, prev_delta_to_use);
         for coeff in adjusted_prev_lambda.iter_mut() {
-            let multiplier = poly_div(delta, prev_delta_to_use);
             *coeff = poly_mult(*coeff, multiplier);
         }
 
