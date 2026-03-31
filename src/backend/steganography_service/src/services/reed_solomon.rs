@@ -126,7 +126,7 @@
 // and if u recall our earlier formula
 // Λ(x) = 1 - X*(A+B) + A*B*X^2
 // replacing A and B with our sigma values gives us
-// Λ(x) = 1 - σ1*X+σ2*X^2
+// Λ(x) = 1 - σ1*X + σ2*X^2
 // so σ1 and σ2 represent numbers we dont know from multiplying they are just unkown
 // this gives us the updated recurrence of
 // S[i] = S[i-1] * σ1 - S[i-2] * σ2
@@ -230,8 +230,13 @@
 // force all 256 possible powers of 2 and save the ones that output 0 we use the EXP_TABLE oc to
 // save compute tho
 //
-//
-//
+// then we move on to Frein's algorithm which helps us extract the magnitude of the error now that
+// we know where it occured
+// we recall this part from way abbove
+// S[j] = Y1*(2^j)^pos1 + Y2(2^j)^pos2 (for 2 errors)
+// we now have pos1 and pos2 we decide J, we know the syndrome values so all thats missing are the
+// Y values and we have a buncha syndrome leftover to make formulas to extract them but doing a
+// buncha 7th grade math problems is expensive annoying and slow so we use a shortcut
 //
 //
 //
@@ -421,14 +426,20 @@ fn decode_chunk(chunk: &mut Vec<u8>, generator_len: u8) -> Result<bool, StegServ
         return Ok(true);
     }
 
+    // Λ(x) = 1 - σ1*X + σ2*X^2
     let mut error_poitions: Vec<u8> = vec![];
     for i in 0..EXP_TABLE.len() {
-        let root = &EXP_TABLE[i..i + 1];
-        // we do EXP_TABLE[i..i] because the function expects a slice ref and we dont wanna
-        // allocate a new slice as thats dumb
-        let mut sum = 0;
-        for j in 0..lambda.len() {
-            for _ in 0..j {}
+        let root = EXP_TABLE[i];
+        let mut curr_root = root;
+
+        //pos = Λ(root) = 1 + σ1*root + σ2*root^2 + σ3*root^3...
+        let mut sum = 1;
+        for j in 1..lambda.len() {
+            sum ^= poly_mult(curr_root, lambda[j]);
+            curr_root = poly_mult(curr_root, root);
+        }
+        if sum == 0 {
+            error_poitions.push(i as u8);
         }
     }
 
