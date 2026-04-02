@@ -57,12 +57,6 @@
 // something so we just plug in that something) note we dont know any of these this is what we
 // are tying to find we get S[j]
 //
-// -- MIGHT DELETE --
-// as one value we can call Z
-// but we do know that Z(j) = (2^j)^i*Y which is what we care about
-// -- MIGHT DELETE --
-//
-//
 // for this reason if S[1] = Y*(2^1)^pos
 // and                S[2] = Y*(2^2)^pos = S[1]*2^pos
 //                    S[3] = Y*(2^3)^pos = S[2]*2^pos
@@ -206,13 +200,11 @@
 // we save the deviation from expected value (1-0 = 1) in delta
 // now as we were wrong we update the lambda polynomal
 // Λ_new = Λ_old - δ/b * B * X^shift --reasoning for why this formula works will be at the end.
-// Λ_new = [1] - 1/1 * [1] * X^2 = [1] - [0,0,-1] = [1,0,1] NOTE: it was supposed to be [1,0,-1]
+// Λ_new = [1] - 1/1 * [1] * X^2 = [1] - [0,0,-1] = [1,0,1]
 // additionally as L increased we updated B and b
 // B = [1] b = 1 and shift goes back down to 1 as B was just updated
 // L = 1 -> 1*2 < n(2)? -> FALSE L stays at 1
 // iteration 3 now (i=3)
-// NOTE: idk when we check which syndrome like is it S[2] or do we stay at S[1] as we didnt predict
-// correctly
 //
 // S[2] + S[1]*0 - 1*S[0] = 0? -> 1 + 0 - 1 = 0 == 0 -> TRUE!
 // as this is true we keep B b lambda and delta untouched
@@ -232,12 +224,57 @@
 //
 // then we move on to Frein's algorithm which helps us extract the magnitude of the error now that
 // we know where it occured
-// we recall this part from way abbove
+// we recall these parts from way abbove
 // S[j] = Y1*(2^j)^pos1 + Y2(2^j)^pos2 (for 2 errors)
-// we now have pos1 and pos2 we decide J, we know the syndrome values so all thats missing are the
-// Y values and we have a buncha syndrome leftover to make formulas to extract them but doing a
-// buncha 7th grade math problems is expensive annoying and slow so we use a shortcut
+// which contains info about the magnitudes! but its all tangled up each syndrome is composed of
+// all the errors from all the bytes with errors so we need to isolate the magnitudes
+// we have a buncha syndrome leftover to make formulas to extract them but doing a
+// buncha 7th grade math problems but that is expensive, annoying, and slow so we use a shortcut
+// lets do first an example for a single error
+// our syndromes are S1 = Y1*2^pos1.
+// we can know S1 and pos1 so to find Y1 we just divide S1 with 2^pos isolating Y1 giving us the
+// magnitude
+// now, this doesnt scale (unlike ur mom)
+// for 2 errors we have the syndromes S1 = Y1*2^pos1 + Y2*2^pos2, S2 = Y1*2^2*pos1 + Y2*2^2*pos2
+// now we can again either do a 7th grade algebra problem which is O(n^3) orrrrrrr we can
+// do S2-S1*(2^pos2)
+// as we did before lets abstract 2^pos1 to A and 2^pos2 to B
+// S2 - S1*B = Y1*A^2 + Y2*B^2 - Y1*A*B - Y2*B^2
+// Y1*A^2 - Y1*A*B = S2-S1
+// notice Y2 has been completely eliminated from the formula so this is back to a signel variable
+// equation which we can easily solve
 //
+// lets do 3 errors next
+// S1 = Y1*A + Y2*B + Y3*C
+// S2 = Y1*A^2 + Y2*B^2 + Y3*C^2
+// S3 = Y1*A^3 + Y2*B^3 + Y3*C^3
+// we need to eliminate both Y2 and Y3 here same as we did earlier
+// we do this by finding the ratio between the syndromes notice in the 2 variable example we chose
+// to multiply with B (2^pos2) and that is
+// due to Y2 being multiplied by B so its scaling factor is B
+// (
+// Y2*B^2 / Y2*B = B
+// )
+// so for 3 variables we see that Y2 scales with B and Y3 scales with C
+// S3 - S2*C
+// Y1*A^3 + Y2*B^3 + Y3*C^3 - Y1*A^2*C - Y2*B^2*C - Y3*C^3 = S3-S2*C
+// S3 - S2*C = Y1*A^3 + Y2*B^3 - Y1*A^2*C - Y2*B^2*C
+// notice we deleted Y3 but our goal is to remove both Y3 and Y2 but we can only remove one
+// variable at a time and need two formulas per removal so we cant remove Y2 yet (without also
+// having Y3 still involved) thus we need another formula without Y3 which we get this way
+// S2 - S1*C = Y1*A^2 + Y2*B^2 + Y3*C^2 - Y1*AC - Y2*BC - Y3*C^2
+// S2 - S1*C = Y1*A^2 + Y2*B^2 - Y1*AC - Y2*BC
+// once again Y3 is removed and we now have two formulas without Y3 so we can move on to remove Y2
+// S3-S2*C-(S2-S1*C)*B=Y1*A^3+Y2*B^3-Y1*A^2*C-Y2*B^2*C-(Y1*A^2*B+Y2*B^3-Y1*ABC-Y2*B^2C)
+// Y1*A^3 + Y2*B^3 - Y1*A^2*C - Y2*B^2*C - Y1*A^2 - Y2*B^3 + Y1*ABC + Y2*B^2C
+// Y1*A^3 - Y1*A^2*C - Y1*A^2 + Y1*ABC
+// Y1(A^3 - A^2*C + ABC)
+// now we only have Y1s in here so we can again solve the formula
+//
+// NOTE: HOWEVER this is still O(n^3) as we for each error (n) we need to do a O(n^2) to find the
+// position this is essentially yhe normal way to solve this
+//
+// what we do however is we define a polynomal OMEGA where omega is
 //
 //
 //
