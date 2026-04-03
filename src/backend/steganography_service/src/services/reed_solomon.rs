@@ -15,7 +15,7 @@
 // with regular multiplication untill it wraps) for division we instead of adding up the positions
 // we subtract them (again with regular math) if we overflow or underflow we add or subtract 255 (with regular math) untill we are between 0-255
 // again
-//
+
 // to encode we use the generator element (2) to make a generator polynomal so if we wanted 5
 // parity bytes the generator would be g(x) = (x-2^0)*(x-2^1)*(x-2^2)*(x-2^3)*(x-2^4) multiplying
 // them will give us a formula that plugging any value from 2^0 to 2^4 makes g(x) = 0 this is
@@ -25,7 +25,7 @@
 // most as big as parity bytes because math is cool like that, we replace the zeros with the
 // remainders this gives us the benifit of division with the generator now giving us zero which
 // will be very usefull for decoding we are now done with the encoding step
-//
+
 // for decoding we take a vec of Syndromes aka how and where are the errors we find them by taking
 // the message we received on our end and plugging j generator roots in it where j is how many
 // parity bytes we added so for instance if the message on our end is m=1+2x+3x^2+4x^3 meaning first
@@ -56,14 +56,14 @@
 // play around with X but we dont plug the root directly as we know its always 2 to the power of
 // something so we just plug in that something) note we dont know any of these this is what we
 // are tying to find we get S[j]
-//
+
 // for this reason if S[1] = Y*(2^1)^pos
 // and                S[2] = Y*(2^2)^pos = S[1]*2^pos
 //                    S[3] = Y*(2^3)^pos = S[2]*2^pos
 // we can see a pattern emerging S[i] = S[i-1]*2^pos (2 being the generator for GF(2^8))
 // this will be usefull later however note this is only true if we have 1 error which we dont know
 // as if we have more than 1 error we cant confirm what value of Y we are looking at Y1 Y2 or Y23..
-//
+
 // the reason this property exists is because of how we calculate the syndromes we take the message
 // function plug in a root and each root gives us a different number that represents the error a
 // good way to think of it is like having a function f(x) = x plugging x = 2 and x = 5 gives 2
@@ -79,13 +79,13 @@
 // with 4 paramaters so we cant simply divide them by each other like we just did while you can
 // solve them and get the correct solution this is very inefficient and complex so we write an
 // equation for sigma that makes it reasonable
-//
+
 // we define lambda as Λ(X) = (1-2^pos1*X)(1-2^pos2*X) this means that plugging
 // X = 2^-pos makes lambda = 0
 // we did not derive this from anything this is just what we decided lambda is
-//
+
 // now we dont actually have Λ(x) as if we did we would be done so to find it we use Berlekamp-Massey
-//
+
 // Berlekamp Massey works by establishing a rule that if we take sigma and expand it
 // Λ(x) = 1-2^pos2*X - 2^pos1*X + 2^pos1*X*2^pos2*X =
 // Λ(x) = 1 - 2^pos1*x
@@ -93,13 +93,12 @@
 // now we can define 2^pos1 as A and 2^pos2 as B to simplify which gives us
 // Λ(x) = 1 - A*X - B*X + A*B*X^2 =
 // Λ(x) = 1 - X*(A+B) + A*B*X^2
-//
-//
+
 // now if we take a look back at our syndromes
 // S[j] = Y1*(2^j)^pos1 + Y2(2^j)^pos2 (for 2 errors)
 // and we make A=2^pos1 and B=2^pos2 for simplicity like before we derive
 // S[j] = Y1*A^j + Y2*B^j (lol BJ😏)
-//
+
 // if we plug 1,2,3 into S we see
 // S[1] = Y1*A^1 + Y2*B^1
 // S[2] = Y1*A^2 + Y2*B^2
@@ -109,12 +108,12 @@
 // leaving us with Y1*A^3+Y2*B^3
 // we can again see a pattern emerge we S[i] = S[i-1]*(A+B) - S[i-2]*A*B
 // yeah i hate this formula so much
-//
+
 // now idk what deal with the devil was made to get this fomula to work but here is an attempt at
 // an explanation:
 // we can clearly see in the three examples that what changes is the power of A and B but we dont
 // have an easier way to achieve that mathematically other than this ritual with the devil
-//
+
 // we further abstract even A and B to σ1 and σ2
 // we abstract them as σ1 = (A+B) and σ2 = (A*B)
 // and if u recall our earlier formula
@@ -134,7 +133,7 @@
 // if we were to add a third error it would be
 // +1 - σ1*X + σ2*X^2 - σ3*X^3
 // and so on...
-//
+
 // now you do Berlekamp-Massey which is a fancy algorithm in which you guess the recurrence
 // the first guess is S[j] = 0 aka there are no errors
 // if this guess is false well update our guess as will be seen in a bit
@@ -151,7 +150,7 @@
 // our formula assumes so now it would be
 // S(i) = S[i-1]*σ1 - S[i-2] * σ2 (notice the pattern for every error we just dec but an ever
 // decreasing S[i] value and multiply by a new unkown (sigma)
-//
+
 // after we do that we dont throw away our old work of finding sigma as we can still use it
 // to help us make another guess for the new σ1 and σ2 more efficiently than starting from scratch
 // doing this involves this formula
@@ -167,12 +166,12 @@
 // we increase the estimated error count when the curr_guess is over 2*how many errors we think
 // there are
 // Breaking down WHY this formula works is a bit of a pain but its as follows
-//
+
 // NOTE: from now on we'll treat the index 0 of
 // lambda as not a sigma value but as a field thats just there so the math works so sigma1 = 2 here
 // sigma2 = 3 here etc same for B as otherwise they would be null and the formula wont work on
 // first run with null nor can we interpert them as 0 as it would also not work so we set them 1
-//
+
 // and our syndromes are [0, 1, 1, 2, 3, 5, 8] (this is the fibonacci sequence)
 // so we define the following variables
 // B - previous lambda when we increased L (unintorudced yet)
@@ -187,7 +186,7 @@
 // L = 0 --we assume no errors
 // i - curr iteration of the loop = 1
 // shift = 1 -- we just started and just "updated" (created) B and when we update B we set shift to 1
-//
+
 // so we compare S[0] - Λ[1] = 0? -> 0 - 0 = 0? -> TRUE!
 // lambda delta B and b remain unchanged
 // i = i + 1 = 2 first iteration done
@@ -205,7 +204,7 @@
 // B = [1] b = 1 and shift goes back down to 1 as B was just updated
 // L = 1 -> 1*2 < n(2)? -> FALSE L stays at 1
 // iteration 3 now (i=3)
-//
+
 // S[2] + S[1]*0 - 1*S[0] = 0? -> 1 + 0 - 1 = 0 == 0 -> TRUE!
 // as this is true we keep B b lambda and delta untouched
 // increase shift by 1
@@ -214,14 +213,14 @@
 // S[3] + 0*S[2] - 1*S[1] = 0? -> 2 + 0 - 1 = 1 != 0 -> FALSE!
 // as this is false we now again first update the lambda
 // Λ_new = [1,0,1] - 1/1 * [1] * X^2 = [1,0,1] - [0,0,1] yeah this is a loop im lost here
-//
+
 // After the Berlekamp-Massey charade we have a polynomal that plugging 2^any_error_pos = 0
 // and with that polynomal we represented 2^pos = 0 i.e if we plug 2 to the power of a position
 // with an error the lambda value will be 0 (this is just how we defined lambda earlier and now
 // that we have it we can move on) so to find the pos values its not that flashy we just brute
 // force all 256 possible powers of 2 and save the ones that output 0 we use the EXP_TABLE oc to
 // save compute tho
-//
+
 // then we move on to Frein's algorithm which helps us extract the magnitude of the error now that
 // we know where it occured
 // we recall these parts from way abbove
@@ -243,7 +242,7 @@
 // Y1*A^2 - Y1*A*B = S2-S1
 // notice Y2 has been completely eliminated from the formula so this is back to a signel variable
 // equation which we can easily solve
-//
+
 // lets do 3 errors next
 // S1 = Y1*A + Y2*B + Y3*C
 // S2 = Y1*A^2 + Y2*B^2 + Y3*C^2
@@ -270,13 +269,20 @@
 // Y1*A^3 - Y1*A^2*C - Y1*A^2 + Y1*ABC
 // Y1(A^3 - A^2*C + ABC)
 // now we only have Y1s in here so we can again solve the formula
-//
+
 // NOTE: HOWEVER this is still O(n^3) as we for each error (n) we need to do a O(n^2) to find the
 // position this is essentially yhe normal way to solve this
 //
-// what we do however is we define a polynomal OMEGA where omega is
-//
-//
+// what Forney's algo does is generate us two polynomals that produce the numerator and denominator
+// for the final division for instance with 2 errors we got
+// S2 - B·S1 = Y1(A²-AB)
+// Y1 = (S2 - B·S1) / (A²-AB)
+// so one polynomal will find us (S2 - B·S1) and another will get for us (A²-AB)
+
+// we first define a polynomal which just has all our syndromes as coefficients
+// S(x) = S0*X^0 + S1*X^1 + S2*X^3 + S3*X^4 ... Sn*X^n
+// we then define a polynomal OMEGA where omega is Λ(x) * S(x)
+// the reason behind this is that
 //
 //
 //
