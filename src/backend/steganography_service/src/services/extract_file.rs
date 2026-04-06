@@ -1,4 +1,3 @@
-use crate::services::embed_video::HEADER_SIZE_BITS;
 use ffmpeg_next::format::input;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -6,6 +5,7 @@ use std::path::PathBuf;
 
 use crate::services::dct::dct_ii;
 use crate::services::process_frame::{self};
+use crate::services::reed_solomon::{rs_decode_header, rs_header_size_bits};
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
 
 struct PayloadBuffer {
@@ -19,6 +19,8 @@ struct ExtractState {
     pub coeff_accumulator: Vec<f64>,
     pub total_extracted_bytes: u64,
     pub extraction_ongoing: bool,
+    pub header_size_bits: usize,
+    pub rs_parity: u8,
 }
 
 fn get_coeff(id: usize, state: &ExtractState) -> Result<f64, StegServiceError> {
@@ -45,12 +47,15 @@ pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, S
     };
 
     //state setup
+    let parity = configs.reed_solomon_padding_byte_count;
     let mut service_state = ExtractState {
         //0 here means unknown
         payload_size: 0,
         coeff_accumulator: Vec::with_capacity(configs.coefficients_per_bit),
         total_extracted_bytes: 0,
         extraction_ongoing: true,
+        header_size_bits: rs_header_size_bits(parity),
+        rs_parity: parity,
     };
 
     // ======== FFMPEG I/O SETUP  ========
@@ -230,12 +235,12 @@ fn write_bit_to_payload_buffer(
     buffer.bit_index += 1;
 
     // one time header parse, same moment every run, no special casing
-    if state.payload_size == 0 && buffer.bit_index == HEADER_SIZE_BITS {
-        state.payload_size = u64::from_le_bytes(
-            buffer.buffer[0..8]
-                .try_into()
-                .map_err(|_| StegServiceError::FileError)?,
-        );
+    // the header is RS-encoded so it is (8 + parity) bytes long
+    if state.payload_size == 0 && buffer.bit_index == state.header_size_bits {
+        let header_byte_len = state.header_size_bits / 8;
+        let file_size_bytes =
+            rs_decode_header(&buffer.buffer[0..header_byte_len], state.rs_parity)?;
+        state.payload_size = u64::from_le_bytes(file_size_bytes);
         buffer.bit_index = 0;
         buffer.buffer = [0; 1028];
         state.total_extracted_bytes = 0;

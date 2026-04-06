@@ -42,19 +42,21 @@ pub async fn embed_video(
         return Err(StegServiceError::InvalidPayload);
     }
     tracing::info!(
-        "Found both carrier and payload files for user: {}. Attmpting to encode video with reed solomon",
+        "Found both carrier and payload files for user: {}. Attempting to encode payload with reed solomon",
         user
     );
 
-    // let payload_path_clone = payload_path.clone();
-    // let configs_clone = payload.configs.clone();
-    // tokio::task::spawn_blocking(move || {
-    //     reed_solomon_encode(payload_path_clone, configs_clone);
-    // })
-    // .await
-    // .map_err(|_| {
-    //     StegServiceError::ReedSolomonError("Reed solomon encode task panicked".to_string())
-    // })?;
+    let payload_path_clone = payload_path.clone();
+    let configs_clone = payload.configs.clone();
+    tokio::task::spawn_blocking(move || {
+        reed_solomon_encode(payload_path_clone, configs_clone)
+    })
+    .await
+    .map_err(|_| {
+        StegServiceError::ReedSolomonError("Reed solomon encode task panicked".to_string())
+    })??;
+
+    tracing::info!("Reed solomon encode complete for user: {}. Embedding into video", user);
 
     //since steg work is CPU bound thus blocking we make a dedicated thread for it to not starve
     //other async processes in this step

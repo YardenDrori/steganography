@@ -7,9 +7,8 @@ use std::path::PathBuf;
 
 use crate::services::dct::{dct_ii, idct_ii};
 use crate::services::process_frame::{self};
+use crate::services::reed_solomon::{rs_encode_header, rs_header_size_bits};
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
-
-pub const HEADER_SIZE_BITS: usize = 64;
 
 struct PayloadBuffer {
     pub reader: BufReader<File>,
@@ -76,16 +75,21 @@ pub fn embed(
         .len()
         .to_le_bytes();
 
+    // RS-encode the 8-byte header (file size) so it is also error-protected
+    let parity = configs.reed_solomon_padding_byte_count;
+    let encoded_header = rs_encode_header(&file_size, parity)?;
+    let header_bits = rs_header_size_bits(parity);
+
     //buffer setup
     let mut buffer = PayloadBuffer {
         reader: BufReader::new(file_pointer),
         buffer: [0; 1028],
         bit_index: 0,
-        // we initialize this as 64 becasue we use this the first 64 bits to embed the header which
-        // tells the extractor how many bits are there in this file
-        bits_read: HEADER_SIZE_BITS,
+        // the first header_bits bits hold the RS-encoded header which tells the extractor
+        // how many bytes of payload follow
+        bits_read: header_bits,
     };
-    buffer.buffer[0..8].copy_from_slice(&file_size);
+    buffer.buffer[0..encoded_header.len()].copy_from_slice(&encoded_header);
 
     //state setup
     let mut service_state = EmbedState {

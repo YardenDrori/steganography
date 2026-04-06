@@ -2,7 +2,7 @@ use crate::{
     app_state::AppState,
     dtos::ExtractFileRequest,
     errors::steg_service_error::StegServiceError,
-    services::{extract_file::extract, files_client},
+    services::{extract_file::extract, files_client, reed_solomon::reed_solomon_decode},
 };
 use axum::{Json, extract::State, http::StatusCode};
 use files_dtos::FileResponse;
@@ -45,12 +45,23 @@ pub async fn extract_video(
     );
 
     let steg_object_path_clone = steg_object_path.clone();
+    let configs_clone = payload.configs.clone();
     let output_path =
-        tokio::task::spawn_blocking(move || extract(steg_object_path_clone, payload.configs))
+        tokio::task::spawn_blocking(move || extract(steg_object_path_clone, configs_clone))
             .await
             .map_err(|_| StegServiceError::Other("extract task panicked".to_string()))??;
 
-    tracing::info!("Successfully extracted payload. Attempting to upload to files service");
+    tracing::info!("Extraction complete. Applying Reed-Solomon decode to extracted payload");
+
+    let output_path_clone = output_path.clone();
+    let configs_for_rs = payload.configs.clone();
+    tokio::task::spawn_blocking(move || reed_solomon_decode(output_path_clone, &configs_for_rs))
+        .await
+        .map_err(|_| {
+            StegServiceError::ReedSolomonError("Reed solomon decode task panicked".to_string())
+        })??;
+
+    tracing::info!("Successfully extracted and decoded payload. Attempting to upload to files service");
 
     let mut payload_filename = filename
         .split(" -> ")

@@ -338,15 +338,59 @@ use crate::{
     errors::steg_service_error::StegServiceError,
     services::{
         berelekamp_massey::berlecamp_massey,
-        galois_field::{EXP_TABLE, poly_div_remainder_vecs, poly_mult, poly_mult_vecs},
+        galois_field::{poly_div, poly_div_remainder_vecs, poly_mult, poly_mult_vecs, EXP_TABLE},
         rs_generator_vec::{generatae_generator, get_roots_for_generator_with_len},
     },
 };
+
+// ========== public helpers for header RS ==========
+
+/// returns the size in bits of an RS-encoded header (8 data bytes + parity)
+pub fn rs_header_size_bits(parity: u8) -> usize {
+    (8 + parity as usize) * 8
+}
+
+/// RS-encodes the 8-byte file-size header, returns a vec of 8+parity bytes
+pub fn rs_encode_header(file_size: &[u8; 8], parity: u8) -> Result<Vec<u8>, StegServiceError> {
+    if parity == 0 {
+        return Ok(file_size.to_vec());
+    }
+    let generator = generatae_generator(parity);
+    let mut chunk = file_size.to_vec();
+    encode_chunk(&mut chunk, &generator)?;
+    Ok(chunk)
+}
+
+/// RS-decodes an encoded header, returns the original 8 data bytes
+pub fn rs_decode_header(encoded_header: &[u8], parity: u8) -> Result<[u8; 8], StegServiceError> {
+    if parity == 0 {
+        return encoded_header[..8]
+            .try_into()
+            .map_err(|_| StegServiceError::FileError);
+    }
+    let mut chunk = encoded_header.to_vec();
+    let success = decode_chunk(&mut chunk, parity)?;
+    if !success {
+        return Err(StegServiceError::ReedSolomonError(
+            "Header error correction failed".to_string(),
+        ));
+    }
+    // after correction the first 8 bytes are the original data
+    chunk[..8]
+        .try_into()
+        .map_err(|_| StegServiceError::FileError)
+}
+
+// ========== file-level encode / decode ==========
 
 pub fn reed_solomon_encode(
     payload_path: PathBuf,
     configs: EmbedConfigs,
 ) -> Result<(), StegServiceError> {
+    if configs.reed_solomon_padding_byte_count == 0 {
+        return Ok(());
+    }
+
     let output_path = format!("{}_encoded", &payload_path.display());
 
     let input_file_pointer = File::open(&payload_path).map_err(|_| StegServiceError::FileError)?;
@@ -401,13 +445,17 @@ pub fn reed_solomon_decode(
     payload_path: PathBuf,
     configs: &EmbedConfigs,
 ) -> Result<(), StegServiceError> {
-    let output_path = format!("{}_encoded", &payload_path.display());
+    if configs.reed_solomon_padding_byte_count == 0 {
+        return Ok(());
+    }
+
+    let output_path = format!("{}_decoded", &payload_path.display());
 
     let input_file_pointer = File::open(&payload_path).map_err(|_| StegServiceError::FileError)?;
     let output_file_pointer =
         File::create(&output_path).map_err(|_| StegServiceError::FileError)?;
 
-    let mut payload_bytes_left = input_file_pointer
+    let mut encoded_bytes_left = input_file_pointer
         .metadata()
         .map_err(|_| StegServiceError::FileError)?
         .len() as i128;
@@ -421,27 +469,35 @@ pub fn reed_solomon_decode(
         return Err(StegServiceError::InvalidPayload);
     }
 
-    let payload_bytes_per_chunk = 255 - configs.reed_solomon_padding_byte_count;
+    let parity = configs.reed_solomon_padding_byte_count;
 
-    let generator_len = configs.reed_solomon_padding_byte_count;
-    while payload_bytes_left > 0 {
-        if payload_bytes_left > payload_bytes_per_chunk as i128 {
-            buffer = vec![0; payload_bytes_per_chunk as usize];
+    // encoded chunks are 255 bytes (data+parity), except possibly the last one
+    while encoded_bytes_left > 0 {
+        let chunk_size = if encoded_bytes_left >= 255 {
+            255
         } else {
-            buffer = vec![0; payload_bytes_left as usize];
-        }
+            encoded_bytes_left as usize
+        };
+        buffer = vec![0; chunk_size];
 
         reader
             .read_exact(&mut buffer)
             .map_err(|_| StegServiceError::FileError)?;
 
-        decode_chunk(&mut buffer, generator_len)?;
+        let success = decode_chunk(&mut buffer, parity)?;
+        if !success {
+            return Err(StegServiceError::ReedSolomonError(
+                "Too many errors to correct in chunk".to_string(),
+            ));
+        }
 
+        // strip parity bytes, write only the data portion
+        let data_len = chunk_size - parity as usize;
         writer
-            .write_all(&buffer)
+            .write_all(&buffer[..data_len])
             .map_err(|_| StegServiceError::FileError)?;
 
-        payload_bytes_left -= payload_bytes_per_chunk as i128;
+        encoded_bytes_left -= chunk_size as i128;
     }
 
     writer.flush().map_err(|_| StegServiceError::FileError)?;
@@ -449,6 +505,19 @@ pub fn reed_solomon_decode(
     std::fs::remove_file(&payload_path).map_err(|_| StegServiceError::FileError)?;
     std::fs::rename(output_path, payload_path).map_err(|_| StegServiceError::FileError)?;
     Ok(())
+}
+
+// ========== chunk-level encode / decode ==========
+
+/// evaluate a GF(2^8) polynomial at a given point
+fn eval_poly(poly: &[u8], x: u8) -> u8 {
+    let mut result = 0u8;
+    let mut x_power = 1u8;
+    for &coeff in poly {
+        result ^= poly_mult(coeff, x_power);
+        x_power = poly_mult(x_power, x);
+    }
+    result
 }
 
 //ret value of false means there were errors which RS was unable to fix
@@ -484,24 +553,86 @@ fn decode_chunk(chunk: &mut Vec<u8>, generator_len: u8) -> Result<bool, StegServ
         return Ok(true);
     }
 
-    // Λ(x) = 1 - σ1*X + σ2*X^2
-    let mut error_poitions: Vec<u8> = vec![];
-    for i in 0..EXP_TABLE.len() {
-        let root = EXP_TABLE[i];
+    // ---- Chien search: find error positions by brute-forcing all 255 powers of alpha ----
+    // Λ(x) = 1 + σ1*X + σ2*X^2 + ...
+    // if Λ(alpha^i) == 0 then alpha^i is an error locator inverse
+    let mut error_positions: Vec<u8> = vec![];
+    for i in 0..255u16 {
+        let root = EXP_TABLE[i as usize];
         let mut curr_root = root;
 
-        //pos = Λ(root) = 1 + σ1*root + σ2*root^2 + σ3*root^3...
         let mut sum = 1;
         for j in 1..lambda.len() {
             sum ^= poly_mult(curr_root, lambda[j]);
             curr_root = poly_mult(curr_root, root);
         }
         if sum == 0 {
-            error_poitions.push(i as u8);
+            error_positions.push(i as u8);
         }
     }
 
-    todo!()
+    // if we didnt find exactly as many positions as BM predicted there are errors we cant fix
+    if error_positions.len() != lambda.len() - 1 {
+        tracing::warn!(
+            "Chien search found {} roots but lambda degree is {}",
+            error_positions.len(),
+            lambda.len() - 1
+        );
+        return Ok(false);
+    }
+
+    // ---- Forney's algorithm: find error magnitudes ----
+    // we defined Λ(x) = prod(1 - X_j * x) where X_j = alpha^pos_j
+    // Chien search found i where Λ(alpha^i) = 0 so alpha^i = X_j^-1
+    // meaning the actual codeword position is pos_j = (255 - i) % 255
+    //
+    // Forney says (for FCR=0 i.e roots start at alpha^0):
+    // Y_j = X_j * Ω(X_j^-1) / Λ'(X_j^-1)
+    // where Ω(x) = S(x) * Λ(x) mod x^t  (error evaluator polynomial)
+    // and Λ'(x) is the formal derivative of Λ
+
+    // step 1: compute Ω(x) = S(x) * Λ(x) mod x^t
+    let t = generator_len as usize;
+    let mut omega = poly_mult_vecs(&syndromes, &lambda);
+    omega.truncate(t);
+
+    // step 2: formal derivative of Λ(x) in characteristic 2
+    // d/dx(c_i * x^i) = i * c_i * x^(i-1)
+    // in char 2: even multiples vanish so only odd-indexed coefficients survive
+    // Λ'(x) = λ[1] + λ[3]*x^2 + λ[5]*x^4 + ...
+    let lambda_prime: Vec<u8> = (0..lambda.len() - 1)
+        .map(|j| if j % 2 == 0 { lambda[j + 1] } else { 0 })
+        .collect();
+
+    // step 3: for each error compute magnitude and apply correction
+    for &i in &error_positions {
+        let pos = if i == 0 { 0usize } else { 255 - i as usize };
+
+        if pos >= chunk.len() {
+            tracing::warn!("error position {} is outside codeword of length {}", pos, chunk.len());
+            return Ok(false);
+        }
+
+        // X_j^-1 = alpha^i (what Chien search found)
+        let x_inv = EXP_TABLE[i as usize];
+        // X_j = alpha^pos = alpha^(255-i) but (255-i) % 255 for the EXP_TABLE index
+        let x = EXP_TABLE[pos % 255];
+
+        let omega_val = eval_poly(&omega, x_inv);
+        let lambda_prime_val = eval_poly(&lambda_prime, x_inv);
+
+        if lambda_prime_val == 0 {
+            tracing::warn!("lambda derivative evaluated to 0 at error position {}", pos);
+            return Ok(false);
+        }
+
+        // Y_j = X_j * Ω(X_j^-1) / Λ'(X_j^-1)
+        let magnitude = poly_mult(x, poly_div(omega_val, lambda_prime_val));
+
+        chunk[pos] ^= magnitude;
+    }
+
+    Ok(true)
 }
 
 fn encode_chunk(chunk: &mut Vec<u8>, generator: &[u8]) -> Result<(), StegServiceError> {
