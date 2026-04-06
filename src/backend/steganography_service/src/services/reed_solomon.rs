@@ -281,11 +281,26 @@
 
 // we first define a polynomal which just has all our syndromes as coefficients
 // S(x) = S0*X^0 + S1*X^1 + S2*X^3 + S3*X^4 ... Sn*X^n
-// we then define a polynomal OMEGA where omega is Λ(x) * S(x)
-// the reason behind this is that
-//
-//
-//
+// we then define a polynomal OMEGA where omega is Λ(x) * S(x) mod 2x^t where t is err_count
+// to explain why we define Omega as such lets see what omega is for 2 errors
+// for 2 errors we will have the lambda lambda
+// Λ(x) = (1 - 2^pos1·x) -- this is the same as 1 - σ1*x
+// calling 2^pos1 A like we did before
+// Λ(x) = (1 - A·x)
+// and a syndrome polynomal of
+// S(x) = S1 + S2*x
+// we can expand each syndrome
+// S[1] = Y*A, S[2] = Y*A
+// thus S(x) = Y*A + Y*A^2*X
+// multiplying the syndromes polynomal with the lambda polynomal yields us
+// S(x)*Λ(x) = (Y*A + Y*X*A^2) * (1 - A*X)
+// S(x)*Λ(x) = Y*A - Y*X*A^2 + Y*X*A^2 - Y*X^2*A^3
+// S(x)*Λ(x) = Y*A - Y*X^2*A^3
+// we now do the mod which results in us dropping Y*X^2*A^3 TODO: explain why
+// S(x)*Λ(x) = Y*A
+// notice that this is equal to S[1]
+// this scales to any number of errors we know this to be true due to how we our syndromes
+// NOTE: this is where I stopped i dunnow why this holds true despite doing the math for 1 error
 //
 //
 //
