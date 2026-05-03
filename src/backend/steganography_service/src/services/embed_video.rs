@@ -7,9 +7,17 @@ use std::path::PathBuf;
 
 use crate::services::dct::{dct_ii, idct_ii};
 use crate::services::process_frame::{self};
+use crate::services::reed_solomon::rs_encode_in_place;
 use crate::{dtos::EmbedConfigs, errors::steg_service_error::StegServiceError};
 
-pub const HEADER_SIZE_BITS: usize = 64;
+/// Plain header size in bits (the u64 little-endian payload size field).
+pub const PLAIN_HEADER_BITS: usize = 64;
+
+/// Total bits the bit-stream header occupies once RS-encoded with `parity`
+/// parity bytes (8-byte data + parity bytes, both serialised as bits MSB-first).
+pub fn encoded_header_bits(parity: u8) -> usize {
+    PLAIN_HEADER_BITS + (parity as usize) * 8
+}
 
 struct PayloadBuffer {
     pub reader: BufReader<File>,
@@ -64,28 +72,34 @@ pub fn embed(
     payload_path: PathBuf,
     carrier_path: PathBuf,
     configs: EmbedConfigs,
+    original_payload_size: u64,
 ) -> Result<PathBuf, StegServiceError> {
     //validate configs
     configs.validate_configs()?;
 
+    let parity = configs.reed_solomon_padding_byte_count;
+
     // ======== PAYLOAD & STATE SETUP ========
+    // RS-encode the 8-byte plain payload size into a (8 + parity)-byte header chunk.
+    // `original_payload_size` is the *plain* (pre-RS) payload byte count — the file at
+    // `payload_path` may already be RS-encoded by the route layer, so we cannot derive
+    // the plain size from its metadata.
+    let mut header_chunk: Vec<u8> = original_payload_size.to_le_bytes().to_vec();
+    rs_encode_in_place(&mut header_chunk, parity)?;
+    let encoded_header_len = header_chunk.len();
+
     let file_pointer = File::open(payload_path).map_err(|_| StegServiceError::FileError)?;
-    let file_size = file_pointer
-        .metadata()
-        .map_err(|_| StegServiceError::FileError)?
-        .len()
-        .to_le_bytes();
 
     //buffer setup
     let mut buffer = PayloadBuffer {
         reader: BufReader::new(file_pointer),
         buffer: [0; 1028],
         bit_index: 0,
-        // we initialize this as 64 becasue we use this the first 64 bits to embed the header which
-        // tells the extractor how many bits are there in this file
-        bits_read: HEADER_SIZE_BITS,
+        // The first `encoded_header_len * 8` bits of the bit-stream are the RS-encoded
+        // header; payload bytes follow.
+        bits_read: encoded_header_len * 8,
     };
-    buffer.buffer[0..8].copy_from_slice(&file_size);
+    buffer.buffer[0..encoded_header_len].copy_from_slice(&header_chunk);
 
     //state setup
     let mut service_state = EmbedState {

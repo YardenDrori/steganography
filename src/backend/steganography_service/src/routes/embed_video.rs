@@ -42,26 +42,37 @@ pub async fn embed_video(
         return Err(StegServiceError::InvalidPayload);
     }
     tracing::info!(
-        "Found both carrier and payload files for user: {}. Attmpting to encode video with reed solomon",
+        "Found both carrier and payload files for user: {}. Attmpting to encode payload with reed solomon",
         user
     );
 
-    // let payload_path_clone = payload_path.clone();
-    // let configs_clone = payload.configs.clone();
-    // tokio::task::spawn_blocking(move || {
-    //     reed_solomon_encode(payload_path_clone, configs_clone);
-    // })
-    // .await
-    // .map_err(|_| {
-    //     StegServiceError::ReedSolomonError("Reed solomon encode task panicked".to_string())
-    // })?;
+    // Capture the plain (pre-RS) payload size BEFORE the RS encode rewrites the file.
+    // This goes into the bit-stream header so the extractor knows how many plain bytes
+    // to recover after RS-decoding the carrier-borne payload.
+    let original_payload_size = std::fs::metadata(&payload_path)
+        .map_err(|_| StegServiceError::FileError)?
+        .len();
+
+    // RS-encode the payload file in place. With parity=0 this short-circuits to a no-op.
+    let payload_path_clone = payload_path.clone();
+    let configs_clone = payload.configs.clone();
+    tokio::task::spawn_blocking(move || reed_solomon_encode(payload_path_clone, configs_clone))
+        .await
+        .map_err(|_| {
+            StegServiceError::ReedSolomonError("Reed solomon encode task panicked".to_string())
+        })??;
 
     //since steg work is CPU bound thus blocking we make a dedicated thread for it to not starve
     //other async processes in this step
     let payload_path_clone = payload_path.clone();
     let carrier_path_clone = carrier_path.clone();
     let output_path = tokio::task::spawn_blocking(move || {
-        embed(payload_path_clone, carrier_path_clone, payload.configs)
+        embed(
+            payload_path_clone,
+            carrier_path_clone,
+            payload.configs,
+            original_payload_size,
+        )
     })
     .await
     .map_err(|_| StegServiceError::Other("embed task panicked".to_string()))??;

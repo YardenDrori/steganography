@@ -1,6 +1,7 @@
-use crate::services::embed_video::HEADER_SIZE_BITS;
+use crate::services::embed_video::encoded_header_bits;
+use crate::services::reed_solomon::{reed_solomon_decode, rs_decode_in_place};
 use ffmpeg_next::format::input;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
@@ -15,10 +16,26 @@ struct PayloadBuffer {
 }
 
 struct ExtractState {
+    /// Plain (post-RS-decode) payload byte count, recovered from the bit-stream header.
     pub payload_size: u64,
+    /// RS-encoded payload byte count — what we actually extract from the carrier.
+    /// Derived from `payload_size` and the parity count via `encoded_size()`.
+    pub encoded_payload_size: u64,
     pub coeff_accumulator: Vec<f64>,
     pub total_extracted_bytes: u64,
     pub extraction_ongoing: bool,
+}
+
+/// Total RS-encoded byte count for a plain payload of `plain` bytes split into chunks
+/// with `parity` parity bytes per chunk.
+fn encoded_size(plain: u64, parity: u8) -> u64 {
+    if parity == 0 {
+        return plain;
+    }
+    let data_per = (255 - parity) as u64;
+    let full = plain / data_per;
+    let tail = plain % data_per;
+    full * 255 + if tail == 0 { 0 } else { tail + parity as u64 }
 }
 
 fn get_coeff(id: usize, state: &ExtractState) -> Result<f64, StegServiceError> {
@@ -48,6 +65,7 @@ pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, S
     let mut service_state = ExtractState {
         //0 here means unknown
         payload_size: 0,
+        encoded_payload_size: 0,
         coeff_accumulator: Vec::with_capacity(configs.coefficients_per_bit),
         total_extracted_bytes: 0,
         extraction_ongoing: true,
@@ -113,6 +131,26 @@ pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, S
     let (_, output_path) = output_payload
         .keep()
         .map_err(|_| StegServiceError::FileError)?;
+
+    // RS-decode the (possibly RS-encoded) payload bytes in place. With parity=0 this is a no-op.
+    reed_solomon_decode(output_path.clone(), &configs)?;
+
+    // Defensive truncate: in the happy path the file is already exactly `plain_size` bytes
+    // after RS decode strips parity per chunk. Truncate only if longer (never extend with zeros,
+    // as that would mask an under-extraction failure mode).
+    let plain_size = service_state.payload_size;
+    let actual_size = std::fs::metadata(&output_path)
+        .map_err(|_| StegServiceError::FileError)?
+        .len();
+    if actual_size > plain_size {
+        let f = OpenOptions::new()
+            .write(true)
+            .open(&output_path)
+            .map_err(|_| StegServiceError::FileError)?;
+        f.set_len(plain_size)
+            .map_err(|_| StegServiceError::FileError)?;
+    }
+
     Ok(output_path)
 }
 
@@ -190,7 +228,7 @@ fn extract_from_channel(
                 state.coeff_accumulator.push(block_as_dct[i]);
                 if state.coeff_accumulator.len() >= configs.coefficients_per_bit {
                     let extracted_bit = extract_bit_from_coefficients(state, configs)?;
-                    write_bit_to_payload_buffer(extracted_bit, payload_buffer, state)?;
+                    write_bit_to_payload_buffer(extracted_bit, payload_buffer, state, configs)?;
                     state.coeff_accumulator.clear();
                 }
             }
@@ -217,6 +255,7 @@ fn write_bit_to_payload_buffer(
     target_bit: bool,
     buffer: &mut PayloadBuffer,
     state: &mut ExtractState,
+    configs: &EmbedConfigs,
 ) -> Result<(), StegServiceError> {
     if !state.extraction_ongoing {
         return Ok(());
@@ -230,12 +269,26 @@ fn write_bit_to_payload_buffer(
     buffer.bit_index += 1;
 
     // one time header parse, same moment every run, no special casing
-    if state.payload_size == 0 && buffer.bit_index == HEADER_SIZE_BITS {
+    let parity = configs.reed_solomon_padding_byte_count;
+    let header_bits_total = encoded_header_bits(parity);
+    if state.payload_size == 0 && buffer.bit_index == header_bits_total {
+        let header_byte_count = header_bits_total / 8;
+        let mut header_bytes = buffer.buffer[0..header_byte_count].to_vec();
+        let recovered = rs_decode_in_place(&mut header_bytes, parity)?;
+        if !recovered {
+            tracing::warn!(
+                "RS-decoded header had uncorrectable errors; payload size may be wrong"
+            );
+        }
+        // After decode, layout is [parity..., 8-byte plain size]. With parity=0,
+        // it's just the 8 plain bytes at offset 0.
+        let data_start = parity as usize;
         state.payload_size = u64::from_le_bytes(
-            buffer.buffer[0..8]
+            header_bytes[data_start..data_start + 8]
                 .try_into()
                 .map_err(|_| StegServiceError::FileError)?,
         );
+        state.encoded_payload_size = encoded_size(state.payload_size, parity);
         buffer.bit_index = 0;
         buffer.buffer = [0; 1028];
         state.total_extracted_bytes = 0;
@@ -244,10 +297,12 @@ fn write_bit_to_payload_buffer(
 
     // check payload completion after every complete byte without this, extraction_ongoing is
     // never set for payloads smaller than the buffer (8224 bits), causing the entire video to be
-    // drained into the buffer and the output to be flooded with garbage
+    // drained into the buffer and the output to be flooded with garbage.
+    // Compare against `encoded_payload_size` since the bit-stream after the header carries
+    // RS-encoded payload bytes, not plain ones.
     if state.payload_size > 0 && buffer.bit_index % 8 == 0 {
         let total_bytes_so_far = state.total_extracted_bytes + (buffer.bit_index as u64 / 8);
-        if total_bytes_so_far >= state.payload_size {
+        if total_bytes_so_far >= state.encoded_payload_size {
             buffer
                 .writer
                 .write_all(&buffer.buffer[0..(buffer.bit_index / 8)])
@@ -266,7 +321,7 @@ fn write_bit_to_payload_buffer(
             .write_all(&buffer.buffer[0..buffer.bit_index / 8])
             .map_err(|_| StegServiceError::FileError)?;
         state.total_extracted_bytes += buffer.bit_index as u64 / 8;
-        if state.total_extracted_bytes >= state.payload_size {
+        if state.total_extracted_bytes >= state.encoded_payload_size {
             state.extraction_ongoing = false;
         }
         buffer.bit_index = 0;
