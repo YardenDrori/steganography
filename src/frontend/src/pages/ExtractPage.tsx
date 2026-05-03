@@ -5,6 +5,19 @@ import { getFiles, type FileItem } from "../api/files";
 import { extract, type EmbedConfigs, type EmbedMethod, type Channels } from "../api/steg";
 import { tryCatch } from "../api/tryCatch";
 
+type PageSettings = {
+  method: EmbedMethod;
+  channelMode: "yuv" | "rgb";
+  yuvChannels: { y: boolean; cb: boolean; cr: boolean };
+  rgbChannels: { r: boolean; g: boolean; b: boolean };
+  coefficients: boolean[];
+  coefficientsPerBit: number;
+  blocksPerMacroblock: number;
+  delta: number;
+  seed: string;
+  parityBytes: number;
+};
+
 const DEFAULT_COEFFICIENTS = Array(16).fill(false);
 const METHODS: EmbedMethod[] = ["QIM", "STDM", "SS", "ISS"];
 const SEED_METHODS: EmbedMethod[] = ["STDM", "SS", "ISS"];
@@ -35,6 +48,7 @@ export default function ExtractPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [clipboardMsg, setClipboardMsg] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchFiles() {
@@ -43,6 +57,41 @@ export default function ExtractPage() {
     }
     fetchFiles();
   }, [accessToken]);
+
+  async function exportSettings() {
+    const settings: PageSettings = {
+      method, channelMode, yuvChannels, rgbChannels, coefficients,
+      coefficientsPerBit, blocksPerMacroblock, delta, seed, parityBytes,
+    };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(settings, null, 2));
+      setClipboardMsg("Copied!");
+    } catch {
+      setClipboardMsg("Copy failed");
+    }
+    setTimeout(() => setClipboardMsg(null), 2000);
+  }
+
+  async function importSettings() {
+    try {
+      const text = await navigator.clipboard.readText();
+      const s: PageSettings = JSON.parse(text);
+      if (s.method) setMethod(s.method);
+      if (s.channelMode) setChannelMode(s.channelMode);
+      if (s.yuvChannels) setYuvChannels(s.yuvChannels);
+      if (s.rgbChannels) setRgbChannels(s.rgbChannels);
+      if (Array.isArray(s.coefficients) && s.coefficients.length === 16) setCoefficients(s.coefficients);
+      if (s.coefficientsPerBit != null) setCoefficientsPerBit(s.coefficientsPerBit);
+      if (s.blocksPerMacroblock != null) setBlocksPerMacroblock(s.blocksPerMacroblock);
+      if (s.delta != null) setDelta(s.delta);
+      if (s.seed != null) setSeed(s.seed);
+      if (s.parityBytes != null) setParityBytes(s.parityBytes);
+      setClipboardMsg("Imported!");
+    } catch {
+      setClipboardMsg("Invalid settings");
+    }
+    setTimeout(() => setClipboardMsg(null), 2000);
+  }
 
   function toggleCoefficient(index: number) {
     setCoefficients((prev) => prev.map((v, i) => (i === index ? !v : v)));
@@ -85,9 +134,30 @@ export default function ExtractPage() {
 
   return (
     <div className="p-8 max-w-2xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Extract</h1>
-        <p className="text-gray-400 text-sm mt-1">Recover a hidden payload from a steg object.</p>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Extract</h1>
+          <p className="text-gray-400 text-sm mt-1">Recover a hidden payload from a steg object.</p>
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          {clipboardMsg && (
+            <span className="text-xs text-gray-400">{clipboardMsg}</span>
+          )}
+          <button
+            type="button"
+            onClick={importSettings}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors border border-gray-700"
+          >
+            Import settings
+          </button>
+          <button
+            type="button"
+            onClick={exportSettings}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors border border-gray-700"
+          >
+            Export settings
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
