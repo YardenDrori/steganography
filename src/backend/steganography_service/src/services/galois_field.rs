@@ -39,7 +39,8 @@ pub fn poly_mult(num1: u8, num2: u8) -> u8 {
     if num1 == 0 || num2 == 0 {
         return 0;
     }
-    let mut index_sum = (LOG_TABLE[num1 as usize] + LOG_TABLE[num2 as usize]) as u16;
+    // Widen to u16 BEFORE adding — two u8 logs can sum to >255 and overflow u8 otherwise.
+    let mut index_sum = LOG_TABLE[num1 as usize] as u16 + LOG_TABLE[num2 as usize] as u16;
     while index_sum > 255 {
         index_sum -= 255;
     }
