@@ -67,6 +67,12 @@ impl EmbedConfigs {
         if matches!(self.method, EmbedMethods::QIM) && self.coefficients_per_bit != 1 {
             return Err(StegServiceError::InvalidPayload);
         }
+
+        // RS chunk math requires data + parity ≤ 255. Cap parity at 254 so at least
+        // 1 data byte fits per chunk; the 8-byte header chunk also needs parity ≤ 247.
+        if self.reed_solomon_padding_byte_count > 247 {
+            return Err(StegServiceError::InvalidPayload);
+        }
         Ok(())
     }
 }
