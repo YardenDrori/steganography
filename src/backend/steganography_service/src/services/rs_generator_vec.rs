@@ -1,4 +1,4 @@
-use crate::services::gause_field::{EXP_TABLE, poly_mult_vecs};
+use crate::services::galois_field::{EXP_TABLE, poly_mult_vecs};
 
 //great name i know
 //for len = 2 we expect alpha1(a1)=0 a2=1
