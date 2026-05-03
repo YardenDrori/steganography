@@ -30,6 +30,7 @@ export default function ExtractPage() {
   const [blocksPerMacroblock, setBlocksPerMacroblock] = useState(4);
   const [delta, setDelta] = useState(10);
   const [seed, setSeed] = useState("");
+  const [parityBytes, setParityBytes] = useState(16);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +64,7 @@ export default function ExtractPage() {
       blocks_per_macroblock: blocksPerMacroblock,
       delta,
       method,
+      reed_solomon_padding_byte_count: parityBytes,
       ...(SEED_METHODS.includes(method) ? { seed } : {}),
     };
 
@@ -293,6 +295,25 @@ export default function ExtractPage() {
                 className="w-20 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-2">
+              Reed-Solomon parity bytes
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={247}
+              value={parityBytes}
+              onChange={(e) =>
+                setParityBytes(Math.max(0, Math.min(247, Number(e.target.value))))
+              }
+              className="w-32 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-gray-100 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+            />
+            <p className="text-gray-500 text-xs mt-1.5">
+              Must match the parity count used during embedding.
+            </p>
           </div>
         </div>
 

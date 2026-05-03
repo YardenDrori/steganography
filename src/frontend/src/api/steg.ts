@@ -15,6 +15,7 @@ export type EmbedConfigs = {
   delta: number;
   seed?: string;
   method: EmbedMethod;
+  reed_solomon_padding_byte_count: number;
 };
 
 export type EmbedFileRequest = {
