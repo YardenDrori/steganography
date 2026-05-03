@@ -338,7 +338,7 @@ use crate::{
     errors::steg_service_error::StegServiceError,
     services::{
         berelekamp_massey::berlecamp_massey,
-        galois_field::{EXP_TABLE, poly_div_remainder_vecs, poly_mult, poly_mult_vecs},
+        galois_field::{EXP_TABLE, poly_div, poly_div_remainder_vecs, poly_mult, poly_mult_vecs},
         rs_generator_vec::{generatae_generator, get_roots_for_generator_with_len},
     },
 };
@@ -347,6 +347,13 @@ pub fn reed_solomon_encode(
     payload_path: PathBuf,
     configs: EmbedConfigs,
 ) -> Result<(), StegServiceError> {
+    if configs.reed_solomon_padding_byte_count > 254 {
+        return Err(StegServiceError::InvalidPayload);
+    }
+    if configs.reed_solomon_padding_byte_count == 0 {
+        return Ok(()); // passthrough — no parity, file unchanged
+    }
+
     let output_path = format!("{}_encoded", &payload_path.display());
 
     let input_file_pointer = File::open(&payload_path).map_err(|_| StegServiceError::FileError)?;
@@ -363,10 +370,6 @@ pub fn reed_solomon_encode(
 
     let mut buffer: Vec<u8>;
 
-    if configs.reed_solomon_padding_byte_count > 254 {
-        return Err(StegServiceError::InvalidPayload);
-    }
-
     let payload_bytes_per_chunk = 255 - configs.reed_solomon_padding_byte_count;
 
     let generator = generatae_generator(configs.reed_solomon_padding_byte_count);
@@ -381,6 +384,8 @@ pub fn reed_solomon_encode(
             .read_exact(&mut buffer)
             .map_err(|_| StegServiceError::FileError)?;
 
+        // After encode_chunk, buffer grows from data_len to data_len + parity bytes
+        // (parity bytes are placed at the front: [parity..., data...]).
         encode_chunk(&mut buffer, &generator)?;
 
         writer
@@ -401,7 +406,14 @@ pub fn reed_solomon_decode(
     payload_path: PathBuf,
     configs: &EmbedConfigs,
 ) -> Result<(), StegServiceError> {
-    let output_path = format!("{}_encoded", &payload_path.display());
+    if configs.reed_solomon_padding_byte_count > 254 {
+        return Err(StegServiceError::InvalidPayload);
+    }
+    if configs.reed_solomon_padding_byte_count == 0 {
+        return Ok(()); // passthrough — file is already plain bytes
+    }
+
+    let output_path = format!("{}_decoded", &payload_path.display());
 
     let input_file_pointer = File::open(&payload_path).map_err(|_| StegServiceError::FileError)?;
     let output_file_pointer =
@@ -415,33 +427,36 @@ pub fn reed_solomon_decode(
     let mut reader = BufReader::new(input_file_pointer);
     let mut writer = BufWriter::new(output_file_pointer);
 
-    let mut buffer: Vec<u8>;
-
-    if configs.reed_solomon_padding_byte_count > 254 {
-        return Err(StegServiceError::InvalidPayload);
-    }
-
-    let payload_bytes_per_chunk = 255 - configs.reed_solomon_padding_byte_count;
-
     let generator_len = configs.reed_solomon_padding_byte_count;
+    let parity = generator_len as usize;
+
     while payload_bytes_left > 0 {
-        if payload_bytes_left > payload_bytes_per_chunk as i128 {
-            buffer = vec![0; payload_bytes_per_chunk as usize];
-        } else {
-            buffer = vec![0; payload_bytes_left as usize];
+        // Encoded chunks on disk are up to 255 bytes (data + parity), not (255 - parity).
+        let read_len = std::cmp::min(255i128, payload_bytes_left) as usize;
+        if read_len <= parity {
+            return Err(StegServiceError::ReedSolomonError(
+                "encoded chunk smaller than parity count".to_string(),
+            ));
         }
+        let mut buffer = vec![0u8; read_len];
 
         reader
             .read_exact(&mut buffer)
             .map_err(|_| StegServiceError::FileError)?;
 
-        decode_chunk(&mut buffer, generator_len)?;
+        let recovered = decode_chunk(&mut buffer, generator_len)?;
+        if !recovered {
+            tracing::warn!(
+                "RS chunk had uncorrectable errors; passing through with possible corruption"
+            );
+        }
 
+        // Strip the parity prefix; only the data tail is the recovered payload.
         writer
-            .write_all(&buffer)
+            .write_all(&buffer[parity..])
             .map_err(|_| StegServiceError::FileError)?;
 
-        payload_bytes_left -= payload_bytes_per_chunk as i128;
+        payload_bytes_left -= read_len as i128;
     }
 
     writer.flush().map_err(|_| StegServiceError::FileError)?;
@@ -449,6 +464,32 @@ pub fn reed_solomon_decode(
     std::fs::remove_file(&payload_path).map_err(|_| StegServiceError::FileError)?;
     std::fs::rename(output_path, payload_path).map_err(|_| StegServiceError::FileError)?;
     Ok(())
+}
+
+/// In-memory RS encode for small fixed-size buffers (e.g. the bit-stream header).
+/// Caller's `buf` must satisfy `buf.len() + parity <= 255`.
+pub fn rs_encode_in_place(buf: &mut Vec<u8>, parity: u8) -> Result<(), StegServiceError> {
+    if parity > 254 {
+        return Err(StegServiceError::InvalidPayload);
+    }
+    if parity == 0 {
+        return Ok(());
+    }
+    let g = generatae_generator(parity);
+    encode_chunk(buf, &g)
+}
+
+/// In-memory RS decode for small fixed-size buffers (e.g. the bit-stream header).
+/// On uncorrectable corruption, returns Ok(false) and leaves `buf` as-is so the caller
+/// can decide whether to fail or pass through the parity-stripped payload.
+pub fn rs_decode_in_place(buf: &mut Vec<u8>, parity: u8) -> Result<bool, StegServiceError> {
+    if parity > 254 {
+        return Err(StegServiceError::InvalidPayload);
+    }
+    if parity == 0 {
+        return Ok(true);
+    }
+    decode_chunk(buf, parity)
 }
 
 //ret value of false means there were errors which RS was unable to fix
@@ -476,7 +517,15 @@ fn decode_chunk(chunk: &mut Vec<u8>, generator_len: u8) -> Result<bool, StegServ
         return Ok(true);
     }
 
-    let lambda = berlecamp_massey(&syndromes)?;
+    // Berlekamp-Massey: "too many errors" is best-effort uncorrectable, not a hard error.
+    let lambda = match berlecamp_massey(&syndromes) {
+        Ok(l) => l,
+        Err(StegServiceError::ReedSolomonError(_)) => {
+            tracing::warn!("RS chunk uncorrectable (BM reports too many errors)");
+            return Ok(false);
+        }
+        Err(e) => return Err(e),
+    };
 
     //lambda always has err_count+1 elements
     if lambda.len() == 1 {
@@ -484,13 +533,15 @@ fn decode_chunk(chunk: &mut Vec<u8>, generator_len: u8) -> Result<bool, StegServ
         return Ok(true);
     }
 
-    // Λ(x) = 1 - σ1*X + σ2*X^2
+    // Chien search: roots of Λ(x). Range 0..255 covers each non-zero α^i exactly once
+    // (α^0 == α^255 in GF(2^8)).
+    // Λ(x) = 1 + σ1*X + σ2*X^2 + ...
     let mut error_poitions: Vec<u8> = vec![];
-    for i in 0..EXP_TABLE.len() {
+    for i in 0..255usize {
         let root = EXP_TABLE[i];
         let mut curr_root = root;
 
-        //pos = Λ(root) = 1 + σ1*root + σ2*root^2 + σ3*root^3...
+        //sum = Λ(root) = 1 + σ1*root + σ2*root^2 + σ3*root^3...
         let mut sum = 1;
         for j in 1..lambda.len() {
             sum ^= poly_mult(curr_root, lambda[j]);
@@ -501,26 +552,248 @@ fn decode_chunk(chunk: &mut Vec<u8>, generator_len: u8) -> Result<bool, StegServ
         }
     }
 
-    todo!()
+    // Chien must surface deg(Λ) roots, otherwise the syndromes are inconsistent.
+    if error_poitions.len() != lambda.len() - 1 {
+        tracing::warn!(
+            "RS chunk uncorrectable (Chien found {} roots, expected {})",
+            error_poitions.len(),
+            lambda.len() - 1
+        );
+        return Ok(false);
+    }
+
+    // ===== Forney's algorithm — compute error magnitudes =====
+    // Ω(x) = (S(x) · Λ(x)) mod x^(2t), 2t = generator_len
+    let mut omega = poly_mult_vecs(&syndromes, &lambda);
+    omega.truncate(generator_len as usize);
+
+    // Λ'(x) — formal derivative. In char 2, even-indexed terms drop, so
+    // Λ'[j] = lambda[j+1] when (j+1) is odd (i.e. when j is even), else 0.
+    let mut lambda_prime: Vec<u8> = vec![0u8; lambda.len() - 1];
+    for j in 0..lambda_prime.len() {
+        if (j + 1) % 2 == 1 {
+            lambda_prime[j] = lambda[j + 1];
+        }
+    }
+
+    for &i in &error_poitions {
+        // Λ has roots at α^(-pos), so pos = (255 - i) mod 255
+        let pos = ((255u32 - i as u32) % 255) as usize;
+        if pos >= chunk.len() {
+            tracing::warn!(
+                "RS chunk uncorrectable (error pos {} >= chunk.len {})",
+                pos,
+                chunk.len()
+            );
+            return Ok(false);
+        }
+        let alpha_i = EXP_TABLE[i as usize]; // = X_k_inv = α^(-pos)
+
+        // evaluate Ω(α^i)
+        let mut x_pow = 1u8;
+        let mut omega_at = 0u8;
+        for k in 0..omega.len() {
+            omega_at ^= poly_mult(omega[k], x_pow);
+            x_pow = poly_mult(x_pow, alpha_i);
+        }
+        // evaluate Λ'(α^i)
+        let mut x_pow = 1u8;
+        let mut lp_at = 0u8;
+        for k in 0..lambda_prime.len() {
+            lp_at ^= poly_mult(lambda_prime[k], x_pow);
+            x_pow = poly_mult(x_pow, alpha_i);
+        }
+        if lp_at == 0 {
+            tracing::warn!("RS chunk uncorrectable (Λ'(X⁻¹) = 0)");
+            return Ok(false);
+        }
+        // Generator roots start at α^0 (j₀ = 0), char 2:
+        //   Y_k = X_k · Ω(X_k_inv) / Λ'(X_k_inv), with X_k = α^pos
+        let x_pos = EXP_TABLE[pos];
+        let y = poly_div(poly_mult(x_pos, omega_at), lp_at);
+        chunk[pos] ^= y;
+    }
+
+    Ok(true)
 }
 
 fn encode_chunk(chunk: &mut Vec<u8>, generator: &[u8]) -> Result<(), StegServiceError> {
-    let chunk_len = chunk.len();
+    let data_len = chunk.len();
+    let parity = generator.len() - 1;
 
     //not 256 cause we cant use 0 as LOG_TABLE[0] is undefined
-    if generator.len() - 1 + chunk_len > 255 {
+    if parity + data_len > 255 {
         return Err(StegServiceError::ReedSolomonError(
             "remainder and chunk size sum exceeds 255".to_string(),
         ));
     }
 
-    chunk.append(&mut vec![0u8; generator.len() - 1]);
+    // Systematic RS: c(x) = m(x)*x^parity + r(x), r(x) = m(x)*x^parity mod g(x).
+    // In low-power-first array form we shift data up by xᵖ by prepending parity zeros.
+    let mut shifted = vec![0u8; parity];
+    shifted.extend_from_slice(chunk);
 
-    let remainder = poly_div_remainder_vecs(&chunk, generator);
+    let remainder = poly_div_remainder_vecs(&shifted, generator);
 
-    for i in 0..remainder.len() {
-        chunk[chunk_len + i] = remainder[i];
-    }
+    // Codeword layout: chunk = [r_0..r_{p-1}, d_0..d_{k-1}]
+    chunk.clear();
+    chunk.extend_from_slice(&remainder);
+    chunk.extend_from_slice(&shifted[parity..]);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Encoded chunk must satisfy c(α^j) = 0 for j = 0..parity (definition of a codeword).
+    fn assert_is_codeword(chunk: &[u8], parity: u8) {
+        let roots = get_roots_for_generator_with_len(parity);
+        for j in 0..parity as usize {
+            let mut sum = 0u8;
+            let mut x_pow = 1u8;
+            for &c in chunk {
+                sum ^= poly_mult(c, x_pow);
+                x_pow = poly_mult(x_pow, roots[j]);
+            }
+            assert_eq!(sum, 0, "c(α^{}) ≠ 0 — not a valid codeword", j);
+        }
+    }
+
+    #[test]
+    fn encode_produces_valid_codeword_single_byte() {
+        let g = generatae_generator(2);
+        let mut chunk = vec![5u8];
+        encode_chunk(&mut chunk, &g).unwrap();
+        assert_eq!(chunk.len(), 3, "data 1 + parity 2");
+        assert_is_codeword(&chunk, 2);
+        // Layout check: data tail = 5, parity prefix = 2 bytes
+        assert_eq!(chunk[2], 5);
+    }
+
+    #[test]
+    fn encode_produces_valid_codeword_long() {
+        let parity = 16u8;
+        let g = generatae_generator(parity);
+        let mut chunk: Vec<u8> = (0..200).map(|i| (i * 7 + 13) as u8).collect();
+        let original = chunk.clone();
+        encode_chunk(&mut chunk, &g).unwrap();
+        assert_eq!(chunk.len(), 200 + parity as usize);
+        assert_is_codeword(&chunk, parity);
+        // Data must be in the tail
+        assert_eq!(&chunk[parity as usize..], original.as_slice());
+    }
+
+    #[test]
+    fn roundtrip_no_errors() {
+        let parity = 16u8;
+        let g = generatae_generator(parity);
+        let original: Vec<u8> = (0..100).map(|i| (i * 31 + 5) as u8).collect();
+        let mut chunk = original.clone();
+        encode_chunk(&mut chunk, &g).unwrap();
+
+        let recovered = decode_chunk(&mut chunk, parity).unwrap();
+        assert!(recovered);
+        assert_eq!(&chunk[parity as usize..], original.as_slice());
+    }
+
+    #[test]
+    fn roundtrip_corrects_8_errors_with_parity_16() {
+        let parity = 16u8;
+        let g = generatae_generator(parity);
+        let original: Vec<u8> = (0..200).map(|i| (i * 17 + 3) as u8).collect();
+        let mut chunk = original.clone();
+        encode_chunk(&mut chunk, &g).unwrap();
+        let codeword_len = chunk.len();
+
+        // Inject 8 byte errors at distinct positions (max correctable for parity=16)
+        let positions = [0usize, 5, 17, 50, 100, 137, 180, codeword_len - 1];
+        for &p in &positions {
+            chunk[p] ^= 0x42;
+        }
+
+        let recovered = decode_chunk(&mut chunk, parity).unwrap();
+        assert!(recovered, "8 errors should be correctable with parity 16");
+        assert_eq!(&chunk[parity as usize..], original.as_slice());
+    }
+
+    #[test]
+    fn nine_errors_with_parity_16_returns_uncorrectable() {
+        let parity = 16u8;
+        let g = generatae_generator(parity);
+        let mut chunk: Vec<u8> = (0..200).map(|i| (i * 11 + 1) as u8).collect();
+        encode_chunk(&mut chunk, &g).unwrap();
+        let codeword_len = chunk.len();
+
+        // 9 errors > floor(parity / 2) = 8 — uncorrectable
+        let positions = [0usize, 5, 17, 50, 100, 137, 180, 200, codeword_len - 1];
+        for &p in &positions {
+            chunk[p] ^= 0x99;
+        }
+
+        let recovered = decode_chunk(&mut chunk, parity).unwrap();
+        assert!(!recovered, "9 errors should not be correctable with parity 16");
+    }
+
+    #[test]
+    fn helpers_passthrough_for_parity_zero() {
+        let mut buf = vec![1, 2, 3, 4, 5];
+        let original = buf.clone();
+        rs_encode_in_place(&mut buf, 0).unwrap();
+        assert_eq!(buf, original, "parity=0 encode is a no-op");
+        assert!(rs_decode_in_place(&mut buf, 0).unwrap());
+        assert_eq!(buf, original, "parity=0 decode is a no-op");
+    }
+
+    #[test]
+    fn header_roundtrip_8_bytes_plus_parity() {
+        // Mirrors the bit-stream header path: encode 8 plain bytes with parity, decode back.
+        let plain: u64 = 1234567890123;
+        let parity = 16u8;
+
+        let mut header = plain.to_le_bytes().to_vec();
+        rs_encode_in_place(&mut header, parity).unwrap();
+        assert_eq!(header.len(), 8 + parity as usize);
+
+        // Inject 4 byte errors (well within parity=16 budget)
+        header[0] ^= 0xAA;
+        header[7] ^= 0xBB;
+        header[15] ^= 0xCC;
+        header[20] ^= 0xDD;
+
+        let recovered = rs_decode_in_place(&mut header, parity).unwrap();
+        assert!(recovered);
+
+        let parity_usize = parity as usize;
+        let recovered_plain = u64::from_le_bytes(
+            header[parity_usize..parity_usize + 8].try_into().unwrap(),
+        );
+        assert_eq!(recovered_plain, plain);
+    }
+
+    #[test]
+    fn errors_at_every_position_with_max_parity_density() {
+        // parity 6, data 10 → can correct 3 errors. Verify positions all the way through chunk.
+        let parity = 6u8;
+        let g = generatae_generator(parity);
+        for err_pos in [0usize, 1, 2, 5, 8, 10, 13, 15] {
+            let original: Vec<u8> = (0..10).map(|i| (i * 19 + 7) as u8).collect();
+            let mut chunk = original.clone();
+            encode_chunk(&mut chunk, &g).unwrap();
+            chunk[err_pos] ^= 0x77;
+            let recovered = decode_chunk(&mut chunk, parity).unwrap();
+            assert!(
+                recovered,
+                "1 error at pos {} should be correctable with parity 6",
+                err_pos
+            );
+            assert_eq!(
+                &chunk[parity as usize..],
+                original.as_slice(),
+                "data mismatch after correcting error at pos {}",
+                err_pos
+            );
+        }
+    }
 }
