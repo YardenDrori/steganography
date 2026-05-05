@@ -5,11 +5,11 @@ use axum::{
     response::Response,
     Json,
 };
-use shared_global::auth::user_extractors::{AuthenticatedUser, AuthenticatedUserIsAdmin};
+use shared_global::auth::user_extractors::{AuthenticatedUser, AuthenticatedUserIsAdmin, RequireAdmin};
 
 use crate::{
     app_state::AppState,
-    dtos::FileResponse,
+    dtos::{AdminFileResponse, FileResponse},
     errors::files_service_errors::FilesServiceError,
     services::{self, files_service::list_files},
 };
@@ -62,6 +62,14 @@ pub async fn get_file_by_id(
         user
     );
     Ok((StatusCode::OK, Json(file)))
+}
+
+pub async fn get_all_files_admin(
+    RequireAdmin(_): RequireAdmin,
+    State(app_state): State<AppState>,
+) -> Result<(StatusCode, Json<Vec<AdminFileResponse>>), FilesServiceError> {
+    let files = services::files_service::list_all_files_admin(&app_state.pool).await?;
+    Ok((StatusCode::OK, Json(files)))
 }
 
 pub async fn download_file(

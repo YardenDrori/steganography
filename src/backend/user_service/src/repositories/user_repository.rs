@@ -138,6 +138,26 @@ pub async fn set_user_active_status(
     Ok(user)
 }
 
+pub async fn list_all_users(pool: &PgPool) -> Result<Vec<User>, sqlx::Error> {
+    let result: Vec<UserEntity> = query_as!(
+        UserEntity,
+        r#"
+        SELECT id, user_name, first_name,
+        last_name, is_male,
+        email, phone_number, password_hash,
+        created_at as "created_at: _",
+        updated_at as "updated_at: _",
+        is_active
+        FROM users
+        ORDER BY created_at DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(result.into_iter().map(|db| db.into()).collect())
+}
+
 pub async fn get_user_by_email_or_username(
     pool: &PgPool,
     email: Option<&str>,

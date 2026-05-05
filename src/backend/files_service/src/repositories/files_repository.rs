@@ -61,6 +61,21 @@ pub async fn list_file_by_user_id(pool: &PgPool, id: i64) -> Result<Vec<File>, s
     Ok(result.into_iter().map(|i| i.into()).collect())
 }
 
+pub async fn list_all_files(pool: &PgPool) -> Result<Vec<File>, sqlx::Error> {
+    let result: Vec<FileEntity> = query_as!(
+        FileEntity,
+        r#"
+        SELECT id, user_id, filename, object_key, created_at, is_carrier, is_steg_object
+        FROM files
+        ORDER BY created_at DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(result.into_iter().map(|i| i.into()).collect())
+}
+
 pub async fn delete_file(pool: &PgPool, file_id: i64) -> Result<bool, sqlx::Error> {
     let result = query!(
         r#"

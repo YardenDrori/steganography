@@ -1,7 +1,7 @@
 import { createContext, useState, useContext, useEffect } from "react";
 import { registerSessionHandlers } from "../api/authInterceptor";
 
-type User = {
+export type User = {
   id: number;
   user_name: string;
   first_name: string;
@@ -9,9 +9,20 @@ type User = {
   email: string;
   phone_number: string | null;
   is_male: boolean | null;
+  is_active: boolean;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 };
+
+export function extractIsAdmin(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return Array.isArray(payload.roles) && payload.roles.includes("admin");
+  } catch {
+    return false;
+  }
+}
 
 type AuthContextType = {
   accessToken: string | null;

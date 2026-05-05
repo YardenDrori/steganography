@@ -8,7 +8,7 @@ use s3::{
 use sqlx::PgPool;
 
 use crate::{
-    dtos::{CompleteRequest, FileResponse, InitiateResponse, PartInfo, UploadPartResponse},
+    dtos::{AdminFileResponse, CompleteRequest, FileResponse, InitiateResponse, PartInfo, UploadPartResponse},
     errors::files_service_errors::FilesServiceError,
     models::file::File,
     repositories::{
@@ -251,4 +251,15 @@ pub async fn set_is_steg_object(
         return Err(FilesServiceError::DatabaseError(sqlx::Error::RowNotFound));
     }
     Ok(())
+}
+
+pub async fn list_all_files_admin(pool: &PgPool) -> Result<Vec<AdminFileResponse>, FilesServiceError> {
+    let files = files_repository::list_all_files(pool)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = ?e, "Database error while listing all files for admin");
+            FilesServiceError::DatabaseError(e)
+        })?;
+
+    Ok(files.into_iter().map(|f| f.into()).collect())
 }

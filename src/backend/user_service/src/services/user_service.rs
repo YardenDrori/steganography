@@ -174,6 +174,17 @@ pub async fn set_user_active_status(
     Ok(user.into())
 }
 
+pub async fn list_all_users(pool: &PgPool) -> Result<Vec<UserResponse>, UserServiceError> {
+    let users = user_repository::list_all_users(pool)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = ?e, "Database error while listing all users");
+            UserServiceError::DatabaseError(e)
+        })?;
+
+    Ok(users.into_iter().map(|u| u.into()).collect())
+}
+
 pub async fn verify_credentials(
     pool: &PgPool,
     request: &VerifyCredentialsRequest,

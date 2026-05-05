@@ -2,7 +2,7 @@ import { register } from "../api/auth";
 import { useState } from "react";
 import { tryCatch } from "../api/tryCatch";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, extractIsAdmin } from "../context/AuthContext";
 
 function RegisterPage() {
   const [form, setForm] = useState({
@@ -31,7 +31,7 @@ function RegisterPage() {
       setError(String(caughtError));
     } else {
       auth.setAccessToken(data?.data.access_token);
-      auth.setUser(data?.data.user);
+      auth.setUser({ ...data?.data.user, is_admin: extractIsAdmin(data?.data.access_token) });
       navigate("/");
     }
   }

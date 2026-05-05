@@ -4,7 +4,7 @@ use crate::{app_state::AppState, errors::user_service_errors::UserServiceError};
 use axum::extract::Path;
 use axum::{extract::State, http::StatusCode, Json};
 use shared_global::auth::hybrid_extractors::AdminOrInternal;
-use shared_global::auth::user_extractors::AuthenticatedUser;
+use shared_global::auth::user_extractors::{AuthenticatedUser, RequireAdmin};
 
 pub async fn get_current_profile(
     AuthenticatedUser(user_id): AuthenticatedUser,
@@ -28,4 +28,15 @@ pub async fn get_user(
     let user_response = user_service::get_user(&pool, user_id).await?;
 
     Ok((StatusCode::OK, Json(user_response)))
+}
+
+pub async fn list_all_users(
+    RequireAdmin(_): RequireAdmin,
+    State(app_state): State<AppState>,
+) -> Result<(StatusCode, Json<Vec<UserResponse>>), UserServiceError> {
+    let pool = app_state.pool;
+
+    let users = user_service::list_all_users(&pool).await?;
+
+    Ok((StatusCode::OK, Json(users)))
 }

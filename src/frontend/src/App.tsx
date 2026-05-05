@@ -7,7 +7,9 @@ import SettingsPage from "./pages/SettingsPage";
 import EmbedPage from "./pages/EmbedPage";
 import ExtractPage from "./pages/ExtractPage";
 import FilesPage from "./pages/FilesPage";
+import AdminPage from "./pages/AdminPage";
 import { useAuth } from "./context/AuthContext";
+import { extractIsAdmin } from "./context/AuthContext";
 import { refresh } from "./api/auth";
 import { getCurrentUser } from "./api/user";
 import { tryCatch } from "./api/tryCatch";
@@ -17,6 +19,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
   if (!user) return <Navigate to="/login" />;
+  return <Layout>{children}</Layout>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user?.is_admin) return <Navigate to="/" />;
   return <Layout>{children}</Layout>;
 }
 
@@ -35,7 +44,9 @@ function App() {
       setAccessToken(accessToken);
 
       const [userData, userErr] = await tryCatch(getCurrentUser(accessToken));
-      if (!userErr) setUser(userData?.data);
+      if (!userErr && userData?.data) {
+        setUser({ ...userData.data, is_admin: extractIsAdmin(accessToken) });
+      }
 
       setIsLoading(false);
     }
@@ -52,6 +63,7 @@ function App() {
         <Route path="/embed" element={<ProtectedRoute><EmbedPage /></ProtectedRoute>} />
         <Route path="/extract" element={<ProtectedRoute><ExtractPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
         {/* keep old route working */}
         <Route path="/my-files/embed" element={<Navigate to="/embed" replace />} />
       </Routes>

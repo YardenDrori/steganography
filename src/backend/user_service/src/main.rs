@@ -14,6 +14,7 @@ mod errors;
 mod models;
 mod repositories;
 mod routes;
+mod seed;
 mod services;
 
 #[tokio::main]
@@ -55,6 +56,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Run database migrations
     sqlx::migrate!().run(&pool).await?;
 
+    // Seed default admin user if none exists
+    seed::ensure_admin(&pool).await;
+
     // Create app state
     let app_state = AppState {
         pool: pool,
@@ -65,6 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/users/me", get(get_users::get_current_profile))
         .route("/users/me", patch(patch_users::update_my_profile))
+        .route("/users/all", get(get_users::list_all_users))
         .route("/users/:id", get(get_users::get_user))
         .route("/users/:id", patch(patch_users::update_user))
         .route("/users", post(post_users::create_user))

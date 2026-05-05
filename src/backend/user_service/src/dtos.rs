@@ -93,6 +93,7 @@ impl From<User> for UserResponse {
             email: value.email().to_string(),
             phone_number: value.phone_number().map(|s| s.to_string()),
             is_male: value.is_male(),
+            is_active: value.is_active(),
             created_at: value.created_at(),
             updated_at: value.updated_at(),
         }

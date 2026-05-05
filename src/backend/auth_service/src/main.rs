@@ -6,6 +6,7 @@ mod errors;
 mod models;
 mod repositories;
 mod routes;
+mod seed;
 mod services;
 use shared_global::db::postgres::create_pool;
 use shared_global::eureka;
@@ -77,11 +78,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route("/public-key", get(routes::public_key::get_public_key))
         .route(
-            "/admin/users/:id/activate",
+            "/auth/admin/users/:id/activate",
             patch(routes::account::activate_user_admin),
         )
         .route(
-            "/admin/users/:id/deactivate",
+            "/auth/admin/users/:id/deactivate",
             patch(routes::account::deactivate_user_admin),
         )
         .route(
@@ -90,6 +91,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
+
+    // Seed default admin role in background (user_service may not be ready yet)
+    {
+        let seed_pool = pool.clone();
+        let seed_user_service_url = config
+            .read()
+            .unwrap()
+            .services
+            .get("user_service")
+            .cloned()
+            .unwrap_or_else(|| "http://user_service:3002".to_string());
+        tokio::spawn(async move {
+            seed::ensure_admin_role(seed_pool, seed_user_service_url).await;
+        });
+    }
 
     // Spawn token cleanup task
     let pool_for_cleanup = pool.clone();

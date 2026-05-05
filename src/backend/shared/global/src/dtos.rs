@@ -10,6 +10,7 @@ pub struct UserResponse {
     pub email: String,
     pub phone_number: Option<String>,
     pub is_male: Option<bool>,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

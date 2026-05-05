@@ -71,7 +71,7 @@ function SettingsPage() {
       setProfileMsg("Failed to update profile");
       setProfileError(true);
     } else {
-      setUser(data?.data);
+      setUser({ ...data?.data, is_admin: user?.is_admin ?? false });
       setProfileMsg("Profile updated successfully");
       setProfileError(false);
     }
