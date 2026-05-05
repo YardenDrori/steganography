@@ -80,20 +80,28 @@ pub async fn update_user(
         .map_err(|e| UserServiceError::DatabaseError(e))?
         .ok_or(UserServiceError::NotFound)?;
 
-    //check if new username/email is occupied
-    if user_repository::get_user_by_email_or_username(pool, None, request.user_name.as_deref())
-        .await
-        .is_ok()
-    {
-        tracing::info!("Attempted to modify user name of {} (id: {}) but the requested username ({:?}) was already occupied", &user.user_name(), &user.id(), request.user_name);
-        return Err(UserServiceError::UsernameAlreadyExists);
+    // Check if new username is taken by a different user
+    if let Some(new_username) = request.user_name.as_deref() {
+        if let Ok(Some(existing)) =
+            user_repository::get_user_by_email_or_username(pool, None, Some(new_username)).await
+        {
+            if existing.id() != user.id() {
+                tracing::info!("Username {:?} already taken (requested by user id: {})", new_username, user.id());
+                return Err(UserServiceError::UsernameAlreadyExists);
+            }
+        }
     }
-    if user_repository::get_user_by_email_or_username(pool, request.user_name.as_deref(), None)
-        .await
-        .is_ok()
-    {
-        tracing::info!("Attempted to modify user name of {} (id: {}) but the requested username ({:?}) was already occupied", &user.user_name(), &user.id(), request.user_name);
-        return Err(UserServiceError::UsernameAlreadyExists);
+
+    // Check if new email is taken by a different user
+    if let Some(new_email) = request.email.as_deref() {
+        if let Ok(Some(existing)) =
+            user_repository::get_user_by_email_or_username(pool, Some(new_email), None).await
+        {
+            if existing.id() != user.id() {
+                tracing::info!("Email {:?} already taken (requested by user id: {})", new_email, user.id());
+                return Err(UserServiceError::EmailAlreadyExists);
+            }
+        }
     }
 
     // Update user

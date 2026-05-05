@@ -69,3 +69,11 @@ pub struct LoginResponse {
 pub struct RefreshTokenResponse {
     pub access_token: String,
 }
+
+#[derive(Debug, Serialize)]
+pub struct SessionResponse {
+    pub id: i64,
+    pub device_info: Option<String>,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}

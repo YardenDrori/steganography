@@ -26,6 +26,10 @@ impl RefreshToken {
         self.expires_at
     }
 
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
+    }
+
     pub fn device_info(&self) -> Option<&str> {
         self.device_info.as_deref()
     }

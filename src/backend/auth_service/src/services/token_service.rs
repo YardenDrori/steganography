@@ -197,6 +197,25 @@ pub async fn revoke_refresh_token(
     Ok(())
 }
 
+pub async fn get_user_sessions(
+    pool: &PgPool,
+    user_id: i64,
+) -> Result<Vec<crate::models::token::RefreshToken>, UserServiceError> {
+    token_repository::get_tokens_by_user_id(pool, user_id)
+        .await
+        .map_err(UserServiceError::DatabaseError)
+}
+
+pub async fn revoke_session_for_user(
+    pool: &PgPool,
+    token_id: i64,
+    user_id: i64,
+) -> Result<bool, UserServiceError> {
+    token_repository::revoke_token_by_id_for_user(pool, token_id, user_id)
+        .await
+        .map_err(UserServiceError::DatabaseError)
+}
+
 // Revokes all refresh tokens for a user (for account deactivation)
 pub async fn revoke_all_user_tokens(pool: &PgPool, user_id: i64) -> Result<u64, UserServiceError> {
     tracing::debug!("Attempting to revoke all tokens for user_id={}", user_id);

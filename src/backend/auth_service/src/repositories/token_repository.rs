@@ -97,6 +97,48 @@ pub async fn cleanup_expired_tokens(pool: &PgPool) -> Result<u64, sqlx::Error> {
     Ok(result.rows_affected())
 }
 
+pub async fn get_tokens_by_user_id(
+    pool: &PgPool,
+    user_id: i64,
+) -> Result<Vec<RefreshToken>, sqlx::Error> {
+    let tokens = sqlx::query_as!(
+        RefreshTokenEntity,
+        r#"
+        SELECT id, user_id, token_hash, expires_at, created_at, device_info
+        FROM refresh_tokens
+        WHERE user_id = $1 AND expires_at > CURRENT_TIMESTAMP
+        ORDER BY created_at DESC
+        "#,
+        user_id
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|e| e.into())
+    .collect();
+
+    Ok(tokens)
+}
+
+pub async fn revoke_token_by_id_for_user(
+    pool: &PgPool,
+    token_id: i64,
+    user_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM refresh_tokens
+        WHERE id = $1 AND user_id = $2
+        "#,
+        token_id,
+        user_id,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
 /// Deletes all refresh tokens for a specific user
 pub async fn revoke_all_user_tokens(pool: &PgPool, user_id: i64) -> Result<u64, sqlx::Error> {
     let result = sqlx::query!(

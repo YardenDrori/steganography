@@ -18,6 +18,7 @@ use axum::{
     routing::{delete, get, patch, post},
     Router,
 };
+use routes::auth::{get_sessions, revoke_session};
 use tower_http::trace::TraceLayer;
 
 #[tokio::main]
@@ -72,6 +73,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/auth/login", post(routes::auth::login))
         .route("/auth/refresh", post(routes::auth::refresh))
         .route("/auth/logout", post(routes::auth::logout))
+        .route("/auth/sessions", get(get_sessions))
+        .route("/auth/sessions/:id", delete(revoke_session))
         .route(
             "/auth/deactivate",
             post(routes::account::deactivate_my_account),

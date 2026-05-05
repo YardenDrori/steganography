@@ -1,12 +1,13 @@
 use crate::app_state::AppState;
-use crate::dtos::{LoginRequest, LoginResponse, RefreshTokenResponse, RegisterRequest};
+use crate::dtos::{LoginRequest, LoginResponse, RefreshTokenResponse, RegisterRequest, SessionResponse};
 use crate::errors::user_service_error::UserServiceError;
 use crate::services::token_service;
 use crate::services::user_service::{login_user, register_user};
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::header::{HeaderMap, SET_COOKIE};
 use axum::http::StatusCode;
 use axum::Json;
+use shared_global::auth::user_extractors::AuthenticatedUser;
 use shared_global::extractors::ValidatedJson;
 
 fn build_refresh_cookie(token: &str, refresh_duration_mins: i64) -> String {
@@ -15,6 +16,13 @@ fn build_refresh_cookie(token: &str, refresh_duration_mins: i64) -> String {
         token,
         refresh_duration_mins * 60,
     )
+}
+
+fn extract_user_agent(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
 }
 
 fn extract_refresh_token(headers: &HeaderMap) -> Option<String> {
@@ -27,6 +35,7 @@ fn extract_refresh_token(headers: &HeaderMap) -> Option<String> {
 }
 
 pub async fn register(
+    headers: HeaderMap,
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<RegisterRequest>,
 ) -> Result<(StatusCode, HeaderMap, Json<LoginResponse>), UserServiceError> {
@@ -75,11 +84,12 @@ pub async fn register(
     )
     .await?;
 
+    let device_info = extract_user_agent(&headers);
     let access_token =
         token_service::create_access_token(user_response.id, pool, &jwt_private_key, access_dur)
             .await?;
     let refresh_token =
-        token_service::create_refresh_token(pool, user_response.id, None, refresh_dur).await?;
+        token_service::create_refresh_token(pool, user_response.id, device_info, refresh_dur).await?;
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -104,6 +114,7 @@ pub async fn register(
 }
 
 pub async fn login(
+    headers: HeaderMap,
     State(app_state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<LoginRequest>,
 ) -> Result<(StatusCode, HeaderMap, Json<LoginResponse>), UserServiceError> {
@@ -143,13 +154,16 @@ pub async fn login(
     }
     let pool = &app_state.pool;
 
+    let device_info = payload
+        .device_info
+        .or_else(|| extract_user_agent(&headers));
     let (login_response, refresh_token) = login_user(
         &pool,
         &user_service_url,
         payload.email.as_deref(),
         payload.user_name.as_deref(),
         &payload.password,
-        payload.device_info.as_deref(),
+        device_info.as_deref(),
         &jwt_private_key,
         access_dur,
         refresh_dur,
@@ -251,4 +265,36 @@ pub async fn logout(
 
     tracing::info!("User logged out successfully");
     Ok((StatusCode::NO_CONTENT, response_headers))
+}
+
+pub async fn get_sessions(
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    State(app_state): State<AppState>,
+) -> Result<Json<Vec<SessionResponse>>, UserServiceError> {
+    let sessions = token_service::get_user_sessions(&app_state.pool, user_id)
+        .await?
+        .into_iter()
+        .map(|t| SessionResponse {
+            id: t.id(),
+            device_info: t.device_info().map(|s| s.to_string()),
+            expires_at: t.expires_at(),
+            created_at: t.created_at(),
+        })
+        .collect();
+
+    Ok(Json(sessions))
+}
+
+pub async fn revoke_session(
+    AuthenticatedUser(user_id): AuthenticatedUser,
+    Path(session_id): Path<i64>,
+    State(app_state): State<AppState>,
+) -> Result<StatusCode, UserServiceError> {
+    let deleted = token_service::revoke_session_for_user(&app_state.pool, session_id, user_id).await?;
+
+    if deleted {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(UserServiceError::InvalidCredentials)
+    }
 }
