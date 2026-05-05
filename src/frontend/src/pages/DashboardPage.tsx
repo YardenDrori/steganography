@@ -56,14 +56,6 @@ function DashboardPage() {
           </h1>
           <p className="text-gray-400 text-sm mt-0.5">@{user?.user_name}</p>
         </div>
-        {!user?.is_verified && (
-          <div className="ml-auto bg-amber-950/60 border border-amber-800 rounded-lg px-4 py-2.5">
-            <p className="text-amber-400 text-sm font-medium">Email not verified</p>
-            <p className="text-amber-600 text-xs mt-0.5">
-              Go to <button onClick={() => navigate("/settings")} className="underline hover:text-amber-400">Settings</button> to verify.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Feature cards */}

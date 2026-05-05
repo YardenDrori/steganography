@@ -5,5 +5,4 @@ pub(crate) struct UserEntity {
     pub email: String,
     pub password_hash: String,
     pub is_active: bool,
-    pub is_verified: bool,
 }

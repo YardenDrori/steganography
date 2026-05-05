@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { tryCatch } from "../api/tryCatch";
 import { updateProfile, getSessions, revokeSession } from "../api/user";
-import { changePassword, logoutAllDevices, sendVerificationEmail, deleteAccount } from "../api/auth";
+import { changePassword, logoutAllDevices, deleteAccount } from "../api/auth";
 
 type Session = {
   id: number;
@@ -195,23 +195,6 @@ function SettingsPage() {
           </button>
         </form>
       </Section>
-
-      {/* Email verification */}
-      {!user?.is_verified && (
-        <Section title="Email Verification">
-          <p className="text-gray-300 text-sm">Your email address is not verified.</p>
-          <button
-            type="button"
-            onClick={async () => {
-              const [, err] = await tryCatch(sendVerificationEmail(accessToken!));
-              alert(err ? "Failed to send email" : "Verification email sent!");
-            }}
-            className="bg-gray-800 hover:bg-gray-700 text-gray-200 font-medium px-4 py-2.5 rounded-lg transition-colors text-sm border border-gray-700"
-          >
-            Send verification email
-          </button>
-        </Section>
-      )}
 
       {/* Change password */}
       <Section title="Change Password">

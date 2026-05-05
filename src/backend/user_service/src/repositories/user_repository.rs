@@ -11,7 +11,7 @@ pub async fn get_user_by_id(pool: &PgPool, user_id: i64) -> Result<Option<User>,
         email, phone_number, password_hash,
         created_at as "created_at: _",
         updated_at as "updated_at: _",
-        is_active, is_verified
+        is_active
         FROM users
         WHERE id = $1
         "#,
@@ -151,7 +151,7 @@ pub async fn get_user_by_email_or_username(
         email, phone_number, password_hash,
         created_at as "created_at: _",
         updated_at as "updated_at: _",
-        is_active, is_verified
+        is_active
         FROM users
         WHERE email = $1 OR user_name = $2
         "#,

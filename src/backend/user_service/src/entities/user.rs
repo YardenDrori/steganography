@@ -13,5 +13,4 @@ pub struct UserEntity {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_active: bool,
-    pub is_verified: bool,
 }

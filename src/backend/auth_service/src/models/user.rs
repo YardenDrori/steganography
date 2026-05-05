@@ -8,7 +8,6 @@ pub struct User {
     email: String,
     password_hash: String,
     is_active: bool,
-    is_verified: bool,
 }
 
 #[allow(dead_code)]
@@ -26,9 +25,6 @@ impl User {
     pub fn is_active(&self) -> bool {
         self.is_active
     }
-    pub fn is_verified(&self) -> bool {
-        self.is_verified
-    }
 
     /// Verifies a password against the stored hash
     pub fn verify_password(&self, password: &str) -> Result<bool, argon2::password_hash::Error> {
@@ -38,11 +34,6 @@ impl User {
         Ok(Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_ok())
-    }
-
-    /// Marks the user's email as verified
-    pub fn verify_email(&mut self) {
-        self.is_verified = true;
     }
 
     /// Deactivates the user account
@@ -64,7 +55,6 @@ impl From<UserEntity> for User {
             email: entity.email,
             password_hash: entity.password_hash,
             is_active: entity.is_active,
-            is_verified: entity.is_verified,
         }
     }
 }

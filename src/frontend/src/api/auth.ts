@@ -68,19 +68,6 @@ export async function logoutAllDevices(accessToken: string) {
   }
 }
 
-export async function sendVerificationEmail(accessToken: string) {
-  try {
-    return await axios.post(
-      `${BASE_URL}/api/auth/send-verification`,
-      {},
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    );
-  } catch (err) {
-    console.log(err);
-    throw err;
-  }
-}
-
 export async function deleteAccount(accessToken: string) {
   try {
     return await axios.post(

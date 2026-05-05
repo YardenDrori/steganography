@@ -14,7 +14,6 @@ pub struct User {
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     is_active: bool,
-    is_verified: bool,
 }
 
 #[allow(dead_code)]
@@ -50,16 +49,8 @@ impl User {
     pub fn is_active(&self) -> bool {
         self.is_active
     }
-    pub fn is_verified(&self) -> bool {
-        self.is_verified
-    }
     pub fn password_hash(&self) -> &str {
         &self.password_hash
-    }
-
-    /// Marks the user's email as verified
-    pub fn verify_email(&mut self) {
-        self.is_verified = true;
     }
 
     pub fn verify_password(&self, password: &str) -> Result<bool, argon2::password_hash::Error> {
@@ -86,7 +77,6 @@ impl From<UserEntity> for User {
             created_at: entity.created_at,
             updated_at: entity.updated_at,
             is_active: entity.is_active,
-            is_verified: entity.is_verified,
         }
     }
 }

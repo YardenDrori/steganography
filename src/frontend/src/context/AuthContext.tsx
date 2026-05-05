@@ -9,7 +9,6 @@ type User = {
   email: string;
   phone_number: string | null;
   is_male: boolean | null;
-  is_verified: boolean;
   created_at: string;
   updated_at: string;
 };
