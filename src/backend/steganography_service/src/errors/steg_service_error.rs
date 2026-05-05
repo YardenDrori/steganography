@@ -18,6 +18,7 @@ pub enum StegServiceError {
     Other(String),
     UnsupportedCodec,
     InsufficientCapacity,
+    DecryptionError,
 }
 
 impl IntoResponse for StegServiceError {
@@ -48,6 +49,10 @@ impl IntoResponse for StegServiceError {
             Self::Other(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to sync with external service",
+            ),
+            Self::DecryptionError => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Decryption failed: wrong password or corrupted payload",
             ),
         };
 

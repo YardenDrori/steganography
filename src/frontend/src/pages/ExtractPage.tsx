@@ -16,6 +16,7 @@ type PageSettings = {
   delta: number;
   seed: string;
   parityBytes: number;
+  password: string;
 };
 
 const DEFAULT_COEFFICIENTS = Array(16).fill(false);
@@ -44,6 +45,7 @@ export default function ExtractPage() {
   const [delta, setDelta] = useState(10);
   const [seed, setSeed] = useState("");
   const [parityBytes, setParityBytes] = useState(16);
+  const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export default function ExtractPage() {
   async function exportSettings() {
     const settings: PageSettings = {
       method, channelMode, yuvChannels, rgbChannels, coefficients,
-      coefficientsPerBit, blocksPerMacroblock, delta, seed, parityBytes,
+      coefficientsPerBit, blocksPerMacroblock, delta, seed, parityBytes, password,
     };
     try {
       await navigator.clipboard.writeText(JSON.stringify(settings, null, 2));
@@ -86,6 +88,7 @@ export default function ExtractPage() {
       if (s.delta != null) setDelta(s.delta);
       if (s.seed != null) setSeed(s.seed);
       if (s.parityBytes != null) setParityBytes(s.parityBytes);
+      if (s.password != null) setPassword(s.password);
       setClipboardMsg("Imported!");
     } catch {
       setClipboardMsg("Invalid settings");
@@ -119,7 +122,11 @@ export default function ExtractPage() {
 
     setLoading(true);
     const [data, err] = await tryCatch(
-      extract(accessToken!, { steg_object_id: stegObjectId, configs }),
+      extract(accessToken!, {
+        steg_object_id: stegObjectId,
+        configs,
+        ...(password.trim() ? { password: password.trim() } : {}),
+      }),
     );
     setLoading(false);
 
@@ -383,6 +390,26 @@ export default function ExtractPage() {
             />
             <p className="text-gray-500 text-xs mt-1.5">
               Must match the parity count used during embedding.
+            </p>
+          </div>
+        </div>
+
+        {/* Encryption */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Encryption</h2>
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-1.5">
+              Password (optional)
+            </label>
+            <input
+              type="password"
+              placeholder="Leave empty if payload was not encrypted"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={inputClass}
+            />
+            <p className="text-gray-500 text-xs mt-1.5">
+              Must match the password used during embedding.
             </p>
           </div>
         </div>

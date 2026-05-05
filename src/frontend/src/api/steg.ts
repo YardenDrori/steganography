@@ -22,11 +22,13 @@ export type EmbedFileRequest = {
   payload_id: number;
   carrier_id: number;
   configs: EmbedConfigs;
+  password?: string;
 };
 
 export type ExtractFileRequest = {
   steg_object_id: number;
   configs: EmbedConfigs;
+  password?: string;
 };
 
 export type StegFileResponse = {

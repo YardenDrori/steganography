@@ -45,8 +45,9 @@ pub async fn extract_video(
     );
 
     let steg_object_path_clone = steg_object_path.clone();
+    let password = payload.password.clone();
     let output_path =
-        tokio::task::spawn_blocking(move || extract(steg_object_path_clone, payload.configs))
+        tokio::task::spawn_blocking(move || extract(steg_object_path_clone, payload.configs, password))
             .await
             .map_err(|_| StegServiceError::Other("extract task panicked".to_string()))??;
 

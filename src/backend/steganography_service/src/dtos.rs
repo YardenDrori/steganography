@@ -186,10 +186,12 @@ pub struct EmbedFileRequest {
     pub payload_id: i64,
     pub carrier_id: i64,
     pub configs: EmbedConfigs,
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExtractFileRequest {
     pub steg_object_id: i64,
     pub configs: EmbedConfigs,
+    pub password: Option<String>,
 }

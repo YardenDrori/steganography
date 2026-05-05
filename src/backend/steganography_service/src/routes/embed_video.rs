@@ -2,7 +2,7 @@ use crate::{
     app_state::AppState,
     dtos::EmbedFileRequest,
     errors::steg_service_error::StegServiceError,
-    services::{embed_video::embed, files_client, reed_solomon::reed_solomon_encode},
+    services::{crypto, embed_video::embed, files_client, reed_solomon::reed_solomon_encode},
 };
 use axum::{Json, extract::State, http::StatusCode};
 use files_dtos::FileResponse;
@@ -45,6 +45,13 @@ pub async fn embed_video(
         "Found both carrier and payload files for user: {}. Attmpting to encode payload with reed solomon",
         user
     );
+
+    // Encrypt the payload in place before measuring size and RS encoding.
+    if let Some(ref pw) = payload.password {
+        let bytes = std::fs::read(&payload_path).map_err(|_| StegServiceError::FileError)?;
+        let encrypted = crypto::aes_encrypt(pw, &bytes)?;
+        std::fs::write(&payload_path, &encrypted).map_err(|_| StegServiceError::FileError)?;
+    }
 
     // Capture the plain (pre-RS) payload size BEFORE the RS encode rewrites the file.
     // This goes into the bit-stream header so the extractor knows how many plain bytes

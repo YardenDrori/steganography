@@ -16,6 +16,7 @@ type PageSettings = {
   delta: number;
   seed: string;
   parityBytes: number;
+  password: string;
 };
 
 const DEFAULT_COEFFICIENTS = Array(16).fill(false);
@@ -45,6 +46,7 @@ export default function EmbedPage() {
   const [delta, setDelta] = useState(10);
   const [seed, setSeed] = useState("");
   const [parityBytes, setParityBytes] = useState(16);
+  const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export default function EmbedPage() {
   async function exportSettings() {
     const settings: PageSettings = {
       method, channelMode, yuvChannels, rgbChannels, coefficients,
-      coefficientsPerBit, blocksPerMacroblock, delta, seed, parityBytes,
+      coefficientsPerBit, blocksPerMacroblock, delta, seed, parityBytes, password,
     };
     try {
       await navigator.clipboard.writeText(JSON.stringify(settings, null, 2));
@@ -87,6 +89,7 @@ export default function EmbedPage() {
       if (s.delta != null) setDelta(s.delta);
       if (s.seed != null) setSeed(s.seed);
       if (s.parityBytes != null) setParityBytes(s.parityBytes);
+      if (s.password != null) setPassword(s.password);
       setClipboardMsg("Imported!");
     } catch {
       setClipboardMsg("Invalid settings");
@@ -120,7 +123,12 @@ export default function EmbedPage() {
 
     setLoading(true);
     const [data, err] = await tryCatch(
-      embed(accessToken!, { carrier_id: carrierId, payload_id: payloadId, configs }),
+      embed(accessToken!, {
+        carrier_id: carrierId,
+        payload_id: payloadId,
+        configs,
+        ...(password.trim() ? { password: password.trim() } : {}),
+      }),
     );
     setLoading(false);
 
@@ -401,6 +409,26 @@ export default function EmbedPage() {
             />
             <p className="text-gray-500 text-xs mt-1.5">
               Each pair of parity bytes corrects one byte error per 255-byte chunk. 0 disables.
+            </p>
+          </div>
+        </div>
+
+        {/* Encryption */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Encryption</h2>
+          <div>
+            <label className="block text-gray-300 text-sm font-medium mb-1.5">
+              Password (optional)
+            </label>
+            <input
+              type="password"
+              placeholder="Leave empty to skip encryption"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={inputClass}
+            />
+            <p className="text-gray-500 text-xs mt-1.5">
+              AES-256-GCM encryption. Required for extraction if set here.
             </p>
           </div>
         </div>

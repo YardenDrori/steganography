@@ -1,4 +1,5 @@
 pub mod berelekamp_massey;
+pub mod crypto;
 pub mod dct;
 pub mod embed_video;
 pub mod extract_file;

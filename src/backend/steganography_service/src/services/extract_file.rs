@@ -46,7 +46,7 @@ fn get_coeff(id: usize, state: &ExtractState) -> Result<f64, StegServiceError> {
     Ok(*coeff)
 }
 
-pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, StegServiceError> {
+pub fn extract(object_path: PathBuf, configs: EmbedConfigs, password: Option<String>) -> Result<PathBuf, StegServiceError> {
     //validate configs
     configs.validate_configs()?;
 
@@ -149,6 +149,12 @@ pub fn extract(object_path: PathBuf, configs: EmbedConfigs) -> Result<PathBuf, S
             .map_err(|_| StegServiceError::FileError)?;
         f.set_len(plain_size)
             .map_err(|_| StegServiceError::FileError)?;
+    }
+
+    if let Some(ref pw) = password {
+        let bytes = std::fs::read(&output_path).map_err(|_| StegServiceError::FileError)?;
+        let decrypted = crate::services::crypto::aes_decrypt(pw, &bytes)?;
+        std::fs::write(&output_path, &decrypted).map_err(|_| StegServiceError::FileError)?;
     }
 
     Ok(output_path)
