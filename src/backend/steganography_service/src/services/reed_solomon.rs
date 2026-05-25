@@ -300,7 +300,6 @@
 // S(x)*Λ(x) = Y*A
 // notice that this is equal to S[1]
 // this scales to any number of errors we know this to be true due to how we our syndromes
-// NOTE: this is where I stopped i dunnow why this holds true despite doing the math for 1 error
 //
 //
 //
@@ -733,7 +732,10 @@ mod tests {
         }
 
         let recovered = decode_chunk(&mut chunk, parity).unwrap();
-        assert!(!recovered, "9 errors should not be correctable with parity 16");
+        assert!(
+            !recovered,
+            "9 errors should not be correctable with parity 16"
+        );
     }
 
     #[test]
@@ -766,9 +768,8 @@ mod tests {
         assert!(recovered);
 
         let parity_usize = parity as usize;
-        let recovered_plain = u64::from_le_bytes(
-            header[parity_usize..parity_usize + 8].try_into().unwrap(),
-        );
+        let recovered_plain =
+            u64::from_le_bytes(header[parity_usize..parity_usize + 8].try_into().unwrap());
         assert_eq!(recovered_plain, plain);
     }
 
